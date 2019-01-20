@@ -71,3 +71,9 @@ MOCK_IP_ADDRESS_2 = '10.10.10.10'
 MOCK_URSULA_DB_FILEPATH = ':memory:'
 
 MOCK_CUSTOM_INSTALLATION_PATH = '/tmp/nucypher-tmp-test-custom-{}'.format(time.time())
+
+GETH_DEV_URI = "ipc:///tmp/geth.ipc"
+
+PYEVM_DEV_URI = "tester://pyevm"
+
+TEST_PROVIDER_URI = PYEVM_DEV_URI  # TODO: Pytest flag entry point?
