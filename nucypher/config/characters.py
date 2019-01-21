@@ -99,7 +99,6 @@ class UrsulaConfiguration(NodeConfiguration):
         return super().write_keyring(password=password,
                                      encrypting=True,
                                      rest=True,
-                                     wallet=not self.federated_only,
                                      host=self.rest_host,
                                      curve=self.tls_curve,
                                      **generation_kwargs)
@@ -118,8 +117,8 @@ class AliceConfiguration(NodeConfiguration):
 
         return super().write_keyring(password=password,
                                      encrypting=True,
-                                     wallet=not self.federated_only,
-                                     rest=False)
+                                     rest=False,
+                                     **generation_kwargs)
 
 
 class BobConfiguration(NodeConfiguration):

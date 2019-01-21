@@ -72,6 +72,10 @@ MOCK_URSULA_DB_FILEPATH = ':memory:'
 
 MOCK_CUSTOM_INSTALLATION_PATH = '/tmp/nucypher-tmp-test-custom-{}'.format(time.time())
 
+MOCK_REGISTRY_FILEPATH = '/tmp/nucypher-tmp-mock-registry.json'
+
+TESTER_DOMAIN = 'tester'
+
 GETH_DEV_URI = "ipc:///tmp/geth.ipc"
 
 PYEVM_DEV_URI = "tester://pyevm"
