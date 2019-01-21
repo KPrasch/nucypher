@@ -129,3 +129,10 @@ class BobConfiguration(NodeConfiguration):
 
     CONFIG_FILENAME = '{}.config'.format(_NAME)
     DEFAULT_CONFIG_FILE_LOCATION = os.path.join(DEFAULT_CONFIG_ROOT, CONFIG_FILENAME)
+
+    def write_keyring(self, password: str, **generation_kwargs) -> NucypherKeyring:
+
+        return super().write_keyring(password=password,
+                                     encrypting=True,
+                                     rest=False,
+                                     **generation_kwargs)
