@@ -72,7 +72,7 @@ MOCK_URSULA_DB_FILEPATH = ':memory:'
 
 MOCK_CUSTOM_INSTALLATION_PATH = '/tmp/nucypher-tmp-test-custom-{}'.format(time.time())
 
-MOCK_REGISTRY_FILEPATH = '/tmp/nucypher-tmp-mock-registry.json'
+MOCK_REGISTRY_FILEPATH = '/tmp/nucypher-tmp-mock-registry-{}.json'.format(time.time())
 
 TESTER_DOMAIN = 'tester'
 
