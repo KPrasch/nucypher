@@ -63,8 +63,7 @@ class NucypherTokenActor:
         """
         :param checksum_address:  If not passed, we assume this is an unknown actor
 
-        :param token_agent:  The token agent with the blockchain attached; If not passed, A default
-        token agent and blockchain connection will be created from default values.
+        :param blockchain:  If not passed, a default blockchain interface will be created.
 
         """
         try:
@@ -542,11 +541,7 @@ class PolicyAuthor(NucypherTokenActor):
     """Alice base class for blockchain operations, mocking up new policies!"""
 
     def __init__(self, checksum_address: str, *args, **kwargs) -> None:
-        """
-        :param policy_agent: A policy agent with the blockchain attached; If not passed, A default policy
-        agent and blockchain connection will be created from default values.
 
-        """
         super().__init__(checksum_address=checksum_address, *args, **kwargs)
 
         # From defaults
