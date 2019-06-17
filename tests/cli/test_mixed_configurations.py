@@ -21,7 +21,7 @@ def test_coexisting_configurations(click_runner,
                                    deploy_user_input):
 
     # Parse node addresses
-    deployer, alice, ursula, another_ursula, *all_yall = testerchain.interface.w3.eth.accounts
+    deployer, alice, ursula, another_ursula, *all_yall = testerchain.w3.eth.accounts
 
     envvars = {'NUCYPHER_KEYRING_PASSWORD': INSECURE_DEVELOPMENT_PASSWORD,
 
@@ -193,7 +193,7 @@ def test_destroy_with_no_configurations(click_runner, custom_filepath):
 
 
 def test_corrupted_configuration(click_runner, custom_filepath, testerchain, mock_primary_registry_filepath):
-    deployer, alice, ursula, another_ursula, *all_yall = testerchain.interface.w3.eth.accounts
+    deployer, alice, ursula, another_ursula, *all_yall = testerchain.w3.eth.accounts
 
     init_args = ('ursula', 'init',
                  '--provider-uri', TEST_PROVIDER_URI,
