@@ -42,7 +42,7 @@ from twisted.logger import Logger
 from umbral.signing import Signature
 
 from nucypher.blockchain.eth.agents import PolicyAgent, StakingEscrowAgent, NucypherTokenAgent
-from nucypher.blockchain.eth.chains import Blockchain
+from nucypher.blockchain.eth.interfaces import Blockchain
 from nucypher.blockchain.eth.registry import EthereumContractRegistry
 from nucypher.blockchain.eth.token import StakeTracker
 from nucypher.config.constants import DEFAULT_CONFIG_ROOT, BASE_DIR
@@ -308,38 +308,18 @@ class NodeConfiguration(ABC):
     def known_nodes(self):
         return self.__fleet_state
 
-    def connect_to_blockchain(self,
-                              enode: str = None,
-                              recompile_contracts: bool = False,
-                              full_sync: bool = False) -> None:
-        """
-
-        :param enode: ETH seednode or bootnode enode address to start learning from,
-                      i.e. 'enode://e54eebad24dc...e1f6d246bea455@52.71.255.237:30303'
-
-        :param recompile_contracts: Recompile all contracts on connection.
-
-        :return: None
-        """
+    def connect_to_blockchain(self, sync_now: bool = False) -> None:
         if self.federated_only:
             raise NodeConfiguration.ConfigurationError("Cannot connect to blockchain in federated mode")
 
-        self.blockchain = Blockchain.connect(provider_uri=self.provider_uri,
-                                             compile=recompile_contracts,
-                                             poa=self.poa,
-                                             fetch_registry=True,
-                                             provider_process=self.provider_process,
-                                             sync=full_sync)
+        self.blockchain = Blockchain(provider_uri=self.provider_uri,
+                                     poa=self.poa,
+                                     fetch_registry=True,
+                                     provider_process=self.provider_process,
+                                     sync_now=sync_now)
 
         # Read Ethereum Node Keyring
-        self.accounts = self.blockchain.interface.w3.eth.accounts
-
-        # Add Ethereum Peer
-        if enode:
-            if self.blockchain.interface.client_version == 'geth':
-                self.blockchain.interface.w3.geth.admin.addPeer(enode)
-            else:
-                raise NotImplementedError
+        self.accounts = self.blockchain.w3.eth.accounts
 
     def connect_to_contracts(self) -> None:
         """Initialize contract agency and set them on config"""
@@ -517,13 +497,14 @@ class NodeConfiguration(ABC):
             self.known_nodes._nodes.update(known_nodes)
         self.known_nodes.record_fleet_state()
 
-        payload = dict(network_middleware=self.network_middleware or self.__DEFAULT_NETWORK_MIDDLEWARE_CLASS(),
+        payload = dict(blockchain=self.blockchain,
+                       network_middleware=self.network_middleware or self.__DEFAULT_NETWORK_MIDDLEWARE_CLASS(),
                        known_nodes=self.known_nodes,
                        node_storage=self.node_storage,
-                       crypto_power_ups=self.derive_node_power_ups() or None)
+                       crypto_power_ups=self.derive_node_power_ups())
 
         if not self.federated_only and connect_to_blockchain:
-            self.connect_to_blockchain(recompile_contracts=False)
+            self.connect_to_blockchain()
             payload.update(blockchain=self.blockchain)
 
         if overrides:
@@ -665,9 +646,9 @@ class NodeConfiguration(ABC):
                 # "Formal Geth" - Manual Web3 Provider, We assume is already running and available
                 else:
                     self.connect_to_blockchain()
-                    if not self.blockchain.interface.client.accounts:
+                    if not self.blockchain.client.accounts:
                         raise self.ConfigurationError(f'Web3 provider "{self.provider_uri}" does not have any accounts')
-                    checksum_address = self.blockchain.interface.client.etherbase
+                    checksum_address = self.blockchain.client.etherbase
 
                 # Addresses read from some node keyrings (clients) are *not* returned in checksum format.
                 checksum_address = to_checksum_address(checksum_address)
