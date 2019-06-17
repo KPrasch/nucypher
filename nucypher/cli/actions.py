@@ -285,7 +285,7 @@ def make_cli_character(character_config,
     else:
         # Manual ethereum peer
         if enode:
-            character_config.blockchain.interface.client.add_peer(enode)
+            character_config.blockchain.client.add_peer(enode)
             click.secho(f"Added ethereum peer {enode}")
 
     return CHARACTER

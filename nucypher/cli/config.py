@@ -93,7 +93,7 @@ class NucypherClickConfig:
         # Success
         else:
             self.blockchain = character_configuration.blockchain
-            self.accounts = self.blockchain.interface.w3.eth.accounts
+            self.accounts = self.blockchain.w3.eth.accounts
 
     def get_password(self, confirm: bool = False) -> str:
         keyring_password = os.environ.get("NUCYPHER_KEYRING_PASSWORD", NO_PASSWORD)
@@ -125,7 +125,7 @@ class NucypherClickConfig:
         # Ethereum Client  # TODO : Integrate with Powers API
         if not character_configuration.federated_only and unlock_wallet:
             self.emit(message='Decrypting Ethereum Node Keyring...', color='yellow')
-            character_configuration.blockchain.interface.unlock_account(address=character_configuration.checksum_address,
+            character_configuration.blockchain.unlock_account(address=character_configuration.checksum_address,
                                                                         password=password)
 
     @classmethod
