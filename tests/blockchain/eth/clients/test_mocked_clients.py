@@ -119,7 +119,6 @@ def test_infura_web3_client():
     interface.connect(fetch_registry=False, sync_now=False)
 
     assert isinstance(interface.client, InfuraClient)
-
     assert interface.is_local is False
     assert interface.chain_id == 5
 
