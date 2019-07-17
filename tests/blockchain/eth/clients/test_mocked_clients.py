@@ -119,10 +119,6 @@ def test_infura_web3_client():
     interface.connect(fetch_registry=False, sync_now=False)
 
     assert isinstance(interface.client, InfuraClient)
-    assert interface.node_technology == 'Geth'
-    assert interface.node_version == 'v1.8.23-omnibus-2ad89aaa'
-    assert interface.platform == 'linux-amd64'
-    assert interface.backend == 'go1.11.1'
 
     assert interface.is_local is False
     assert interface.chain_id == 5
