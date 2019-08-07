@@ -124,7 +124,7 @@ def load_seednodes(emitter,
                 emitter.message(f"No default teacher nodes exist for the specified network: {domain}")
         else:
             # Prefer the injected teacher URI, then use the hardcoded seednodes.
-            teacher_uris.extend(seednode_uris)
+            teacher_uris.append(seednode_uris)
 
         for uri in teacher_uris:
             teacher_node = Ursula.from_teacher_uri(teacher_uri=uri,
@@ -275,8 +275,7 @@ def make_cli_character(character_config,
                                    min_stake=min_stake,
                                    federated_only=character_config.federated_only,
                                    network_domains=character_config.domains,
-                                   network_middleware=character_config.network_middleware,
-                                   blockchain=character_config.blockchain)
+                                   network_middleware=character_config.network_middleware)
 
     #
     # Character Init

@@ -110,7 +110,7 @@ class Character(Learner):
         #
         # Operating Mode
         #
-        if not federated_only and blockchain is None:
+        if federated_only is False and BlockchainInterface is None:
             raise ValueError("No blockchain interface provided to initialize decentralized Character.")
         self.federated_only = federated_only  # type: bool
 
