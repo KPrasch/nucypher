@@ -275,7 +275,8 @@ def make_cli_character(character_config,
                                    min_stake=min_stake,
                                    federated_only=character_config.federated_only,
                                    network_domains=character_config.domains,
-                                   network_middleware=character_config.network_middleware)
+                                   network_middleware=character_config.network_middleware,
+                                   blockchain=character_config.blockchain)
 
     #
     # Character Init
