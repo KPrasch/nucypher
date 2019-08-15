@@ -201,7 +201,7 @@ def test_geth_web3_client():
 
 def test_infura_web3_client():
     interface = InfuraTestClient(provider_uri='infura://1234567890987654321abcdef')
-    interface.connect(fetch_registry=False, sync_now=False)
+    interface.connect()
 
     assert isinstance(interface.client, InfuraClient)
 
