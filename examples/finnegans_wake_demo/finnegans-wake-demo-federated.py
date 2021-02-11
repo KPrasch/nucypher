@@ -17,6 +17,7 @@
 
 
 import datetime
+import os
 import maya
 import sys
 from pathlib import Path
@@ -31,7 +32,7 @@ from nucypher.utilities.logging import GlobalLoggerSettings
 # Boring setup stuff #
 ######################
 
-BOOK_PATH = Path('finnegans-wake-excerpt.txt')
+BOOK_PATH = Path(os.getenv('FINNEGANS_WAKE_PATH') or 'finnegans-wake-excerpt.txt')
 
 # Twisted Logger
 GlobalLoggerSettings.set_log_level(log_level_name='debug')
