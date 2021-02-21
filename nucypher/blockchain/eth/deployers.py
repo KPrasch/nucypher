@@ -540,7 +540,7 @@ class StakingEscrowDeployer(BaseContractDeployer, UpgradeableContractMixin, Owna
 
     def _deploy_stub(self, gas_limit: int = None, confirmations: int = 0, **overrides):
         constructor_kwargs = {
-            "_formerHoursPerPeriod": self.economics.former_hours_per_period,
+            "_genesisHoursPerPeriod": self.economics.genesis_hours_per_period,
             "_hoursPerPeriod": self.economics.hours_per_period,
             "_minLockedPeriods": self.economics.minimum_locked_periods,
             "_minAllowableLockedTokens": self.economics.minimum_allowed_locked,
@@ -564,7 +564,7 @@ class StakingEscrowDeployer(BaseContractDeployer, UpgradeableContractMixin, Owna
     def _deploy_essential(self, contract_version: str, gas_limit: int = None, confirmations: int = 0, **overrides):
         args = self.economics.staking_deployment_parameters
         constructor_kwargs = {
-            "_formerHoursPerPeriod": args[0],
+            "_genesisHoursPerPeriod": args[0],
             "_hoursPerPeriod": args[1],
             "_issuanceDecayCoefficient": args[2],
             "_lockDurationCoefficient1": args[3],
