@@ -99,7 +99,8 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
                                            get_random_checksum_address,
                                            federated_bob,
                                            federated_alice,
-                                           number):
+                                           number,
+                                           random_policy_label):
 
     tasks = [mock_ursula_reencrypts(ursula).task for _ in range(number)]
     material = [(task.capsule, task.signature, task.cfrag, task.cfrag_signature) for task in tasks]
@@ -112,12 +113,12 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
     identity_evidence = ursula.decentralized_identity_evidence
 
     # Test construction of WorkOrders by Bob
-    work_order = WorkOrder.construct_by_bob(arrangement_id=arrangement_id,
-                                            encrypted_kfrag=mock_kfrag,
+    work_order = WorkOrder.construct_by_bob(encrypted_kfrag=mock_kfrag,
                                             bob=federated_bob,
                                             alice_verifying=federated_alice.stamp.as_umbral_pubkey(),
                                             ursula=ursula,
-                                            capsules=capsules)
+                                            capsules=capsules,
+                                            labl=random_policy_label)
 
     receipt_input = WorkOrder.HEADER + bytes(ursula.stamp) + b''.join(map(bytes, capsules))
     bob_verifying_pubkey = federated_bob.stamp.as_umbral_pubkey()
@@ -144,8 +145,7 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
     payload = work_order.payload()
     assert expected_payload == payload
 
-    same_work_order = WorkOrder.from_rest_payload(arrangement_id=arrangement_id,
-                                                  rest_payload=payload,
+    same_work_order = WorkOrder.from_rest_payload(rest_payload=payload,
                                                   ursula=ursula,
                                                   alice_address=alice_address)
 

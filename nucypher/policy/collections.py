@@ -381,7 +381,7 @@ class WorkOrder:
         return len(self.tasks)
 
     @classmethod
-    def construct_by_bob(cls, hrac, alice_verifying, capsules, ursula, bob, encrypted_kfrag):
+    def construct_by_bob(cls, label, alice_verifying, capsules, ursula, bob, encrypted_kfrag):
         ursula.mature()
         alice_address = canonical_address_from_umbral_key(alice_verifying)
 
@@ -407,7 +407,7 @@ class WorkOrder:
         receipt_signature = bob.stamp(receipt_bytes)
 
         return cls(bob=bob,
-                   hrac=hrac,
+                   label=label,
                    encrypted_kfrag=encrypted_kfrag,
                    tasks=tasks,
                    receipt_signature=receipt_signature,
@@ -456,7 +456,6 @@ class WorkOrder:
         return cls(bob=bob,
                    ursula=ursula,
                    encrypted_kfrag=kfrag,
-                   arrangement_id=arrangement_id,
                    tasks=tasks,
                    alice_address=alice_address,
                    blockhash=blockhash,
