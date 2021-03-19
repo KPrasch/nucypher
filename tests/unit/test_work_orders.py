@@ -14,8 +14,9 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with nucypher.  If not, see <https://www.gnu.org/licenses/>.
 """
-import os
 
+
+import os
 import pytest
 from bytestring_splitter import VariableLengthBytestring
 from eth_utils import to_canonical_address
@@ -118,13 +119,13 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
                                             alice_verifying=federated_alice.stamp.as_umbral_pubkey(),
                                             ursula=ursula,
                                             capsules=capsules,
-                                            labl=random_policy_label)
+                                            label=random_policy_label)
 
     receipt_input = WorkOrder.HEADER + bytes(ursula.stamp) + b''.join(map(bytes, capsules))
     bob_verifying_pubkey = federated_bob.stamp.as_umbral_pubkey()
 
     assert work_order.bob == federated_bob
-    assert work_order.arrangement_id == arrangement_id
+    assert work_order.label == random_policy_label
     assert work_order.alice_address == alice_address
     assert len(work_order.tasks) == len(work_order) == number
     for capsule in capsules:
@@ -147,10 +148,11 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
 
     same_work_order = WorkOrder.from_rest_payload(rest_payload=payload,
                                                   ursula=ursula,
-                                                  alice_address=alice_address)
+                                                  alice_address=alice_address,
+                                                  label=random_policy_label)
 
     assert same_work_order.bob == federated_bob
-    assert same_work_order.arrangement_id == arrangement_id
+    assert same_work_order.label == random_policy_label
     assert same_work_order.encrypted_kfrag == mock_kfrag
     assert same_work_order.alice_address == alice_address
     assert len(same_work_order.tasks) == len(same_work_order) == number
@@ -166,10 +168,10 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
     somewhere_over_the_blockhash = 64+33+5
     tampered_payload[somewhere_over_the_blockhash] = 255 - payload[somewhere_over_the_blockhash]
     with pytest.raises(InvalidSignature):
-        _ = WorkOrder.from_rest_payload(arrangement_id=arrangement_id,
-                                        rest_payload=bytes(tampered_payload),
+        _ = WorkOrder.from_rest_payload(rest_payload=bytes(tampered_payload),
                                         ursula=ursula,
-                                        alice_address=alice_address)
+                                        alice_address=alice_address,
+                                        label=random_policy_label)
 
     # Testing WorkOrder.complete()
 

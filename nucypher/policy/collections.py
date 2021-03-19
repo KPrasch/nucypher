@@ -53,8 +53,8 @@ from nucypher.network.middleware import RestMiddleware
 
 
 class TreasureMap:
-    ID_LENGTH = 32
-    version = bytes.fromhex("42")  # FIXME: This is a placeholder versioning, while we devise a better data serialization format
+
+    version = bytes.fromhex('42')  # TODO: Versioning
 
     class NowhereToBeFound(RestMiddleware.NotFound):
         """
@@ -68,8 +68,7 @@ class TreasureMap:
         """
 
     ursula_and_kfrag_splitter = BytestringSplitter((to_checksum_address, ETH_ADDRESS_BYTE_LENGTH),
-                                                   (UmbralMessageKit, VariableLengthBytestring),
-                                                   (bytes, ID_LENGTH))  # FIXME: Include the arrangement for the moment
+                                                   (UmbralMessageKit, VariableLengthBytestring))
 
     from nucypher.crypto.signing import \
         InvalidSignature  # Raised when the public signature (typically intended for Ursula) is not valid.
@@ -234,7 +233,7 @@ class TreasureMap:
             self._m = map_in_the_clear[0]
             try:
                 ursula_and_kfrags = self.ursula_and_kfrag_splitter.repeat(map_in_the_clear[1:])
-                self._destinations = {u: (k, a) for u, k, a in ursula_and_kfrags}
+                self._destinations = {u: k for u, k in ursula_and_kfrags}
             except BytestringSplittingError:
                 self._destinations = {}
             self.check_for_sufficient_destinations()
@@ -344,21 +343,41 @@ class WorkOrder:
             self.cfrag_signature = cfrag_signature
 
     HEADER = b"wo:"
-    payload_splitter = BytestringSplitter(Signature) + key_splitter + BytestringSplitter(ETH_HASH_BYTE_LENGTH) + \
-                       BytestringSplitter((bytes, VariableLengthBytestring))
+    payload_splitter = BytestringSplitter(Signature) \
+                       + BytestringSplitter((bytes, 20)) \
+                       + key_splitter \
+                       + BytestringSplitter((bytes, HRAC_LENGTH)) \
+                       + BytestringSplitter(ETH_HASH_BYTE_LENGTH) \
+                       + BytestringSplitter((bytes, VariableLengthBytestring))
+
+    # receipt signature
+    # alice address
+    # bob stamp
+    # HRAC
+    # blockhash
+    # encrypted kfrags
+    # tasks
 
     def __init__(self,
                  bob: Bob,
-                 hrac: bytes,
                  encrypted_kfrag: bytes,
                  alice_address: bytes,
                  tasks: dict,
                  receipt_signature,
+                 label: bytes = None,
+                 hrac: bytes = None,
                  ursula=None,
                  blockhash=None
                  ) -> None:
+
+        if hrac and label:
+            raise ValueError(f"Pass label or hrac, not both.")
+
         self.bob = bob
-        self.hrac=hrac
+        if not hrac:
+            if not label:
+                raise ValueError('label is required argument when not providing hrac.')
+            self.hrac = bob.construct_policy_hrac(verifying_key=alice_address, label=label)
         self.encrypted_kfrag = encrypted_kfrag
         self.alice_address = alice_address
         self.tasks = tasks
@@ -420,13 +439,18 @@ class WorkOrder:
         Creates a serialized WorkOrder. Called by Bob requesting reencryption tasks
         """
         tasks_bytes = b''.join(bytes(item) for item in self.tasks.values())
-        return bytes(self.receipt_signature) + self.bob.stamp + self.blockhash + \
-               bytes(VariableLengthBytestring(self.encrypted_kfrag)) + tasks_bytes
+        return bytes(self.receipt_signature) \
+               + bytes(self.alice_address)   \
+               + bytes(self.bob.stamp) \
+               + bytes(self.hrac)      \
+               + bytes(self.blockhash) \
+               + bytes(VariableLengthBytestring(self.encrypted_kfrag)) \
+               + tasks_bytes
 
     @classmethod
-    def from_rest_payload(cls, arrangement_id, rest_payload, ursula, alice_address):
-        signature, bob_verifying_key, blockhash, kfrag, remainder = cls.payload_splitter(rest_payload,
-                                                                                         return_remainder=True)
+    def from_rest_payload(cls, rest_payload: bytes, ursula: 'Ursula'):
+        result = cls.payload_splitter(rest_payload, return_remainder=True)
+        signature, alice_address, bob_verifying_key, label, blockhash, kfrag, remainder = result
         tasks = {capsule: cls.PRETask(capsule, sig) for capsule, sig in cls.PRETask.input_splitter.repeat(remainder)}
         # TODO: check freshness of blockhash? #259
 
@@ -454,6 +478,7 @@ class WorkOrder:
 
         bob = Bob.from_public_keys(verifying_key=bob_verifying_key)
         return cls(bob=bob,
+                   label=label,
                    ursula=ursula,
                    encrypted_kfrag=kfrag,
                    tasks=tasks,

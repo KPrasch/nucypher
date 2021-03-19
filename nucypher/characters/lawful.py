@@ -703,9 +703,8 @@ class Bob(Character):
 
             # TODO: Bob crashes if he hasn't learned about this Ursula #999
             ursula = self.known_nodes[ursula_address]
-            hrac = self.construct_policy_hrac(verifying_key=alice_verifying_key, label=label)
             if capsules_to_include:
-                work_order = WorkOrder.construct_by_bob(hrac=hrac,
+                work_order = WorkOrder.construct_by_bob(label=label,
                                                         alice_verifying=alice_verifying_key,
                                                         capsules=capsules_to_include,
                                                         ursula=ursula,

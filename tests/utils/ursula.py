@@ -207,9 +207,10 @@ def _mock_ursula_reencrypts(ursula, corrupt_cfrag: bool = False):
 
     bob = Bob.from_public_keys(verifying_key=pub_key_bob)
     task = WorkOrder.PRETask(capsule, task_signature, cfrag, cfrag_signature)
+
     work_order = WorkOrder(bob=bob,
+                           label=b'this is the label',
                            encrypted_kfrag=None,  # FIXME
-                           arrangement_id=None,
                            alice_address=alice_address,
                            tasks={capsule: task},
                            receipt_signature=None,

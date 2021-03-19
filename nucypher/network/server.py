@@ -250,32 +250,16 @@ def _make_rest_app(datastore: Datastore, this_node, domain: str, log: Logger) ->
             log.info("KFrag successfully removed.")
             return Response(response='KFrag deleted!', status=200)
 
-    @rest_app.route('/reencrypt/<id_as_hex>/', methods=["POST"])
-    def reencrypt(id_as_hex):
-
-        # Get Policy Arrangement
-        try:
-            arrangement_id = binascii.unhexlify(id_as_hex)
-        except (binascii.Error, TypeError):
-            return Response(response=b'Invalid arrangement ID', status=405)
-
-        # TODO: Verify payment
-        try:
-            # TODO: Yeah, well, what if this arrangement hasn't been enacted?  1702
-            with datastore.describe(PolicyArrangement, id_as_hex) as policy_arrangement:
-                alice_verifying_key = policy_arrangement.alice_verifying_key
-        except RecordNotFound:
-            return Response(response=arrangement_id, status=404)
+    @rest_app.route('/reencrypt', methods=["POST"])
+    def reencrypt():
 
         # Get Work Order
         from nucypher.policy.collections import WorkOrder  # Avoid circular import
-        alice_address = canonical_address_from_umbral_key(alice_verifying_key)
         work_order_payload = request.data
-        work_order = WorkOrder.from_rest_payload(arrangement_id=arrangement_id,
-                                                 rest_payload=work_order_payload,
-                                                 ursula=this_node,
-                                                 alice_address=alice_address)
+        work_order = WorkOrder.from_rest_payload(rest_payload=work_order_payload, ursula=this_node)
         log.info(f"Work Order from {work_order.bob}, signed {work_order.receipt_signature}")
+
+        alice_address = canonical_address_from_umbral_key(alice_verifying_key)
 
         # Get KFrag
         encrypted_kfrag = work_order.kfrag

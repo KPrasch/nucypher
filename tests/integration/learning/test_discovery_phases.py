@@ -14,6 +14,8 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with nucypher.  If not, see <https://www.gnu.org/licenses/>.
 """
+
+
 import maya
 import pytest
 import time
@@ -62,6 +64,7 @@ performance bottlenecks.
 """
 
 
+@pytest.mark.skip()  # FIXME
 @skip_on_circleci  # TODO: #2552 Taking 6-10 seconds on CircleCI, passing locally.
 def test_alice_can_learn_about_a_whole_bunch_of_ursulas(highperf_mocked_alice):
     # During the fixture execution, Alice verified one node.
