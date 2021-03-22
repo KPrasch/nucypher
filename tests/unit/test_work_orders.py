@@ -125,7 +125,6 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
     bob_verifying_pubkey = federated_bob.stamp.as_umbral_pubkey()
 
     assert work_order.bob == federated_bob
-    assert work_order.label == random_policy_label
     assert work_order.alice_address == alice_address
     assert len(work_order.tasks) == len(work_order) == number
     for capsule in capsules:
@@ -140,19 +139,29 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
 
     # Test WorkOrders' payload serialization and deserialization
     tasks_bytes = b''.join(map(bytes, work_order.tasks.values()))
-    expected_payload = bytes(work_order.receipt_signature) + bytes(federated_bob.stamp) + blockhash + \
-                       bytes(VariableLengthBytestring(mock_kfrag)) + tasks_bytes
+
+    # receipt signature
+    # alice address
+    # bob stamp
+    # HRAC
+    # blockhash
+    # encrypted kfrags
+    # tasks
+
+    expected_payload = bytes(work_order.receipt_signature) \
+                       + bytes(alice_address) \
+                       + bytes(federated_bob.stamp) \
+                       + work_order.hrac \
+                       + blockhash + \
+                       bytes(VariableLengthBytestring(mock_kfrag)) \
+                       + tasks_bytes
 
     payload = work_order.payload()
     assert expected_payload == payload
 
-    same_work_order = WorkOrder.from_rest_payload(rest_payload=payload,
-                                                  ursula=ursula,
-                                                  alice_address=alice_address,
-                                                  label=random_policy_label)
+    same_work_order = WorkOrder.from_rest_payload(rest_payload=payload, ursula=ursula)
 
     assert same_work_order.bob == federated_bob
-    assert same_work_order.label == random_policy_label
     assert same_work_order.encrypted_kfrag == mock_kfrag
     assert same_work_order.alice_address == alice_address
     assert len(same_work_order.tasks) == len(same_work_order) == number
@@ -165,13 +174,10 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
     assert not same_work_order.completed
 
     tampered_payload = bytearray(payload)
-    somewhere_over_the_blockhash = 64+33+5
+    somewhere_over_the_blockhash = 64+20+33+16+5
     tampered_payload[somewhere_over_the_blockhash] = 255 - payload[somewhere_over_the_blockhash]
     with pytest.raises(InvalidSignature):
-        _ = WorkOrder.from_rest_payload(rest_payload=bytes(tampered_payload),
-                                        ursula=ursula,
-                                        alice_address=alice_address,
-                                        label=random_policy_label)
+        _ = WorkOrder.from_rest_payload(rest_payload=bytes(tampered_payload), ursula=ursula)
 
     # Testing WorkOrder.complete()
 
