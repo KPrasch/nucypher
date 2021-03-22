@@ -463,7 +463,10 @@ class Character(Learner):
 
         signature_to_use = signature or signature_from_kit
         if signature_to_use:
-            is_valid = signature_to_use.verify(message, sender_verifying_key)  # FIXME: Message is undefined here
+
+            # FIXME:Linter complains about message being possibly undefined
+            # FIXME: sender_verifying_key is undefined here
+            is_valid = signature_to_use.verify(message=message, verifying_key=sender_verifying_key)
             if not is_valid:
                 try:
                     node_on_the_other_end = self.known_node_class.from_seednode_metadata(stranger.seed_node_metadata(),

@@ -181,7 +181,7 @@ class TreasureMap:
             nodes_as_bytes = b""
             for ursula_address, encrypted_kfrag in self.destinations.items():
                 node_id = to_canonical_address(ursula_address)
-                kfrag = bytes(VariableLengthBytestring(bytes(encrypted_kfrag)))
+                kfrag = bytes(VariableLengthBytestring(encrypted_kfrag.to_bytes()))
                 nodes_as_bytes += (node_id + kfrag)
             return nodes_as_bytes
 

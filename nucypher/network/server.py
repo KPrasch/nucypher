@@ -16,35 +16,25 @@ along with nucypher.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 
-import binascii
+import weakref
+
 import os
 import uuid
-import weakref
-from bytestring_splitter import BytestringSplitter
 from constant_sorrow import constants
-from constant_sorrow.constants import (
-    FLEET_STATES_MATCH,
-    NO_BLOCKCHAIN_CONNECTION,
-    NO_KNOWN_NODES,
-    RELAX
-)
+from constant_sorrow.constants import FLEET_STATES_MATCH, RELAX
 from datetime import datetime, timedelta
 from flask import Flask, Response, jsonify, request
 from mako import exceptions as mako_exceptions
 from mako.template import Template
 from maya import MayaDT
 from typing import Tuple
-from umbral.kfrags import KFrag
-from web3.exceptions import TimeExhausted
 
-import nucypher
-from nucypher.crypto.api import InvalidNodeCertificate
 from nucypher.config.constants import MAX_UPLOAD_CONTENT_LENGTH
+from nucypher.crypto.api import InvalidNodeCertificate
 from nucypher.crypto.keypairs import HostingKeypair
-from nucypher.crypto.kits import UmbralMessageKit
+from nucypher.crypto.kits import PolicyMessageKit
 from nucypher.crypto.powers import KeyPairBasedPower, PowerUpError
 from nucypher.crypto.signing import InvalidSignature
-from nucypher.crypto.utils import canonical_address_from_umbral_key
 from nucypher.datastore.datastore import Datastore, RecordNotFound, DatastoreTransactionError
 from nucypher.datastore.models import PolicyArrangement, TreasureMap, Workorder
 from nucypher.network import LEARNING_LOOP_VERSION
@@ -259,18 +249,21 @@ def _make_rest_app(datastore: Datastore, this_node, domain: str, log: Logger) ->
         work_order = WorkOrder.from_rest_payload(rest_payload=work_order_payload, ursula=this_node)
         log.info(f"Work Order from {work_order.bob}, signed {work_order.receipt_signature}")
 
-        alice_address = canonical_address_from_umbral_key(alice_verifying_key)
+        # Get KFrag Plaintext
+        kfrag = this_node.verify_from(stranger=work_order.alice_address,
 
-        # Get KFrag
-        encrypted_kfrag = work_order.kfrag
-        kfrag = this_node.verify_from(alice_verifying_key, encrypted_kfrag, decrypt=True)
-        if not kfrag.verify(signing_pubkey=alice_verifying_key):  # TODO: Maybe this check is redundant?
+                                      # TODO: Move deserialization to WO
+                                      message_kit=PolicyMessageKit.from_bytes(work_order.encrypted_kfrag),
+                                      decrypt=True)
+
+        # Verify KFrag
+        if not kfrag.verify(signing_pubkey=work_order.alice_address):  # TODO: Maybe this check is redundant?
             return Response(response="{} is invalid".format(kfrag), status=422)  # TODO: Maybe good, ol' 400 is OK.
 
         # Re-encrypt
         response = this_node._reencrypt(kfrag=kfrag,
                                         work_order=work_order,
-                                        alice_verifying_key=alice_verifying_key)
+                                        alice_verifying_key=work_order.alice_address)
 
         # Now, Ursula saves this workorder to her database...
         # Note: we give the work order a random ID to store it under.
