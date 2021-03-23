@@ -411,16 +411,14 @@ class Character(Learner):
         :return: Whether or not the signature is valid, the decrypted plaintext or NO_DECRYPTION_PERFORMED
         """
 
-        #
-        # Optional Sanity Check
-        #
+        sender_verifying_key = stranger.stamp.as_umbral_pubkey()
 
-        # In the spirit of duck-typing, we want to accept a message kit object, or bytes
+        # We're duck-typed here - we want to accept a message kit object or bytes.
+        # This gives us a fail fast opportunity:
         # If the higher-order object MessageKit is passed, we can perform an additional
         # eager sanity check before performing decryption.
 
         with contextlib.suppress(AttributeError):
-            sender_verifying_key = stranger.stamp.as_umbral_pubkey()
             if message_kit.sender_verifying_key:
                 if not message_kit.sender_verifying_key == sender_verifying_key:
                     raise ValueError("This MessageKit doesn't appear to have come from {}".format(stranger))
