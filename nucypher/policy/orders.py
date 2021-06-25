@@ -111,7 +111,7 @@ class WorkOrder:
         def __bytes__(self):
             data = bytes(self.capsule) + bytes(self.signature)
             if self.cfrag and self.cfrag_signature:
-                data += VariableLengthBytestring(self.cfrag) + bytes(self.cfrag_signature)
+                data += bytes(self.cfrag) + bytes(self.cfrag_signature)
             return data
 
         @classmethod
