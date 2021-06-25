@@ -216,8 +216,6 @@ def test_bob_can_issue_a_work_order_to_a_specific_ursula(enacted_federated_polic
     verified_kfrag = the_kfrag.verify(enacted_federated_policy.alice_verifying_key.as_umbral_pubkey())
     the_correct_cfrag = pre.reencrypt(capsule=message_kit.capsule, kfrag=verified_kfrag)
 
-    assert the_correct_cfrag.verify_correctness(message_kit.capsule)
-
     # Now we'll show that Ursula saved the correct WorkOrder.
     with ursula.datastore.query_by(Workorder, filter_field='bob_verifying_key',
             filter_func=lambda bob_key: bob_key == federated_bob.stamp.as_umbral_pubkey()) as work_orders_from_bob:
