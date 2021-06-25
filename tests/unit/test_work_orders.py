@@ -128,7 +128,7 @@ def test_work_order_with_multiple_capsules(mock_ursula_reencrypts,
         specification = task.get_specification(ursula_stamp=ursula.stamp,
                                                encrypted_kfrag=work_order.encrypted_kfrag,
                                                identity_evidence=identity_evidence)
-        assert work_order.tasks[capsule].signature.verify(specification, bob_verifying_pubkey)
+        assert work_order.tasks[capsule].signature.verify(bob_verifying_pubkey, specification)
     assert work_order.receipt_signature.verify(bob_verifying_pubkey, receipt_input)
     assert work_order.ursula == ursula
     assert not work_order.completed
