@@ -27,19 +27,21 @@ from nucypher.blockchain.eth.token import NU
 from nucypher.utilities.ethereum import get_array_data_location, get_mapping_entry_location, to_bytes32
 
 
-def test_upgrading(testerchain, token, token_economics, deploy_contract):
+def test_upgrading(testerchain, token, deploy_contract):
     creator = testerchain.client.accounts[0]
     staker = testerchain.client.accounts[1]
     worker = testerchain.client.accounts[2]
 
     # Initialize contract and staker
     worklock, _ = deploy_contract('WorkLockForStakingEscrowMock', token.address)
+    threshold_staking, _ = deploy_contract('ThresholdStakingForStakingEscrowMock')
 
     # Deploy contract
     contract_library_v1, _ = deploy_contract(
         'StakingEscrow',
         token.address,
-        worklock.address
+        worklock.address,
+        threshold_staking.address
     )
     dispatcher, _ = deploy_contract('Dispatcher', contract_library_v1.address)
 
@@ -47,7 +49,8 @@ def test_upgrading(testerchain, token, token_economics, deploy_contract):
     contract_library_v2, _ = deploy_contract(
         contract_name='StakingEscrowV2Mock',
         _token=token.address,
-        _workLock=worklock.address
+        _workLock=worklock.address,
+        _tStaking=threshold_staking.address
     )
 
     contract = testerchain.client.get_contract(
@@ -55,6 +58,8 @@ def test_upgrading(testerchain, token, token_economics, deploy_contract):
         address=dispatcher.address,
         ContractFactoryClass=Contract)
     tx = worklock.functions.setStakingEscrow(contract.address).transact()
+    testerchain.wait_for_receipt(tx)
+    tx = threshold_staking.functions.setStakingEscrow(contract.address).transact()
     testerchain.wait_for_receipt(tx)
 
     # Can't call `finishUpgrade` and `verifyState` methods outside upgrade lifecycle
@@ -87,7 +92,8 @@ def test_upgrading(testerchain, token, token_economics, deploy_contract):
     contract_library_bad, _ = deploy_contract(
         contract_name='StakingEscrowBad',
         _token=token.address,
-        _workLock=worklock.address
+        _workLock=worklock.address,
+        _tStaking=threshold_staking.address
     )
     with pytest.raises((TransactionFailed, ValueError)):
         tx = dispatcher.functions.upgrade(contract_library_v1.address).transact({'from': creator})
@@ -137,13 +143,13 @@ def test_upgrading(testerchain, token, token_economics, deploy_contract):
     assert event_args['sender'] == creator
 
 
-def test_flags(testerchain, token, escrow):
+def test_flags(testerchain,  escrow):
     staker = testerchain.client.accounts[1]
 
     snapshots_log = escrow.events.SnapshotSet.createFilter(fromBlock='latest')
 
     # Check flag defaults
-    snapshots = escrow.functions.getFlags(staker).call()
+    snapshots, _merged = escrow.functions.getFlags(staker).call()
     assert snapshots
 
     # There should be no events so far
@@ -153,7 +159,7 @@ def test_flags(testerchain, token, escrow):
     tx = escrow.functions.setSnapshots(True).transact({'from': staker})
     testerchain.wait_for_receipt(tx)
 
-    snapshots = escrow.functions.getFlags(staker).call()
+    snapshots, _merged = escrow.functions.getFlags(staker).call()
     assert snapshots
 
     # There should be no events so far
@@ -163,7 +169,7 @@ def test_flags(testerchain, token, escrow):
     tx = escrow.functions.setSnapshots(False).transact({'from': staker})
     testerchain.wait_for_receipt(tx)
 
-    snapshots = escrow.functions.getFlags(staker).call()
+    snapshots, _merged = escrow.functions.getFlags(staker).call()
     assert not snapshots
 
     assert len(snapshots_log.get_all_entries()) == 1
@@ -238,7 +244,7 @@ def test_snapshots(testerchain, token, escrow, worklock):
             return self.history == other.history and self.timestamps == other.timestamps
 
     def staker_has_snapshots_enabled(staker) -> bool:
-        snapshots_enabled = escrow.functions.getFlags(staker).call()
+        snapshots_enabled, _merged = escrow.functions.getFlags(staker).call()
         return snapshots_enabled
 
     def decode_snapshots_from_slot(slot):
