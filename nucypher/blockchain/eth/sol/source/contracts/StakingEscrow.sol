@@ -329,8 +329,8 @@ contract StakingEscrow is Upgradeable, IERC900History {
     function addSnapshot(StakerInfo storage _info, int256 _addition) internal {
         if(!_info.flags.bitSet(SNAPSHOTS_DISABLED_INDEX)){
             _info.history.addSnapshot(_info.value);
-            uint256 lastGlobalBalance = uint256(balanceHistory.lastValue());
-            balanceHistory.addSnapshot(lastGlobalBalance + (_addition >= 0 ? uint256(_addition) : uint256(-_addition)));
+            int256 lastGlobalBalance = int256(uint256(balanceHistory.lastValue()));
+            balanceHistory.addSnapshot(uint256(lastGlobalBalance + _addition));
         }
     }
 
@@ -339,6 +339,7 @@ contract StakingEscrow is Upgradeable, IERC900History {
     * @param _value Amount of tokens to withdraw
     */
     function withdraw(uint256 _value) external onlyStaker {
+        require(_value > 0, "Value must be specified");
         StakerInfo storage info = stakerInfo[msg.sender];
         require(info.flags.bitSet(MERGED_INDEX), "Merge must be confirmed");
         require(
@@ -364,7 +365,8 @@ contract StakingEscrow is Upgradeable, IERC900History {
         if (info.vestingReleaseTimestamp <= block.timestamp) {
             return 0;
         }
-        return (block.timestamp - info.vestingReleaseTimestamp) * info.vestingReleaseRate;
+        uint256 vestedTokens = (info.vestingReleaseTimestamp - block.timestamp) * info.vestingReleaseRate;
+        return info.value < vestedTokens ? info.value : vestedTokens;
     }
 
     /**
