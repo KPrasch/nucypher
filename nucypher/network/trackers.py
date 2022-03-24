@@ -16,16 +16,54 @@
 """
 
 import random
+from typing import Union, Callable
 
 import maya
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
-from typing import Union
 
+from nucypher.blockchain.eth.agents import ContractAgency, PREApplicationAgent
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.network.exceptions import NodeSeemsToBeDown
 from nucypher.network.middleware import RestMiddleware
 from nucypher.network.nodes import NodeSprout
 from nucypher.utilities.logging import Logger
+from nucypher.utilities.task import RestartableTask
+
+
+class OperatorBondedTracker(RestartableTask):
+    INTERVAL = 60 * 60  # 1 hour
+
+    class OperatorNoLongerBonded(RuntimeError):
+        pass
+
+    def __init__(self, ursula):
+        self._ursula = ursula
+        super().__init__(task_func=self.run)
+
+    def run(self) -> None:
+        application_agent = ContractAgency.get_agent(PREApplicationAgent,
+                                                     registry=self._ursula.registry,
+                                                     eth_provider_uri=self._ursula.eth_provider_uri)
+        staking_provider_address = application_agent.get_staking_provider_from_operator(
+            operator_address=self._ursula.operator_address)
+        if staking_provider_address == NULL_ADDRESS:
+            self.shutdown_ursula()
+
+    def shutdown_ursula(self, halt_reactor=False):
+        self.log.warn(f'[OPERATOR {self._ursula.operator_address} IS NO LONGER BONDED TO ANY '
+                      f'STAKING PROVIDER] Commencing auto-shutdown sequence...')
+        self._ursula.stop(halt_reactor=False)
+        try:
+            raise self.OperatorNoLongerBonded()
+        finally:
+            if halt_reactor:
+                self._halt_reactor()
+
+    @staticmethod
+    def _halt_reactor() -> None:
+        if reactor.running:
+            reactor.stop()
 
 
 class AvailabilityTracker:
