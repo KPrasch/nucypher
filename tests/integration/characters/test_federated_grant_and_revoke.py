@@ -30,11 +30,11 @@ from nucypher.crypto.utils import keccak_digest
 def test_federated_grant(federated_alice, federated_bob, federated_ursulas):
     # Setup the policy details
     threshold, shares = 2, 3
-    policy_end_datetime = (maya.now() + datetime.timedelta(days=5)).epoch
+    policy_end_epoch = (maya.now() + datetime.timedelta(days=5)).epoch
     label = b"this_is_the_path_to_which_access_is_being_granted"
 
     # Create the Policy, granting access to Bob
-    policy = federated_alice.grant(federated_bob, label, threshold=threshold, shares=shares, expiration=policy_end_datetime)
+    policy = federated_alice.grant(federated_bob, label, threshold=threshold, shares=shares, expiration=policy_end_epoch)
 
     # Check Alice's active policies
     assert policy.hrac in federated_alice.active_policies
@@ -64,7 +64,7 @@ def test_federated_alice_can_decrypt(federated_alice, federated_bob):
 
     # Setup the policy details
     threshold, shares = 2, 3
-    policy_end_datetime = (maya.now() + datetime.timedelta(days=5)).epoch
+    policy_end_epoch = (maya.now() + datetime.timedelta(days=5)).epoch
     label = b"this_is_the_path_to_which_access_is_being_granted"
 
     policy = federated_alice.create_policy(
@@ -72,7 +72,7 @@ def test_federated_alice_can_decrypt(federated_alice, federated_bob):
         label=label,
         threshold=threshold,
         shares=shares,
-        expiration=policy_end_datetime,
+        expiration=policy_end_epoch,
     )
 
     enrico = Enrico.from_alice(

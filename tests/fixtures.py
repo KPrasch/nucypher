@@ -223,11 +223,13 @@ def idle_federated_policy(federated_alice, federated_bob):
     threshold = MOCK_POLICY_DEFAULT_THRESHOLD
     shares = NUMBER_OF_URSULAS_IN_DEVELOPMENT_NETWORK
     random_label = generate_random_label()
+    expiration_epoch = (maya.now() + timedelta(days=5)).epoch
     policy = federated_alice.create_policy(federated_bob,
                                            label=random_label,
                                            threshold=threshold,
                                            shares=shares,
-                                           expiration=(maya.now() + timedelta(days=5)).epoch)
+                                           expiration=expiration_epoch
+                                           )
     return policy
 
 

@@ -264,7 +264,7 @@ class Alice(Character, BlockchainPolicyAuthor):
                                    threshold: int = None,
                                    shares: int = None,
                                    payment_periods: int = None,
-                                   expiration: maya.MayaDT = None,
+                                   expiration: int = None,
                                    *args, **kwargs
                                    ) -> dict:
         """

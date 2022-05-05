@@ -44,7 +44,7 @@ class AliceInterface(CharacterPublicInterface):
                       label: bytes,
                       threshold: int,
                       shares: int,
-                      expiration: maya.MayaDT,
+                      expiration: int,
                       value: int = None
                       ) -> dict:
 
@@ -76,7 +76,7 @@ class AliceInterface(CharacterPublicInterface):
               label: bytes,
               threshold: int,
               shares: int,
-              expiration: maya.MayaDT,
+              expiration: int,
               value: int = None,
               rate: int = None,
               ) -> dict:
