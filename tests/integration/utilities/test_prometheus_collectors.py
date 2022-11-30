@@ -28,23 +28,11 @@ except ImportError:
 
 from web3.types import Timestamp
 
-
-@pytest.fixture(scope="function")
-def mock_operator_confirmation(random_address, mock_taco_application_agent):
-    mock_taco_application_agent.is_operator_confirmed.return_value = True
-    info = TACoApplicationAgent.StakingProviderInfo(
-        operator=random_address,
-        operator_confirmed=True,
-        operator_start_timestamp=Timestamp(int(time.time()))
-    )
-    mock_taco_application_agent.get_staking_provider_info.return_value = info
-
-
 @pytest.mark.skipif(
     condition=(not PROMETHEUS_INSTALLED),
     reason="prometheus_client is required for test",
 )
-def test_ursula_info_metrics_collector(test_registry, ursulas):
+def test_ursula_info_metrics_collector(test_registry, ursulas, agency):
     ursula = random.choice(ursulas)
     collector = UrsulaInfoMetricsCollector(ursula=ursula)
 
@@ -153,7 +141,6 @@ def test_operator_metrics_collector(test_registry, ursulas):
 
 
 @pytest.mark.skipif(condition=(not PROMETHEUS_INSTALLED), reason="prometheus_client is required for test")
-@pytest.mark.usefixtures("mock_operator_confirmation")
 def test_all_metrics_collectors_sanity_collect(ursulas):
     ursula = random.choice(ursulas)
 

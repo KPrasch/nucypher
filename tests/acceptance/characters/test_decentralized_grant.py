@@ -29,10 +29,8 @@ def check(policy, bob, ursulas):
 
 
 def test_grant_subscription_manager(alice, bob, ursulas):
-    pre_payment_method = SubscriptionManagerPayment(
-        blockchain_endpoint=TEST_ETH_PROVIDER_URI, domain=TEMPORARY_DOMAIN_NAME
-    )
-    alice.pre_payment_method = pre_payment_method
+    payment_method = SubscriptionManagerPayment(eth_provider=TEST_ETH_PROVIDER_URI, network=TEMPORARY_DOMAIN)
+    alice.payment_method = payment_method
     policy = alice.grant(
         bob=bob,
         label=os.urandom(16),

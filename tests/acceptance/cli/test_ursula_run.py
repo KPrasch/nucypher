@@ -37,19 +37,15 @@ def test_missing_configuration_file(_default_filepath_mock, click_runner):
 
 @pt.inlineCallbacks
 def test_ursula_run_with_prometheus_but_no_metrics_port(click_runner):
-    args = (
-        "ursula",
-        "run",  # Stat Ursula Command
-        "--debug",  # Display log output; Do not attach console
-        "--dev",  # Run in development mode (local ephemeral node)
-        "--dry-run",  # Disable twisted reactor in subprocess
-        "--lonely",  # Do not load seednodes
-        "--prometheus",  # Specify collection of prometheus metrics
-        "--eth-endpoint",
-        TEST_ETH_PROVIDER_URI,
-        "--polygon-endpoint",
-        TEST_POLYGON_PROVIDER_URI,
-    )
+    args = ('ursula', 'run',  # Stat Ursula Command
+            '--debug',  # Display log output; Do not attach console
+            '--dev',  # Run in development mode (local ephemeral node)
+            '--dry-run',  # Disable twisted reactor in subprocess
+            '--lonely',  # Do not load seednodes
+            '--prometheus',  # Specify collection of prometheus metrics
+            '--eth-provider', TEST_ETH_PROVIDER_URI,
+            '--payment-provider', TEST_POLYGON_PROVIDER_URI
+            )
 
     result = yield threads.deferToThread(
         click_runner.invoke, nucypher_cli, args, catch_exceptions=False
@@ -61,24 +57,20 @@ def test_ursula_run_with_prometheus_but_no_metrics_port(click_runner):
 
 
 @pt.inlineCallbacks
-def test_run_lone_default_development_ursula(click_runner, ursulas, testerchain):
+def test_run_lone_default_development_ursula(click_runner, test_registry_source_manager, testerchain, agency, mock_funding_and_bonding):
+
     deploy_port = select_test_port()
-    args = (
-        "ursula",
-        "run",  # Stat Ursula Command
-        "--debug",  # Display log output; Do not attach console
-        "--rest-port",
-        deploy_port,  # Network Port
-        "--dev",  # Run in development mode (ephemeral node)
-        "--dry-run",  # Disable twisted reactor in subprocess
-        "--lonely",  # Do not load seednodes,
-        "--operator-address",
-        ursulas[0].operator_address,
-        "--eth-endpoint",
-        TEST_ETH_PROVIDER_URI,
-        "--polygon-endpoint",
-        TEST_ETH_PROVIDER_URI,
-    )
+    args = ('ursula', 'run',  # Stat Ursula Command
+            '--debug',  # Display log output; Do not attach console
+            '--rest-port', deploy_port,  # Network Port
+            '--dev',  # Run in development mode (ephemeral node)
+            '--dry-run',  # Disable twisted reactor in subprocess
+            '--lonely',  # Do not load seednodes,
+            '--operator-address', testerchain.etherbase_account,
+            '--eth-provider', TEST_ETH_PROVIDER_URI,
+            '--payment-provider', TEST_ETH_PROVIDER_URI,
+            '--payment-network', TEMPORARY_DOMAIN,
+            )
 
     result = yield threads.deferToThread(
         click_runner.invoke,
@@ -98,13 +90,9 @@ def test_run_lone_default_development_ursula(click_runner, ursulas, testerchain)
 
 
 @pt.inlineCallbacks
-@pytest.mark.skip(
-    reason="This test is failing, possibly related to poor support for --dev?"
-)
-def test_ursula_learns_via_cli(click_runner, ursulas, testerchain):
-    # ERROR: requests.exceptions.ReadTimeout:
-    # HTTPSConnectionPool(host='127.0.0.1', port=43043): Read timed out. (read timeout=2)
-
+def test_ursula_learns_via_cli(
+    click_runner, ursulas, testerchain, agency, mock_funding_and_bonding
+):
     # Establish a running Teacher Ursula
 
     teacher = list(ursulas)[0]
@@ -113,24 +101,18 @@ def test_ursula_learns_via_cli(click_runner, ursulas, testerchain):
     deploy_port = select_test_port()
 
     def run_ursula():
-        start_pytest_ursula_services(ursula=teacher)
-        args = (
-            "ursula",
-            "run",
-            "--debug",  # Display log output; Do not attach console
-            "--rest-port",
-            deploy_port,  # Network Port
-            "--teacher",
-            teacher_uri,
-            "--dev",  # Run in development mode (ephemeral node)
-            "--dry-run",  # Disable twisted reactor
-            "--operator-address",
-            ursulas[0].operator_address,
-            "--eth-endpoint",
-            TEST_ETH_PROVIDER_URI,
-            "--polygon-endpoint",
-            TEST_ETH_PROVIDER_URI,
-        )
+        i = start_pytest_ursula_services(ursula=teacher)
+        args = ('ursula', 'run',
+                '--debug',  # Display log output; Do not attach console
+                '--rest-port', deploy_port,  # Network Port
+                '--teacher', teacher_uri,
+                '--dev',  # Run in development mode (ephemeral node)
+                '--dry-run',  # Disable twisted reactor
+                '--operator-address', testerchain.etherbase_account,
+                '--eth-provider', TEST_ETH_PROVIDER_URI,
+                '--payment-provider', TEST_ETH_PROVIDER_URI,
+                '--payment-network', TEMPORARY_DOMAIN
+                )
 
         return threads.deferToThread(
             click_runner.invoke,
@@ -160,16 +142,10 @@ def test_ursula_learns_via_cli(click_runner, ursulas, testerchain):
 @pytest.mark.skip(reason="This test is poorly written and is failing.")
 @pt.inlineCallbacks
 def test_persistent_node_storage_integration(
-    click_runner, custom_filepath, testerchain, ursulas, agency_local_registry, mocker
+    click_runner, custom_filepath, testerchain, ursulas, agency_local_registry
 ):
-    mocker.patch.object(ActiveRitualTracker, "start")
-    (
-        alice,
-        ursula,
-        another_ursula,
-        staking_provider,
-        *all_yall,
-    ) = testerchain.unassigned_accounts
+
+    alice, ursula, another_ursula, staking_provider, *all_yall = testerchain.unassigned_accounts
     filename = UrsulaConfiguration.generate_filename()
     another_ursula_configuration_file_location = custom_filepath / filename
 

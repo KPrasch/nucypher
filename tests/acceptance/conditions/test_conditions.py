@@ -413,9 +413,7 @@ def test_subscription_manager_is_active_policy_condition_evaluation(
     subscription_manager_is_active_policy_condition,
     condition_providers
 ):
-    context = {
-        ":hrac": HexBytes(bytes(enacted_policy.hrac)).hex()
-    }  # user-defined context var
+    context = {":hrac": bytes(enacted_policy.hrac)}  # user-defined context var
     (
         condition_result,
         call_result,
@@ -489,7 +487,7 @@ def test_subscription_manager_get_policy_policy_struct_condition_evaluation_cont
         NULL_ADDRESS, 0, 0, 0, NULL_ADDRESS,
     )
     context = {
-        ":hrac": HexBytes(bytes(enacted_policy.hrac)).hex(),
+        ":hrac": bytes(enacted_policy.hrac),
         ":expectedPolicyStruct": zeroized_policy_struct,
     }  # user-defined context vars
     condition_result, call_result = subscription_manager_get_policy_zeroized_policy_struct_condition.verify(
@@ -521,7 +519,7 @@ def test_subscription_manager_get_policy_policy_struct_condition_key_tuple_evalu
     sponsor = idle_policy.publisher.checksum_address
 
     context = {
-        ":hrac": HexBytes(bytes(enacted_policy.hrac)).hex(),
+        ":hrac": bytes(enacted_policy.hrac),
     }  # user-defined context vars
     subscription_manager = ContractAgency.get_agent(
         SubscriptionManagerAgent,
@@ -638,7 +636,7 @@ def test_subscription_manager_get_policy_policy_struct_condition_index_and_value
     # enacted policy created from idle policy
     sponsor = idle_policy.publisher.checksum_address
     context = {
-        ":hrac": HexBytes(bytes(enacted_policy.hrac)).hex(),
+        ":hrac": bytes(enacted_policy.hrac),
         ":sponsor": sponsor,
     }  # user-defined context vars
     subscription_manager = ContractAgency.get_agent(
@@ -728,54 +726,19 @@ def test_onchain_conditions_lingo_evaluation(
     assert result is True
 
 
-@mock.patch(
-    GET_CONTEXT_VALUE_IMPORT_PATH,
-    side_effect=_dont_validate_user_address,
-)
-def test_not_of_onchain_conditions_lingo_evaluation(
-    get_context_value_mock,
-    testerchain,
-    compound_lingo,
-    condition_providers,
-):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.etherbase_account}}
-    result = compound_lingo.eval(providers=condition_providers, **context)
-    assert result is True
-
-    not_condition = NotCompoundCondition(operand=compound_lingo.condition)
-    not_access_condition_lingo = ConditionLingo(condition=not_condition)
-    not_result = not_access_condition_lingo.eval(
-        providers=condition_providers, **context
-    )
-    assert not_result is False
-    assert not_result is (not result)
-
-
 def test_single_retrieve_with_onchain_conditions(enacted_policy, bob, ursulas):
     bob.remember_node(ursulas[0])
     bob.start_learning_loop()
-    conditions = {
-        "version": ConditionLingo.VERSION,
-        "condition": {
-            "conditionType": ConditionType.COMPOUND.value,
-            "operator": "and",
-            "operands": [
-                {
-                    "conditionType": ConditionType.TIME.value,
-                    "returnValueTest": {"value": 0, "comparator": ">"},
-                    "method": "blocktime",
-                    "chain": TESTERCHAIN_CHAIN_ID,
-                },
-                {
-                    "conditionType": ConditionType.RPC.value,
-                    "chain": TESTERCHAIN_CHAIN_ID,
-                    "method": "eth_getBalance",
-                    "parameters": [bob.checksum_address, "latest"],
-                    "returnValueTest": {"comparator": ">=", "value": 10000000000000},
-                },
-            ],
+    conditions = [
+        {"returnValueTest": {"value": "0", "comparator": ">"}, "method": "timelock"},
+        {"operator": "and"},
+        {
+            "chain": TESTERCHAIN_CHAIN_ID,
+            "method": "eth_getBalance",
+            "parameters": [bob.checksum_address, "latest"],
+            "returnValueTest": {"comparator": ">=", "value": "10000000000000"},
         },
-    }
+    ]
     messages, message_kits = make_message_kits(enacted_policy.public_key, conditions)
     policy_info_kwargs = dict(
         encrypted_treasure_map=enacted_policy.treasure_map,

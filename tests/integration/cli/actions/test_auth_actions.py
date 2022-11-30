@@ -96,6 +96,7 @@ def test_unlock_nucypher_keystore_invalid_password(
     alice_test_config,
     capsys,
     tmpdir,
+    test_registry_source_manager,
 ):
 
     # Setup

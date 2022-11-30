@@ -10,7 +10,7 @@ from tests.constants import MOCK_ETH_PROVIDER_URI
 from tests.utils.middleware import MockRestMiddleware
 
 
-def test_all_ursulas_know_about_all_other_ursulas(ursulas, test_registry):
+def test_all_ursulas_know_about_all_other_ursulas(ursulas, agency, test_registry):
     """
     Once launched, all Ursulas know about - and can help locate - all other Ursulas in the network.
     """
@@ -29,9 +29,9 @@ def test_all_ursulas_know_about_all_other_ursulas(ursulas, test_registry):
                     format(propagating_ursula, Nickname.from_seed(address))
 
 
-def test_alice_finds_ursula_via_rest(alice, ursulas):
+def test_blockchain_alice_finds_ursula_via_rest(alice, ursulas):
     # Imagine alice knows of nobody.
-    alice._Learner__known_nodes = FleetSensor(domain=TEMPORARY_DOMAIN_NAME)
+    alice._Learner__known_nodes = FleetSensor(domain=TEMPORARY_DOMAIN)
 
     alice.remember_node(ursulas[0])
     alice.learn_from_teacher_node()
@@ -41,7 +41,6 @@ def test_alice_finds_ursula_via_rest(alice, ursulas):
         assert ursula in alice.known_nodes
 
 
-@pytest.mark.usefixtures("monkeypatch_get_staking_provider_from_operator")
 def test_vladimir_illegal_interface_key_does_not_propagate(ursulas):
     """
     Although Ursulas propagate each other's interface information, as demonstrated above,
@@ -58,6 +57,7 @@ def test_vladimir_illegal_interface_key_does_not_propagate(ursulas):
     def warning_trapper(event):
         if event['log_level'] == LogLevel.warn:
             warnings.append(event)
+
 
     ursulas = list(ursulas)
     ursula_whom_vladimir_will_imitate, other_ursula = ursulas[0], ursulas[1]

@@ -9,40 +9,7 @@ from nucypher.blockchain.eth.registry import ContractRegistry
 from nucypher.characters.lawful import Ursula
 from nucypher.config.storages import LocalFileBasedNodeStorage
 from nucypher.network.nodes import TEACHER_NODES
-from tests.constants import TEMPORARY_DOMAIN, TESTERCHAIN_CHAIN_INFO
-from tests.utils.registry import MockRegistrySource
 from tests.utils.ursula import make_ursulas
-
-
-@pytest.fixture(scope="module")
-def domain_1():
-    return TACoDomain(
-        name="domain_uno",
-        eth_chain=TESTERCHAIN_CHAIN_INFO,
-        polygon_chain=TESTERCHAIN_CHAIN_INFO,
-        condition_chains=(TESTERCHAIN_CHAIN_INFO,),
-    )
-
-
-@pytest.fixture(scope="module")
-def domain_2():
-    return TACoDomain(
-        name="domain_dos",
-        eth_chain=TESTERCHAIN_CHAIN_INFO,
-        polygon_chain=TESTERCHAIN_CHAIN_INFO,
-        condition_chains=(TESTERCHAIN_CHAIN_INFO,),
-    )
-
-
-@pytest.fixture(scope="module")
-def test_registry(module_mocker, domain_1, domain_2):
-    with tests.utils.registry.mock_registry_sources(
-        mocker=module_mocker, _domains=[domain_1, domain_2, TEMPORARY_DOMAIN]
-    ):
-        # doesn't really matter what domain is used here
-        registry = ContractRegistry(MockRegistrySource(domain=domain_1))
-        yield registry
-
 
 @pytest.fixture(scope="module")
 def registry_1(domain_1, test_registry):
@@ -151,19 +118,11 @@ def test_learner_restores_metadata_from_storage(
 
 
 def test_learner_ignores_stored_nodes_from_other_domains(
-    lonely_ursula_maker,
-    domain_1,
-    domain_2,
-    registry_1,
-    registry_2,
-    tmpdir,
-    testerchain,
-    ursula_test_config,
+    lonely_ursula_maker, tmpdir, testerchain, ursula_test_config
 ):
     learner, other_staker = make_ursulas(
         ursula_test_config,
-        domain=domain_1,
-        registry=registry_1,
+        domain="call-it-mainnet",
         quantity=2,
         know_each_other=True,
         staking_provider_addresses=testerchain.stake_providers_accounts[:2],
@@ -172,8 +131,7 @@ def test_learner_ignores_stored_nodes_from_other_domains(
 
     pest, *other_ursulas_from_the_wrong_side_of_the_tracks = make_ursulas(
         ursula_test_config,
-        domain=domain_2,
-        registry=registry_2,
+        domain="i-dunno-testt-maybe",
         quantity=5,
         know_each_other=True,
         staking_provider_addresses=testerchain.stake_providers_accounts[2:],
@@ -218,14 +176,7 @@ def test_learner_with_empty_storage_uses_fallback_nodes(
 
 
 def test_learner_uses_both_nodes_from_storage_and_fallback_nodes(
-    lonely_ursula_maker,
-    domain_1,
-    registry_1,
-    tmpdir,
-    mocker,
-    test_registry,
-    ursula_test_config,
-    testerchain,
+    lonely_ursula_maker, tmpdir, mocker, test_registry, ursula_test_config, testerchain
 ):
     mocker.patch.dict(TEACHER_NODES, {domain_1: ("teacher-uri",)}, clear=True)
 
@@ -240,8 +191,7 @@ def test_learner_uses_both_nodes_from_storage_and_fallback_nodes(
     # Create some nodes and persist them to local storage
     other_nodes = make_ursulas(
         ursula_test_config,
-        domain=domain_1,
-        registry=registry_1,
+        domain=domain,
         node_storage=node_storage,
         know_each_other=True,
         quantity=3,

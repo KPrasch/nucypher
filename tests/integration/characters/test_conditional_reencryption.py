@@ -34,27 +34,11 @@ def test_single_retrieve_with_truthy_conditions(enacted_policy, bob, ursulas, mo
     bob.remember_node(ursulas[0])
     bob.start_learning_loop()
 
-    conditions = {
-        "version": ConditionLingo.VERSION,
-        "condition": {
-            "conditionType": ConditionType.COMPOUND.value,
-            "operator": "and",
-            "operands": [
-                {
-                    "conditionType": ConditionType.TIME.value,
-                    "returnValueTest": {"value": 0, "comparator": ">"},
-                    "method": "blocktime",
-                    "chain": TESTERCHAIN_CHAIN_ID,
-                },
-                {
-                    "conditionType": ConditionType.TIME.value,
-                    "returnValueTest": {"value": 99999999999999999, "comparator": "<"},
-                    "method": "blocktime",
-                    "chain": TESTERCHAIN_CHAIN_ID,
-                },
-            ],
-        },
-    }
+    conditions = [
+        {'returnValueTest': {'value': '0', 'comparator': '>'}, 'method': 'timelock'},
+        {'operator': 'and'},
+        {'returnValueTest': {'value': '99999999999999999', 'comparator': '<'}, 'method': 'timelock'},
+    ]
     json_conditions = json.dumps(conditions)
     rust_conditions = Conditions(json_conditions)
     message_kits = [MessageKit(enacted_policy.public_key, b"lab", rust_conditions)]

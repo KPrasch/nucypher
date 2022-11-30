@@ -9,7 +9,18 @@ from nucypher.crypto.utils import verify_eip_191
 from nucypher.policy.policies import Policy
 from tests.constants import MOCK_ETH_PROVIDER_URI, TEST_ETH_PROVIDER_URI
 from tests.utils.middleware import NodeIsDownMiddleware
+from tests.utils.ursula import make_ursulas
 
+
+@pytest.mark.usefixtures("ursulas")
+def test_stakers_bond_to_ursulas(
+    testerchain, test_registry, staking_providers, ursula_test_config
+):
+    ursulas = make_ursulas(
+        ursula_config=ursula_test_config,
+        staking_provider_addresses=testerchain.stake_providers_accounts,
+        operator_addresses=testerchain.ursulas_accounts,
+    )
 
 def test_stakers_bond_to_ursulas(ursulas, test_registry, staking_providers):
     assert len(ursulas) == len(staking_providers)
@@ -47,9 +58,7 @@ def remote_vladimir(**kwds):
     return remote_vladimir
 
 
-def test_vladimir_cannot_verify_interface_with_ursulas_signing_key(
-    testerchain, ursulas
-):
+def test_vladimir_cannot_verify_interface_with_ursulas_signing_key(ursulas):
     his_target = list(ursulas)[4]
 
     # Vladimir has his own ether address; he hopes to publish it along with Ursula's details
@@ -126,7 +135,7 @@ def test_vladimir_invalidity_without_stake(testerchain, ursulas, alice):
 
 
 # TODO: Change name of this file, extract this test
-def test_ursulas_reencrypt(ursulas, alice, bob, policy_value):
+def test_blockchain_ursulas_reencrypt(ursulas, alice, bob, policy_value):
     label = b'bbo'
 
     # TODO: Make sample selection buffer configurable - #1061
@@ -158,10 +167,10 @@ def test_ursulas_reencrypt(ursulas, alice, bob, policy_value):
     assert plaintexts == [message]
 
     # Let's consider also that a node may be down when granting
-    alice.network_middleware = NodeIsDownMiddleware(eth_endpoint=MOCK_ETH_PROVIDER_URI)
+    alice.network_middleware = NodeIsDownMiddleware()
     alice.network_middleware.node_is_down(ursulas[0])
 
-    with pytest.raises(Policy.NotEnoughUrsulas):
+    with pytest.raises(BlockchainPolicy.NotEnoughUrsulas):
         _policy = alice.grant(
             bob=bob,
             label=b"another-label",

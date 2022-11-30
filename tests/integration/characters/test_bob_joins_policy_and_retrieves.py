@@ -15,7 +15,7 @@ from tests.constants import (
 from tests.utils.middleware import MockRestMiddleware
 
 
-def test_bob_full_retrieve_flow(
+def test_blockchain_bob_full_retrieve_flow(
     ursulas, bob, alice, capsule_side_channel, treasure_map, enacted_policy
 ):
 
@@ -38,7 +38,9 @@ def test_bob_full_retrieve_flow(
     assert b"Welcome to flippering number 0." == delivered_cleartexts[0]
 
 
-def test_bob_retrieves(alice, ursulas, certificates_tempdir):
+def test_bob_retrieves(
+    alice, ursulas, certificates_tempdir, test_registry_source_manager
+):
     """A test to show that Bob can retrieve data from Ursula"""
 
     # Let's partition Ursulas in two parts
@@ -46,14 +48,11 @@ def test_bob_retrieves(alice, ursulas, certificates_tempdir):
     rest_of_ursulas = list(ursulas)[2:]
 
     # Bob becomes
-    bob = Bob(
-        domain=TEMPORARY_DOMAIN_NAME,
-        start_learning_now=True,
-        eth_endpoint=MOCK_ETH_PROVIDER_URI,
-        network_middleware=MockRestMiddleware(eth_endpoint=MOCK_ETH_PROVIDER_URI),
-        abort_on_learning_error=True,
-        known_nodes=a_couple_of_ursulas,
-    )
+    bob = Bob(domain=TEMPORARY_DOMAIN,
+              start_learning_now=True,
+              network_middleware=MockRestMiddleware(),
+              abort_on_learning_error=True,
+              known_nodes=a_couple_of_ursulas)
 
     # Bob has only connected to - at most - 2 nodes.
     assert sum(node.verified_node for node in bob.known_nodes) <= 2

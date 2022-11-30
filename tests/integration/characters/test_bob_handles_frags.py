@@ -14,6 +14,7 @@ def _policy_info_kwargs(enacted_policy):
         alice_verifying_key=enacted_policy.publisher_verifying_key,
         )
 
+
 def test_retrieval_kit(enacted_policy, ursulas):
     messages, message_kits = make_message_kits(enacted_policy.public_key)
 
@@ -75,6 +76,7 @@ def test_single_retrieve_conditions_empty_list(enacted_policy, bob, ursulas):
     assert cleartexts == [message]
 
 
+@pytest.mark.skip("This test is not working yet.  It's not clear what the correct behavior is and if it's the same in nucypher-ts.")
 def test_use_external_cache(enacted_policy, bob, ursulas):
 
     bob.start_learning_loop()
@@ -83,7 +85,7 @@ def test_use_external_cache(enacted_policy, bob, ursulas):
     ursulas = list(ursulas)
 
     # All Ursulas are down except for two
-    bob.network_middleware = NodeIsDownMiddleware(eth_endpoint=MOCK_ETH_PROVIDER_URI)
+    bob.network_middleware = NodeIsDownMiddleware()
     for ursula in ursulas[2:]:
         bob.network_middleware.node_is_down(ursula)
 

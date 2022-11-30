@@ -9,8 +9,11 @@ from nucypher_core.umbral import PublicKey, VerifiedKeyFrag
 from nucypher import characters
 from nucypher.crypto.powers import DecryptingPower
 from nucypher.network.middleware import RestMiddleware
-from nucypher.policy import payment
-from nucypher.policy.reservoir import PrefetchStrategy, make_staking_provider_reservoir
+from nucypher.policy.reservoir import (
+    MergedReservoir,
+    PrefetchStrategy,
+    make_staking_provider_reservoir,
+)
 from nucypher.policy.revocation import RevocationKit
 from nucypher.utilities.concurrency import WorkerPool
 from nucypher.utilities.logging import Logger
@@ -186,6 +189,17 @@ class Policy:
                                        self.publisher.stamp.as_umbral_pubkey())
 
         return enacted_policy
+
+
+class BlockchainPolicy(Policy):
+
+    def _make_reservoir(self, handpicked_addresses: List[ChecksumAddress]):
+        """Returns a reservoir of staking nodes to create a policy."""
+        reservoir = make_staking_provider_reservoir(
+            application_agent=self.publisher.application_agent,
+            include_addresses=handpicked_addresses,
+        )
+        return reservoir
 
 
 class EnactedPolicy:
