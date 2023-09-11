@@ -1,6 +1,5 @@
 import contextlib
 import json
-import time
 from pathlib import Path
 from queue import Queue
 from typing import (
@@ -17,6 +16,7 @@ from typing import (
 )
 
 import maya
+import time
 from constant_sorrow import constants
 from constant_sorrow.constants import (
     INVALIDATED,
@@ -119,7 +119,6 @@ from nucypher.utilities.logging import Logger
 from nucypher.utilities.networking import validate_operator_ip
 from nucypher.utilities.prometheus.metrics import (
     PrometheusMetricsConfig,
-    start_prometheus_exporter,
 )
 
 
@@ -987,6 +986,9 @@ class Ursula(Teacher, Character, Operator):
         block_until_ready: bool = True,
         eager: bool = False,
     ) -> None:
+        # Locally scoped to prevent import without prometheus explicitly installed
+        from nucypher.utilities.prometheus.metrics import start_prometheus_exporter
+
         """Schedule and start select ursula services, then optionally start the reactor."""
 
         # Connect to Provider

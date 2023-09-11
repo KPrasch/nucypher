@@ -1,4 +1,3 @@
-
 import json
 from typing import List
 
@@ -21,19 +20,13 @@ from nucypher.utilities.prometheus.collector import (
 
 class PrometheusMetricsConfig:
     """Prometheus configuration."""
-    def __init__(self,
-                 port: int,
-                 listen_address: str = '',  # default to localhost ip
-                 collection_interval: int = 90,  # every 1.5 minutes
-                 start_now: bool = False):
 
-        if not port:
-            raise ValueError('port must be provided')
-
-        self.port = port
-        self.listen_address = listen_address
-        self.collection_interval = collection_interval
-        self.start_now = start_now
+    def __init__(self):
+        self.port = 9101
+        self.metrics_prefix = "ursula"
+        self.listen_address = ""
+        self.collection_interval = 90
+        self.start_now = False
 
 
 class MetricsEncoder(json.JSONEncoder):
@@ -112,7 +105,6 @@ def collect_prometheus_metrics(metrics_collectors: List[MetricsCollector]) -> No
 
 def start_prometheus_exporter(
     ursula: "lawful.Ursula",
-    prometheus_config: PrometheusMetricsConfig,
     registry: CollectorRegistry = REGISTRY,
 ) -> None:
     """Configure, collect, and serve prometheus metrics."""
@@ -124,6 +116,7 @@ def start_prometheus_exporter(
     REGISTRY.unregister(GC_COLLECTOR)
     REGISTRY.unregister(PLATFORM_COLLECTOR)
     REGISTRY.unregister(PROCESS_COLLECTOR)
+    prometheus_config = PrometheusMetricsConfig()
 
     metrics_collectors = create_metrics_collectors(ursula)
     # initialize collectors
