@@ -6,6 +6,7 @@ import time
 from prometheus_client import CollectorRegistry
 from web3.types import Timestamp
 
+from nucypher.blockchain.eth.actors import Operator
 from nucypher.blockchain.eth.agents import ContractAgency
 from nucypher.blockchain.eth.agents import TACoApplicationAgent
 from nucypher.utilities.prometheus.collector import (
@@ -144,3 +145,18 @@ def initialize_collectors(
 ) -> None:
     for collector in metrics_collectors:
         collector.initialize(registry=collector_registry)
+
+
+def test_start_prometheus_exporter_called(mock_prometheus, light_ursula, monkeymodule):
+    # TODO: monkeypatch_get_staking_provider_from_operator fixture will be added in PR #3213.
+    #   so following lines can be replaced by a call to this fixture
+    monkeymodule.setattr(
+        Operator,
+        "get_staking_provider_address",
+        lambda self: self.transacting_power.account,
+    )
+    light_ursula.run(worker=False, start_reactor=False, preflight=False)
+    ursula = mock_prometheus.call_args.kwargs["ursula"]
+    assert mock_prometheus.call_count >= 1
+    assert ursula.operator_address == light_ursula.operator_address
+
