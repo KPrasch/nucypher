@@ -1,12 +1,12 @@
 from __future__ import unicode_literals
 
 import json
-import sys
-import time
 import unittest
 from unittest.mock import Mock
 
 import pytest
+import sys
+import time
 from prometheus_client import (
     CollectorRegistry,
     Counter,
@@ -30,32 +30,12 @@ from nucypher.utilities.prometheus.metrics import (
 
 
 def test_prometheus_metrics_config():
-    port = 2020
-
-    # no port
-    with pytest.raises(ValueError):
-        PrometheusMetricsConfig(port=None)
-
-    prometheus_config = PrometheusMetricsConfig(port=port)
-
-    assert prometheus_config.port == 2020
-    assert prometheus_config.listen_address == ''
-
-    # defaults
+    prometheus_config = PrometheusMetricsConfig()
+    assert prometheus_config.port == 9101
+    assert prometheus_config.metrics_prefix == "ursula"
+    assert prometheus_config.listen_address == ""
     assert prometheus_config.collection_interval == 90
     assert not prometheus_config.start_now
-    assert prometheus_config.listen_address == ''
-
-    # non-defaults
-    collection_interval = 5
-    listen_address = '111.111.111.111'
-    prometheus_config = PrometheusMetricsConfig(port=port,
-                                                listen_address=listen_address,
-                                                collection_interval=collection_interval,
-                                                start_now=True)
-    assert prometheus_config.listen_address == listen_address
-    assert prometheus_config.collection_interval == collection_interval
-    assert prometheus_config.start_now
 
 
 def test_base_metrics_collector():

@@ -1,12 +1,13 @@
 import random
-import time
 from typing import List
 
 import pytest
+import time
 from prometheus_client import CollectorRegistry
 from web3.types import Timestamp
 
-from nucypher.blockchain.eth.agents import ContractAgency, TACoApplicationAgent
+from nucypher.blockchain.eth.agents import ContractAgency
+from nucypher.blockchain.eth.agents import TACoApplicationAgent
 from nucypher.utilities.prometheus.collector import (
     BlockchainMetricsCollector,
     MetricsCollector,
@@ -82,7 +83,7 @@ def test_staking_provider_metrics_collector(test_registry, staking_providers):
     collector.collect()
 
     taco_application_agent = ContractAgency.get_agent(
-        TACoApplicationAgent, registry=test_registry
+        TACoApplicationAgent, registry=test_registry  # TODO: missing param
     )
 
     active_stake = collector_registry.get_sample_value("associated_active_stake")
