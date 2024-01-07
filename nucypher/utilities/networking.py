@@ -40,11 +40,9 @@ IP_DETECTION_LOGGER = Logger("external-ip-detection")
 
 def validate_operator_ip(ip: str) -> None:
     if ip in RESERVED_IP_ADDRESSES:
-        raise InvalidOperatorIP(
-            f"{ip} is not a valid or permitted operator IP address. "
-            f"Verify the 'rest_host' configuration value is set to the "
-            f"external IPV4 address"
-        )
+        raise InvalidOperatorIP(f"{ip} is not a valid or permitted operator IP address. "
+                                f"Verify the 'host' configuration value is set to the "
+                                f"external IPV4 address")
 
 
 def _request(url: str, certificate=None) -> Union[str, None]:
@@ -177,25 +175,25 @@ def determine_external_ip_address(
 
     If the IP address cannot be determined for any reason UnknownIPAddress is raised.
     """
-    rest_host = None
+    host = None
 
     # primary source
     if peers:
-        rest_host = get_external_ip_from_peers(
+        host = get_external_ip_from_peers(
             peers=peers, eth_endpoint=eth_endpoint
         )
 
     # fallback 1
-    if not rest_host:
-        rest_host = get_external_ip_from_default_peer(
+    if not host:
+        host = get_external_ip_from_default_peer(
             domain=domain, eth_endpoint=eth_endpoint
         )
 
     # fallback 2
-    if not rest_host:
-        rest_host = get_external_ip_from_centralized_source()
+    if not host:
+        host = get_external_ip_from_centralized_source()
 
     # complete failure!
-    if not rest_host:
-        raise UnknownIPAddress("External IP address detection failed")
-    return rest_host
+    if not host:
+        raise UnknownIPAddress('External IP address detection failed')
+    return host

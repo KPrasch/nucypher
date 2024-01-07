@@ -164,7 +164,7 @@ def ursula_test_config(test_registry, temp_dir_path):
         eth_endpoint=TEST_ETH_PROVIDER_URI,
         polygon_endpoint=TEST_ETH_PROVIDER_URI,
         test_registry=test_registry,
-        rest_port=select_test_port(),
+        port=select_test_port(),
     )
     yield config
     config.cleanup()
@@ -357,8 +357,8 @@ def light_ursula(temp_dir_path, random_account, accounts):
     )
 
     ursula = Ursula(
-        rest_host=LOOPBACK_ADDRESS,
-        rest_port=select_test_port(),
+        host=LOOPBACK_ADDRESS,
+        port=select_test_port(),
         domain=TEMPORARY_DOMAIN_NAME,
         pre_payment_method=pre_payment_method,
         eth_endpoint=MOCK_ETH_PROVIDER_URI,
