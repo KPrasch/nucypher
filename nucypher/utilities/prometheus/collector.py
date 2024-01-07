@@ -13,7 +13,6 @@ from typing import Dict, Type
 from eth_typing.evm import ChecksumAddress
 
 import nucypher
-from nucypher.blockchain.eth import actors
 from nucypher.blockchain.eth.agents import (
     ContractAgency,
     EthereumContractAgent,
@@ -82,14 +81,14 @@ class UrsulaInfoMetricsCollector(BaseMetricsCollector):
             "host_info": Info(
                 f"{metrics_prefix}_host", "Ursula info", registry=registry
             ),
-            "learning_status": Enum(
+            "peering_status": Enum(
                 f"{metrics_prefix}_node_discovery",
                 "Learning loop status",
                 states=["starting", "running", "stopped"],
                 registry=registry,
             ),
-            "known_nodes_gauge": Gauge(
-                f"{metrics_prefix}_known_nodes",
+            "peers_gauge": Gauge(
+                f"{metrics_prefix}_peers",
                 "Number of currently known nodes",
                 registry=registry,
             ),
@@ -112,8 +111,8 @@ class UrsulaInfoMetricsCollector(BaseMetricsCollector):
             "operator_address": self.ursula.operator_address,
         }
 
-        self.metrics["learning_status"].state('running' if self.ursula._learning_task.running else 'stopped')
-        self.metrics["known_nodes_gauge"].set(len(self.ursula.known_nodes))
+        self.metrics["peering_status"].state('running' if self.ursula._peering_task.running else 'stopped')
+        self.metrics["peers_gauge"].set(len(self.ursula.peers))
         self.metrics["host_info"].info(payload)
 
 
@@ -217,20 +216,17 @@ class OperatorMetricsCollector(BaseMetricsCollector):
         self.metrics = {
             "operator_eth_balance_gauge": Gauge(
                 f"{metrics_prefix}_operator_eth_balance",
-                "Operator Ethereum balance",
+                "Operator ether balance",
                 registry=registry,
             ),
         }
 
     def _collect_internal(self) -> None:
-        operator_token_actor = actors.NucypherTokenActor(
-            registry=self.contract_registry,
-            domain=self.domain,
-            checksum_address=self.operator_address,
-        )
-        self.metrics["operator_eth_balance_gauge"].set(
-            float(operator_token_actor.eth_balance)
-        )
+        pass
+        # TODO: implement MATIC balance for prometheus exporter metrics
+        # self.metrics["operator_eth_balance_gauge"].set(
+        #     float(operator_token_actor.eth_balance)
+        # )
 
 
 class EventMetricsCollector(BaseMetricsCollector):
@@ -272,7 +268,7 @@ class EventMetricsCollector(BaseMetricsCollector):
             return
 
         # update last block checked for the next round - from/to block range is inclusive
-        # increment before potentially long running execution to improve concurrency handling
+        # increment before potentially long-running execution to improve concurrency handling
         self.filter_current_from_block = to_block + 1
 
         events_throttler = ContractEventsThrottler(agent=contract_agent,

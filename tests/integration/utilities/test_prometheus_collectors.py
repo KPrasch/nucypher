@@ -53,14 +53,14 @@ def test_ursula_info_metrics_collector(test_registry, ursulas):
     collector.initialize(metrics_prefix=prefix, registry=collector_registry)
     collector.collect()
 
-    mode = "running" if ursula._learning_task.running else "stopped"
-    learning_mode = collector_registry.get_sample_value(
+    mode = "running" if ursula._peering_task.running else "stopped"
+    peering_mode = collector_registry.get_sample_value(
         f"{prefix}_node_discovery", labels={f"{prefix}_node_discovery": f"{mode}"}
     )
-    assert learning_mode == 1
+    assert peering_mode == 1
 
-    known_nodes = collector_registry.get_sample_value(f"{prefix}_known_nodes")
-    assert known_nodes == len(ursula.known_nodes)
+    peers = collector_registry.get_sample_value(f"{prefix}_peers")
+    assert peers == len(ursula.peers)
 
     reencryption_requests = collector_registry.get_sample_value(
         f"{prefix}_reencryption_requests"
@@ -90,9 +90,9 @@ def test_blockchain_metrics_collector(testerchain):
 
 @pytest.mark.skipif(condition=(not PROMETHEUS_INSTALLED), reason="prometheus_client is required for test")
 @pytest.mark.usefixtures("mock_operator_confirmation")
-def test_staking_provider_metrics_collector(test_registry, staking_providers):
+def test_staking_provider_metrics_collector(test_registry, accounts):
 
-    staking_provider_address = random.choice(staking_providers)
+    staking_provider_address = random.choice(accounts.stake_provider_wallets)
     collector = StakingProviderMetricsCollector(
         staking_provider_address=staking_provider_address,
         contract_registry=test_registry,
