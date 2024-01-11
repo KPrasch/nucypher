@@ -1,7 +1,6 @@
 import pytest
 
 from nucypher.blockchain.eth.agents import CoordinatorAgent
-from nucypher.blockchain.eth.wallets import Wallet
 from tests.constants import MOCK_ETH_PROVIDER_URI
 from tests.mock.coordinator import MockCoordinatorAgent
 
@@ -25,7 +24,7 @@ def cohort(ursulas):
 
 
 @pytest.fixture(scope="module")
-def wallet(accounts, alice):
+def wallet(accounts):
     return accounts.alice_wallet
 
 
