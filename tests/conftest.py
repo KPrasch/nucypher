@@ -17,7 +17,7 @@ global_mutable_where_everybody = defaultdict(list)
 Learner._DEBUG_MODE = False
 
 
-@pytest.fixture(autouse=True, scope='session')
+@pytest.fixture(autouse=True, scope="session")
 def __very_pretty_and_insecure_scrypt_do_not_use(request):
     """
     # WARNING: DO NOT USE THIS CODE ANYWHERE #
@@ -28,6 +28,7 @@ def __very_pretty_and_insecure_scrypt_do_not_use(request):
 
     # Capture Scrypt derivation method
     from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+
     original_derivation_function = Scrypt.derive
 
     # Patch Method
@@ -42,7 +43,7 @@ def __very_pretty_and_insecure_scrypt_do_not_use(request):
     Scrypt.derive = original_derivation_function
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def monkeysession():
     from _pytest.monkeypatch import MonkeyPatch
 
@@ -66,7 +67,7 @@ def monkeymodule():
 
 
 pytest_plugins = [
-    'pytest-nucypher',  # Includes external fixtures module via plugin
+    "pytest-nucypher",  # Includes external fixtures module via plugin
 ]
 
 
@@ -80,9 +81,11 @@ def pytest_collection_modifyitems(config, items):
 
 # global_mutable_where_everybody = defaultdict(list)  # TODO: cleanup
 
-@pytest.fixture(scope='module', autouse=True)
+
+@pytest.fixture(scope="module", autouse=True)
 def check_character_state_after_test(request):
     from nucypher.network.nodes import Learner
+
     yield
     if Learner._DEBUG_MODE:
         module_name = request.module.__name__
@@ -101,7 +104,9 @@ def check_character_state_after_test(request):
                 failure_message += learner._crashed.getBriefTraceback()
             pytest.fail(f"Some learners crashed:{failure_message}")
 
-        still_running = [learner for learner in test_learners if learner._peering_task.running]
+        still_running = [
+            learner for learner in test_learners if learner._peering_task.running
+        ]
 
         if any(still_running):
             offending_tests = set()
@@ -112,22 +117,29 @@ def check_character_state_after_test(request):
                     learner._finalize()
                 except AttributeError:
                     learner.disenchant()
-            pytest.fail(f"Learners remaining: {still_running}.  Offending tests: {offending_tests} ")
+            pytest.fail(
+                f"Learners remaining: {still_running}.  Offending tests: {offending_tests} "
+            )
 
-        still_tracking  = [learner for learner in test_learners if hasattr(learner, 'work_tracker') and learner.work_tracker._tracking_task.running]
+        still_tracking = [
+            learner
+            for learner in test_learners
+            if hasattr(learner, "work_tracker")
+            and learner.work_tracker._tracking_task.running
+        ]
         for tracker in still_tracking:
             tracker.work_tracker.stop()
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def mock_get_external_ip_from_url_source(session_mocker):
-    target = 'nucypher.cli.actions.configure.determine_external_ip_address'
+    target = "nucypher.cli.actions.configure.determine_external_ip_address"
     session_mocker.patch(target, return_value=MOCK_IP_ADDRESS)
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def disable_check_grant_requirements(session_mocker):
-    target = 'nucypher.characters.lawful.Alice._check_grant_requirements'
+    target = "nucypher.characters.lawful.Alice._check_grant_requirements"
     session_mocker.patch(target, return_value=MOCK_IP_ADDRESS)
 
 

@@ -99,19 +99,18 @@ def test_ursula_run_ip_checkup(
     ursula_test_config,
     tempfile_path,
 ):
-
     # Mock DKG
-    mocker.patch.object(ActiveRitualTracker, 'start', autospec=True)
+    mocker.patch.object(ActiveRitualTracker, "start", autospec=True)
 
     # Mock IP determination
-    target = 'nucypher.cli.actions.configure.determine_external_ip_address'
+    target = "nucypher.cli.actions.configure.determine_external_ip_address"
     mocker.patch(target, return_value=MOCK_IP_ADDRESS)
 
     # Mock Teacher Resolution
     from nucypher.characters.lawful import Ursula
 
     peer = ursulas[0]
-    mocker.patch.object(Ursula, 'from_peer_uri', return_value=peer)
+    mocker.patch.object(Ursula, "from_peer_uri", return_value=peer)
 
     # Mock worker qualification
     staking_provider = ursulas[1]
@@ -128,7 +127,9 @@ def test_ursula_run_ip_checkup(
     )
 
     mocker.patch.object(
-        LocalAccount, "from_keystore", return_value=testerchain.accounts.ursula_wallet(0)
+        LocalAccount,
+        "from_keystore",
+        return_value=testerchain.accounts.ursula_wallet(0),
     )
 
     # Setup

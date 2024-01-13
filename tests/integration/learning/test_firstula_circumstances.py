@@ -22,13 +22,12 @@ def test_proper_seed_node_instantiation(lonely_ursula_maker, accounts):
 
 @pt.inlineCallbacks
 def test_get_cert_from_running_seed_node(lonely_ursula_maker, accounts):
-
     firstula = lonely_ursula_maker(accounts=accounts).pop()
     node_deployer = firstula.get_deployer()
 
     node_deployer.addServices()
     node_deployer.catalogServers(node_deployer.hendrix)
-    node_deployer.start()   # If this port happens not to be open, we'll get an error here.  THis might be one of the few sane places to reintroduce a check.
+    node_deployer.start()  # If this port happens not to be open, we'll get an error here.  THis might be one of the few sane places to reintroduce a check.
 
     certificate_as_deployed = node_deployer.cert.to_cryptography()
 
@@ -39,7 +38,9 @@ def test_get_cert_from_running_seed_node(lonely_ursula_maker, accounts):
     ).pop()
     assert not any_other_ursula.peers
 
-    yield deferToThread(lambda: any_other_ursula.load_seednodes(record_fleet_state=True))
+    yield deferToThread(
+        lambda: any_other_ursula.load_seednodes(record_fleet_state=True)
+    )
     assert firstula in any_other_ursula.peers
 
     firstula_as_learned = any_other_ursula.peers[firstula.checksum_address]

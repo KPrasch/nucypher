@@ -33,7 +33,9 @@ class DKGStorage:
     ) -> Optional[Union[TxReceipt, HexBytes]]:
         return self.data["transcript_receipts"].get(ritual_id)
 
-    def store_aggregated_transcript(self, ritual_id: int, aggregated_transcript: AggregatedTranscript) -> None:
+    def store_aggregated_transcript(
+        self, ritual_id: int, aggregated_transcript: AggregatedTranscript
+    ) -> None:
         self.data["aggregated_transcripts"][ritual_id] = bytes(aggregated_transcript)
 
     def get_aggregated_transcript(

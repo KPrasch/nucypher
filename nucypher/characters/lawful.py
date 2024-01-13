@@ -135,7 +135,8 @@ class Alice(Character, actors.PolicyAuthor):
         store_policy_credentials: bool = None,
         timeout: int = 10,  # seconds
         network_middleware: RestMiddleware = None,
-        *args, **kwargs,
+        *args,
+        **kwargs,
     ):
         self.log = Logger(self.__class__.__name__)
 
@@ -161,7 +162,8 @@ class Alice(Character, actors.PolicyAuthor):
             eth_endpoint=eth_endpoint,
             network_middleware=network_middleware,
             include_self_in_the_state=False,
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
 
         if not is_peer:
@@ -170,7 +172,7 @@ class Alice(Character, actors.PolicyAuthor):
                 eth_endpoint=eth_endpoint,
                 domain=self.domain,
                 registry=self.registry,
-                wallet=self.wallet
+                wallet=self.wallet,
             )
 
             if not pre_payment_method:
@@ -313,7 +315,6 @@ class Alice(Character, actors.PolicyAuthor):
         timeout: int = None,
         **policy_params,
     ):
-
         #
         # Policy Creation
         #
@@ -441,7 +442,8 @@ class Bob(Character):
             eth_endpoint=eth_endpoint,
             polygon_endpoint=polygon_endpoint,
             include_self_in_the_state=False,
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
 
         coordinator_agent = None
@@ -772,7 +774,7 @@ class Ursula(Teacher, Character, Operator):
         condition_blockchain_endpoints: Optional[Dict[int, List[str]]] = None,
         pre_payment_method: Optional[Union[PaymentMethod, ContractPayment]] = None,
         crypto_power=None,
-        **character_kwargs
+        **character_kwargs,
     ):
         """
         Resolves the operator address of a local node or a peer.
@@ -791,8 +793,12 @@ class Ursula(Teacher, Character, Operator):
                 raise ValueError("A peer node cannot have a wallet.")
             if not metadata:
                 raise ValueError("'metadata' is a required parameter for a peer node.")
-            staking_provider_address = to_checksum_address(bytes(metadata.payload.staking_provider_address))
-            operator_address = to_checksum_address(bytes(metadata.payload.derive_operator_address()))
+            staking_provider_address = to_checksum_address(
+                bytes(metadata.payload.staking_provider_address)
+            )
+            operator_address = to_checksum_address(
+                bytes(metadata.payload.derive_operator_address())
+            )
         else:
             if not wallet:
                 raise ValueError(
@@ -865,7 +871,6 @@ class Ursula(Teacher, Character, Operator):
             self.log.info(message)
 
         else:
-
             # Peer HTTP Server
             # TODO: Use InterfaceInfo only
             self.rest_server = ProxyRESTServer(host=host, port=port)
@@ -1252,9 +1257,7 @@ class Ursula(Teacher, Character, Operator):
         previous_fleet_states = self.peers.previous_states(4)
 
         if not omit_peers:
-            peers_info = [
-                self.peers.status_info(node) for node in self.peers
-            ]
+            peers_info = [self.peers.status_info(node) for node in self.peers]
         else:
             peers_info = None
 
@@ -1380,7 +1383,7 @@ class Enrico:
         authorization = bytes(
             self.wallet.sign_message(
                 message=header_hash,
-                standardize=False  # TODO: Investigate why this is necessary
+                standardize=False,  # TODO: Investigate why this is necessary
             )
         )
 

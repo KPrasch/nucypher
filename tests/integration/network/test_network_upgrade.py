@@ -21,7 +21,9 @@ def test_nodes_connect_via_tls_and_verify(lonely_ursula_maker, accounts):
     cert_bytes = cert.public_bytes(serialization.Encoding.PEM)
 
     def check_node_with_cert(node, cert_file):
-        response = requests.get("https://{}/public_information".format(node.rest_url()), verify=cert_file)
+        response = requests.get(
+            "https://{}/public_information".format(node.rest_url()), verify=cert_file
+        )
         ursula = Ursula.from_metadata_bytes(response.content)
         assert ursula == node
 

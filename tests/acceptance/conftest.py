@@ -35,9 +35,7 @@ test_logger = Logger("acceptance-test-logger")
 
 # ERC-20
 TOTAL_SUPPLY = Web3.to_wei(11_000_000_000, "ether")
-NU_TOTAL_SUPPLY = Web3.to_wei(
-    1_000_000_000, "ether"
-)
+NU_TOTAL_SUPPLY = Web3.to_wei(1_000_000_000, "ether")
 
 # TACo Application
 MIN_AUTHORIZATION = Web3.to_wei(40_000, "ether")
@@ -333,15 +331,10 @@ def bond_operators(
         amount = minimum_stake + random.randrange(BONUS_TOKENS_FOR_TESTS)
 
         # initialize threshold stake via threshold staking (permission-less mock)
-        threshold_staking.setRoles(
-            provider_wallet.address,
-            sender=deployer_account
-        )
+        threshold_staking.setRoles(provider_wallet.address, sender=deployer_account)
 
         threshold_staking.authorizationIncreased(
-            provider_wallet.address,
-            0, amount,
-            sender=deployer_account
+            provider_wallet.address, 0, amount, sender=deployer_account
         )
 
         sender = accounts.ape_accounts[accounts.accounts.index(provider_wallet)]
@@ -392,6 +385,7 @@ def taco_child_application_agent(testerchain, test_registry):
 #
 # Conditions
 #
+
 
 @pytest.fixture(scope="module")
 def mock_rpc_condition(module_mocker, testerchain, monkeymodule):

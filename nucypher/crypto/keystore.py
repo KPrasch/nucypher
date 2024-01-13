@@ -51,37 +51,41 @@ _TLS_INFO = __INFO_BASE + b"tls"
 _SALT_SIZE = 32
 
 # Keystore File
-FILE_ENCODING = 'utf-8'
-_KEYSTORE_VERSION = '2.0'
+FILE_ENCODING = "utf-8"
+_KEYSTORE_VERSION = "2.0"
 __PRIVATE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL  # Write, Create, Non-Existing
-__PRIVATE_MODE = stat.S_IRUSR | stat.S_IWUSR            # 0o600
+__PRIVATE_MODE = stat.S_IRUSR | stat.S_IWUSR  # 0o600
 
 
 class InvalidPassword(ValueError):
     pass
 
 
-def _assemble_keystore(encrypted_secret: bytes, password_salt: bytes, wrapper_salt: bytes) -> Dict[str, Union[str, bytes]]:
+def _assemble_keystore(
+    encrypted_secret: bytes, password_salt: bytes, wrapper_salt: bytes
+) -> Dict[str, Union[str, bytes]]:
     encoded_key_data = {
-        'version': _KEYSTORE_VERSION,
-        'created': str(time.time()),
-        'key': encrypted_secret,
-        'password_salt': password_salt,
-        'wrapper_salt': wrapper_salt,
+        "version": _KEYSTORE_VERSION,
+        "created": str(time.time()),
+        "key": encrypted_secret,
+        "password_salt": password_salt,
+        "wrapper_salt": wrapper_salt,
     }
     return encoded_key_data
 
 
 def _read_keystore(path: Path, deserializer: Callable) -> Dict[str, Union[str, bytes]]:
     """Parses a keyfile and return decoded, deserialized key data."""
-    with open(path, 'rb') as keyfile:
+    with open(path, "rb") as keyfile:
         key_data = keyfile.read()
         if deserializer:
             key_data = deserializer(key_data)
     return key_data
 
 
-def _write_keystore(path: Path, payload: Dict[str, bytes], serializer: Callable) -> Path:
+def _write_keystore(
+    path: Path, payload: Dict[str, bytes], serializer: Callable
+) -> Path:
     """
     Creates a permissioned keyfile and save it to the local filesystem.
     The file must be created in this call, and will fail if the path exists.
@@ -108,13 +112,13 @@ def _write_keystore(path: Path, payload: Dict[str, bytes], serializer: Callable)
         os.umask(0)  # Set the umask to 0 after opening
     if serializer:
         payload = serializer(payload)
-    with os.fdopen(keyfile_descriptor, 'wb') as keyfile:
+    with os.fdopen(keyfile_descriptor, "wb") as keyfile:
         keyfile.write(payload)
     return path
 
 
 def _serialize_keystore(payload: Dict) -> bytes:
-    for field in ('key', 'password_salt', 'wrapper_salt'):
+    for field in ("key", "password_salt", "wrapper_salt"):
         payload[field] = bytes(payload[field]).hex()
     try:
         metadata = json.dumps(payload, indent=4)
@@ -133,14 +137,14 @@ def _deserialize_keystore(payload: bytes):
     # TODO: Handle Keystore versioning.
     # version = payload['version']
 
-    for field in ('key', 'password_salt', 'wrapper_salt'):
+    for field in ("key", "password_salt", "wrapper_salt"):
         payload[field] = bytes.fromhex(payload[field])
     return payload
 
 
 def generate_keystore_filepath(parent: Path, id: str) -> Path:
     utc_nowish = int(time.time())  # epoch
-    path = Path(parent) / f'{utc_nowish}-{id}.priv'
+    path = Path(parent) / f"{utc_nowish}-{id}.priv"
     return path
 
 
@@ -149,9 +153,11 @@ def validate_keystore_password(password: str) -> List:
     NOTICE: Do not raise inside this function.
     """
     rules = (
-        (bool(password), 'Password must not be blank.'),
-        (len(password) >= Keystore._MINIMUM_PASSWORD_LENGTH,
-         f'Password must be at least {Keystore._MINIMUM_PASSWORD_LENGTH} characters long.'),
+        (bool(password), "Password must not be blank."),
+        (
+            len(password) >= Keystore._MINIMUM_PASSWORD_LENGTH,
+            f"Password must be at least {Keystore._MINIMUM_PASSWORD_LENGTH} characters long.",
+        ),
     )
     failures = list()
     for rule, failure_message in rules:
@@ -161,37 +167,36 @@ def validate_keystore_password(password: str) -> List:
 
 
 def validate_keystore_filename(path: Path) -> None:
-    base_name = path.name.rstrip('.' + Keystore._SUFFIX)
+    base_name = path.name.rstrip("." + Keystore._SUFFIX)
     parts = base_name.split(Keystore._DELIMITER)
 
     try:
         created, keystore_id = parts
     except ValueError:
-        raise Keystore.Invalid(f'{path} is not a valid keystore filename')
+        raise Keystore.Invalid(f"{path} is not a valid keystore filename")
 
     validators = (
         bool(len(keystore_id) == Keystore._ID_SIZE),
-        all(char in string.hexdigits for char in keystore_id)
+        all(char in string.hexdigits for char in keystore_id),
     )
 
     valid_path = all(validators)
     if not valid_path:
-        raise Keystore.Invalid(f'{path} is not a valid keystore filename')
+        raise Keystore.Invalid(f"{path} is not a valid keystore filename")
 
 
 def _parse_path(path: Path) -> Tuple[int, str]:
-
     # validate keystore file
     if not path.exists():
         raise Keystore.NotFound(f"Keystore '{path.absolute()}' does not exist.")
     if not path.is_file():
-        raise ValueError('Keystore path must be a file.')
-    if not path.match(f'*{Keystore._DELIMITER}*.{Keystore._SUFFIX}'):
-        Keystore.Invalid(f'{path.absolute()} is not a valid keystore filename')
+        raise ValueError("Keystore path must be a file.")
+    if not path.match(f"*{Keystore._DELIMITER}*.{Keystore._SUFFIX}"):
+        Keystore.Invalid(f"{path.absolute()} is not a valid keystore filename")
 
     # dissect keystore filename
     validate_keystore_filename(path)
-    base_name = path.name.rstrip('.'+Keystore._SUFFIX)
+    base_name = path.name.rstrip("." + Keystore._SUFFIX)
     parts = base_name.split(Keystore._DELIMITER)
     created, keystore_id = parts
     return created, keystore_id
@@ -212,16 +217,15 @@ def _derive_hosting_power(host: str, secret_seed: bytes) -> TLSHostingPower:
 
 
 class Keystore:
-
     # Wrapping Key
     _MINIMUM_PASSWORD_LENGTH = 8
     _ID_SIZE = 32
 
     # Filepath
-    _DEFAULT_DIR: Path = DEFAULT_CONFIG_ROOT / 'keystore'
+    _DEFAULT_DIR: Path = DEFAULT_CONFIG_ROOT / "keystore"
 
-    _DELIMITER = '-'
-    _SUFFIX = 'priv'
+    _DELIMITER = "-"
+    _SUFFIX = "priv"
 
     # Powers derivation
     __HKDF_INFO = {
@@ -255,24 +259,29 @@ class Keystore:
 
     def __decrypt_keystore(self, path: Path, password: str) -> bool:
         payload = _read_keystore(path, deserializer=_deserialize_keystore)
-        __password_material = derive_key_material_from_password(password=password.encode(),
-                                                                salt=payload['password_salt'])
+        __password_material = derive_key_material_from_password(
+            password=password.encode(), salt=payload["password_salt"]
+        )
         try:
-            self.__secret = secret_box_decrypt(key_material=__password_material,
-                                               ciphertext=payload['key'],
-                                               salt=payload['wrapper_salt'])
+            self.__secret = secret_box_decrypt(
+                key_material=__password_material,
+                ciphertext=payload["key"],
+                salt=payload["wrapper_salt"],
+            )
             return True
         except SecretBoxAuthenticationError:
             self.__secret = KEYSTORE_LOCKED
             raise self.AuthenticationFailed
 
     @staticmethod
-    def __commit(secret: bytes, password: str, keystore_dir: Optional[Path] = None) -> Path:
+    def __commit(
+        secret: bytes, password: str, keystore_dir: Optional[Path] = None
+    ) -> Path:
         failures = validate_keystore_password(password)
         if failures:
             # TODO: Ensure this scope is separable from the scope containing the password
             #       to help avoid unintentional logging of the password.
-            raise InvalidPassword(''.join(failures))
+            raise InvalidPassword("".join(failures))
 
         if len(secret) != SecretKeyFactory.seed_size():
             raise ValueError(
@@ -284,33 +293,38 @@ class Keystore:
             _SIGNING_INFO
         )
         keystore_id = (
-            signing_key.public_key().to_compressed_bytes().hex()[:Keystore._ID_SIZE]
+            signing_key.public_key().to_compressed_bytes().hex()[: Keystore._ID_SIZE]
         )
 
         # Generate paths
         keystore_dir = keystore_dir or Keystore._DEFAULT_DIR
         os.makedirs(abspath(keystore_dir), exist_ok=True, mode=0o700)
-        keystore_filepath = generate_keystore_filepath(parent=keystore_dir, id=keystore_id)
+        keystore_filepath = generate_keystore_filepath(
+            parent=keystore_dir, id=keystore_id
+        )
 
         # Encrypt secret
         __password_salt = token_bytes(_SALT_SIZE)
-        __password_material = derive_key_material_from_password(password=password.encode(),
-                                                                salt=__password_salt)
+        __password_material = derive_key_material_from_password(
+            password=password.encode(), salt=__password_salt
+        )
 
         __wrapper_salt = token_bytes(_SALT_SIZE)
-        encrypted_secret = secret_box_encrypt(plaintext=secret,
-                                              key_material=__password_material,
-                                              salt=__wrapper_salt)
+        encrypted_secret = secret_box_encrypt(
+            plaintext=secret, key_material=__password_material, salt=__wrapper_salt
+        )
 
         # Create keystore file
-        keystore_payload = _assemble_keystore(encrypted_secret=encrypted_secret,
-                                              password_salt=__password_salt,
-                                              wrapper_salt=__wrapper_salt)
+        keystore_payload = _assemble_keystore(
+            encrypted_secret=encrypted_secret,
+            password_salt=__password_salt,
+            wrapper_salt=__wrapper_salt,
+        )
 
         _write_keystore(
             path=keystore_filepath,
             payload=keystore_payload,
-            serializer=_serialize_keystore
+            serializer=_serialize_keystore,
         )
 
         return keystore_filepath
@@ -320,13 +334,15 @@ class Keystore:
     #
 
     @classmethod
-    def load(cls, id: str, keystore_dir: Path = _DEFAULT_DIR) -> 'Keystore':
+    def load(cls, id: str, keystore_dir: Path = _DEFAULT_DIR) -> "Keystore":
         filepath = generate_keystore_filepath(parent=keystore_dir, id=id)
         instance = cls(keystore_filepath=filepath)
         return instance
 
     @classmethod
-    def import_secure(cls, key_material: bytes, password: str, keystore_dir: Optional[Path] = None) -> 'Keystore':
+    def import_secure(
+        cls, key_material: bytes, password: str, keystore_dir: Optional[Path] = None
+    ) -> "Keystore":
         """
         Generate a Keystore using a a custom pre-secured entropy blob.
         This method of keystore creation does not generate a mnemonic phrase - it is assumed
@@ -339,25 +355,19 @@ class Keystore:
             color="yellow",
         )
         path = Keystore.__commit(
-            secret=key_material,
-            password=password,
-            keystore_dir=keystore_dir
+            secret=key_material, password=password, keystore_dir=keystore_dir
         )
         keystore = cls(keystore_filepath=path)
         return keystore
 
     @classmethod
     def from_mnemonic(
-            cls,
-            mnemonic: str,
-            password: str,
-            keystore_dir: Optional[Path] = None):
+        cls, mnemonic: str, password: str, keystore_dir: Optional[Path] = None
+    ):
         __seed = Mnemonic(_LANGUAGE).to_seed(mnemonic)
-        __secret = __seed[:SecretKeyFactory.seed_size()]
+        __secret = __seed[: SecretKeyFactory.seed_size()]
         keystore_filepath = cls.__commit(
-            secret=__secret,
-            password=password,
-            keystore_dir=keystore_dir
+            secret=__secret, password=password, keystore_dir=keystore_dir
         )
         keystore = cls(keystore_filepath=keystore_filepath)
         return keystore
@@ -376,20 +386,21 @@ class Keystore:
     def unlock(self, password: str) -> None:
         self.__decrypt_keystore(path=self.keystore_filepath, password=password)
 
-    def derive_crypto_power(self,
-                            power_class: Type[CryptoPowerUp],
-                            *power_args, **power_kwargs
-                            ) -> Union[KeyPairBasedPower, DerivedKeyBasedPower]:
-
+    def derive_crypto_power(
+        self, power_class: Type[CryptoPowerUp], *power_args, **power_kwargs
+    ) -> Union[KeyPairBasedPower, DerivedKeyBasedPower]:
         if not self.is_unlocked:
-            raise Keystore.Locked(f"{self.id} is locked and must be unlocked before use.")
+            raise Keystore.Locked(
+                f"{self.id} is locked and must be unlocked before use."
+            )
         try:
             info = self.__HKDF_INFO[power_class]
         except KeyError:
-            failure_message = f"{power_class.__name__} is an invalid type for deriving a CryptoPower"
+            failure_message = (
+                f"{power_class.__name__} is an invalid type for deriving a CryptoPower"
+            )
             raise TypeError(failure_message)
         else:
-
             __skf = SecretKeyFactory.from_secure_randomness(self.__secret)
 
         if power_class is TLSHostingPower:  # TODO: something more elegant?
@@ -423,10 +434,14 @@ class Keystore:
         elif issubclass(power_class, DerivedKeyBasedPower):
             parent_skf = SecretKeyFactory.from_secure_randomness(self.__secret)
             child_skf = parent_skf.make_factory(_DELEGATING_INFO)
-            power = power_class(secret_key_factory=child_skf, *power_args, **power_kwargs)
+            power = power_class(
+                secret_key_factory=child_skf, *power_args, **power_kwargs
+            )
 
         else:
-            failure_message = f"{power_class.__name__} is an invalid type for deriving a CryptoPower."
+            failure_message = (
+                f"{power_class.__name__} is an invalid type for deriving a CryptoPower."
+            )
             raise ValueError(failure_message)
 
         return power

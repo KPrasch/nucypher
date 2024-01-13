@@ -1,5 +1,3 @@
-
-
 import time
 from typing import Any, Callable, Union
 
@@ -14,11 +12,14 @@ class RetryRequestMiddleware:
     """
     Automatically retries rpc requests whenever a 429 status code is returned.
     """
-    def __init__(self,
-                 make_request: Callable[[RPCEndpoint, Any], RPCResponse],
-                 w3: Web3,
-                 retries: int = 3,
-                 exponential_backoff: bool = True):
+
+    def __init__(
+        self,
+        make_request: Callable[[RPCEndpoint, Any], RPCResponse],
+        w3: Web3,
+        retries: int = 3,
+        exponential_backoff: bool = True,
+    ):
         self.w3 = w3
         self.make_request = make_request
         self.retries = retries
@@ -35,10 +36,10 @@ class RetryRequestMiddleware:
                 return True
         elif not isinstance(result, Exception):
             # must be RPCResponse
-            if 'error' in result:
-                error = result['error']
+            if "error" in result:
+                error = result["error"]
                 # either instance of RPCError or str
-                if not isinstance(error, str) and error.get('code') == 429:
+                if not isinstance(error, str) and error.get("code") == 429:
                     return True
 
         # not retry result
@@ -59,12 +60,16 @@ class RetryRequestMiddleware:
             if not self.is_request_result_retry(result):
                 if i > 0:
                     # not initial call and retry was actually performed
-                    self.logger.debug(f'Retried rpc request completed after {i} retries')
+                    self.logger.debug(
+                        f"Retried rpc request completed after {i} retries"
+                    )
                 break
 
             # max retries with no completion
             if i == self.retries:
-                self.logger.warn(f'RPC request retried {self.retries} times but was not completed')
+                self.logger.warn(
+                    f"RPC request retried {self.retries} times but was not completed"
+                )
                 break
 
             # backoff before next call
@@ -102,13 +107,13 @@ class AlchemyRetryRequestMiddleware(RetryRequestMiddleware):
 
         if not isinstance(result, Exception):
             # RPCResponse
-            if 'error' in result:
-                error = result['error']
+            if "error" in result:
+                error = result["error"]
                 if isinstance(error, str):
-                    return 'retries' in error
+                    return "retries" in error
                 else:
                     # RPCError TypeDict
-                    return 'retries' in error.get('message')
+                    return "retries" in error.get("message")
         # else
         #     exception already checked by superclass - no need to check here
 
@@ -145,12 +150,14 @@ class InfuraRetryRequestMiddleware(RetryRequestMiddleware):
 
         if not isinstance(result, Exception):
             # RPCResponse
-            if 'error' in result:
-                error = result['error']
+            if "error" in result:
+                error = result["error"]
                 if not isinstance(error, str):
                     # RPCError TypeDict
                     # TODO should we utilize infura's backoff_seconds value in response?
-                    return error.get('code') == -32005 and 'rate exceeded' in error.get('message')
+                    return error.get("code") == -32005 and "rate exceeded" in error.get(
+                        "message"
+                    )
         # else
         #     exceptions already checked by superclass - no need to check here
 

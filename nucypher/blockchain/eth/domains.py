@@ -72,7 +72,6 @@ class TACoDomain:
         return set(chain.id for chain in self.condition_chains)
 
 
-
 MAINNET = TACoDomain(
     name="mainnet",
     eth_chain=EthChain.MAINNET,

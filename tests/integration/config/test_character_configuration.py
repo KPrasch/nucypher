@@ -36,13 +36,10 @@ all_configurations = tuple(
 
 
 @pytest.mark.usefixtures(
-    "mock_registry_sources",
-    "monkeypatch_get_staking_provider_from_operator"
+    "mock_registry_sources", "monkeypatch_get_staking_provider_from_operator"
 )
 @pytest.mark.parametrize("character,configuration", characters_and_configurations)
-def test_development_character_configurations(
-    character, configuration
-):
+def test_development_character_configurations(character, configuration):
     params = dict(
         dev_mode=True,
         lonely=True,
@@ -110,9 +107,9 @@ def test_default_character_configuration_preservation(
     if configuration_class == UrsulaConfiguration:
         # special case for host & dev mode use keystore
         keystore = Keystore.from_mnemonic(
-            mnemonic=Mnemonic('english').generate(24),
+            mnemonic=Mnemonic("english").generate(24),
             password=INSECURE_DEVELOPMENT_PASSWORD,
-            keystore_dir=tmpdir
+            keystore_dir=tmpdir,
         )
         keystore.signing_public_key = SecretKey.random().public_key()
         character_config = configuration_class(

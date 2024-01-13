@@ -26,9 +26,11 @@ def test_ursula_substantiates_stamp(ursulas):
     signature_as_bytes = first_ursula.operator_signature
     signature_as_bytes = to_standard_signature_bytes(signature_as_bytes)
     # `operator_address` was derived in nucypher_core, check it independently
-    assert verify_eip_191(address=first_ursula.operator_address,
-                          message=bytes(first_ursula.stamp),
-                          signature=signature_as_bytes)
+    assert verify_eip_191(
+        address=first_ursula.operator_address,
+        message=bytes(first_ursula.stamp),
+        signature=signature_as_bytes,
+    )
 
 
 def test_blockchain_ursula_verifies_stamp(ursulas):
@@ -74,7 +76,9 @@ def test_vladimir_cannot_verify_interface_with_ursulas_signing_key(
     vladimir = remote_vladimir(target_ursula=his_target)
 
     # Now, even though his public signing key matches Ursulas...
-    assert vladimir.metadata().payload.verifying_key == his_target.stamp.as_umbral_pubkey()
+    assert (
+        vladimir.metadata().payload.verifying_key == his_target.stamp.as_umbral_pubkey()
+    )
 
     # ...he is unable to pretend that his interface is valid
     # because the validity check contains the canonical public address as part of its message.
@@ -92,17 +96,16 @@ def test_vladimir_uses_his_own_signing_key(alice, ursulas, test_registry):
     using his own signing key, which he claims is Ursula's.
     """
     his_target = list(ursulas)[4]
-    vladimir = remote_vladimir(target_ursula=his_target,
-                               sign_metadata=True)
+    vladimir = remote_vladimir(target_ursula=his_target, sign_metadata=True)
 
     # The metadata signature does not match the verifying key
     with pytest.raises(vladimir.InvalidNode, match="Metadata signature is invalid"):
         vladimir.validate_metadata_signature()
 
     # Let's try again, but this time put our own key in the metadata, too
-    vladimir = remote_vladimir(target_ursula=his_target,
-                               substitute_verifying_key=True,
-                               sign_metadata=True)
+    vladimir = remote_vladimir(
+        target_ursula=his_target, substitute_verifying_key=True, sign_metadata=True
+    )
 
     # With this slightly more sophisticated attack, his metadata does appear valid.
     # In fact, we pass the decentralized evidence verification too,
@@ -110,9 +113,9 @@ def test_vladimir_uses_his_own_signing_key(alice, ursulas, test_registry):
     vladimir.validate_metadata()
 
     # But since the derived worker address is bogus, the staker-worker bond check fails.
-    vladimir = remote_vladimir(target_ursula=his_target,
-                               substitute_verifying_key=True,
-                               sign_metadata=True)
+    vladimir = remote_vladimir(
+        target_ursula=his_target, substitute_verifying_key=True, sign_metadata=True
+    )
 
     message = f"Operator {vladimir.operator_address} is not bonded"
     with pytest.raises(vladimir.UnbondedOperator, match=message):
@@ -124,9 +127,9 @@ def test_vladimir_uses_his_own_signing_key(alice, ursulas, test_registry):
 def test_vladimir_invalidity_without_stake(testerchain, ursulas, alice):
     his_target = list(ursulas)[4]
 
-    vladimir = remote_vladimir(target_ursula=his_target,
-                               substitute_verifying_key=True,
-                               sign_metadata=True)
+    vladimir = remote_vladimir(
+        target_ursula=his_target, substitute_verifying_key=True, sign_metadata=True
+    )
 
     # All the signature validations will pass (without the registry check)
     vladimir.validate_metadata()
@@ -139,7 +142,7 @@ def test_vladimir_invalidity_without_stake(testerchain, ursulas, alice):
 
 # TODO: Change name of this file, extract this test
 def test_ursulas_reencrypt(ursulas, alice, bob, policy_value):
-    label = b'bbo'
+    label = b"bbo"
 
     # TODO: Make sample selection buffer configurable - #1061
     threshold = shares = 10

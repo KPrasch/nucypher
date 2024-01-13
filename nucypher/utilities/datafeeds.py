@@ -1,5 +1,3 @@
-
-
 from abc import ABC, abstractmethod
 from difflib import get_close_matches
 from typing import Optional
@@ -11,7 +9,6 @@ from web3.types import TxParams, Wei
 
 
 class Datafeed(ABC):
-
     class DatafeedError(RuntimeError):
         """Base class for exceptions concerning Datafeeds"""
 
@@ -42,10 +39,10 @@ class EthereumGasPriceDatafeed(Datafeed):
     _default_speed = NotImplemented
 
     _speed_equivalence_classes = {
-        SLOW: ('slow', 'safeLow', 'low'),
-        MEDIUM: ('medium', 'standard', 'average'),
-        FAST: ('fast', 'high'),
-        FASTEST: ('fastest', )
+        SLOW: ("slow", "safeLow", "low"),
+        MEDIUM: ("medium", "standard", "average"),
+        FAST: ("fast", "high"),
+        FASTEST: ("fastest",),
     }
 
     @abstractmethod
@@ -64,6 +61,7 @@ class EthereumGasPriceDatafeed(Datafeed):
             feed = cls()
             gas_price = feed.get_gas_price(speed=speed)
             return gas_price
+
         return gas_price_strategy
 
     @classmethod
@@ -72,13 +70,19 @@ class EthereumGasPriceDatafeed(Datafeed):
             if speed.lower() in map(str.lower, speed_names):
                 return canonical_speed
         else:
-            all_speed_names = [name for names in cls._speed_equivalence_classes.values() for name in names]
+            all_speed_names = [
+                name
+                for names in cls._speed_equivalence_classes.values()
+                for name in names
+            ]
             suggestion = get_close_matches(speed, all_speed_names, n=1)
             if not suggestion:
                 message = f"'{speed}' is not a valid speed name."
             else:
                 suggestion = suggestion.pop()
-                message = f"'{speed}' is not a valid speed name. Did you mean '{suggestion}'?"
+                message = (
+                    f"'{speed}' is not a valid speed name. Did you mean '{suggestion}'?"
+                )
             raise LookupError(message)
 
 
@@ -88,16 +92,19 @@ class EtherchainGasPriceDatafeed(EthereumGasPriceDatafeed):
     name = "Etherchain datafeed"
     api_url = "https://www.etherchain.org/api/gasPriceOracle"
     _speed_names = {
-        SLOW: 'safeLow',
-        MEDIUM: 'standard',
-        FAST: 'fast',
-        FASTEST: 'fastest'
+        SLOW: "safeLow",
+        MEDIUM: "standard",
+        FAST: "fast",
+        FASTEST: "fastest",
     }
-    _default_speed = 'fast'
+    _default_speed = "fast"
 
     def _parse_gas_prices(self):
         self._probe_feed()
-        self.gas_prices = {self.get_canonical_speed(k): int(Web3.to_wei(v, 'gwei')) for k, v in self._raw_data.items()}
+        self.gas_prices = {
+            self.get_canonical_speed(k): int(Web3.to_wei(v, "gwei"))
+            for k, v in self._raw_data.items()
+        }
 
 
 class UpvestGasPriceDatafeed(EthereumGasPriceDatafeed):
@@ -105,18 +112,15 @@ class UpvestGasPriceDatafeed(EthereumGasPriceDatafeed):
 
     name = "Upvest datafeed"
     api_url = "https://fees.upvest.co/estimate_eth_fees"
-    _speed_names = {
-        SLOW: 'slow',
-        MEDIUM: 'medium',
-        FAST: 'fast',
-        FASTEST: 'fastest'
-    }
-    _default_speed = 'fastest'
+    _speed_names = {SLOW: "slow", MEDIUM: "medium", FAST: "fast", FASTEST: "fastest"}
+    _default_speed = "fastest"
 
     def _parse_gas_prices(self):
         self._probe_feed()
-        self.gas_prices = {self.get_canonical_speed(k): int(Web3.to_wei(v, 'gwei'))
-                           for k, v in self._raw_data['estimates'].items()}
+        self.gas_prices = {
+            self.get_canonical_speed(k): int(Web3.to_wei(v, "gwei"))
+            for k, v in self._raw_data["estimates"].items()
+        }
 
 
 class ZoltuGasPriceDatafeed(EthereumGasPriceDatafeed):
@@ -125,17 +129,17 @@ class ZoltuGasPriceDatafeed(EthereumGasPriceDatafeed):
     name = "gas-oracle.zoltu.io datafeed"
     api_url = "https://gas-oracle.zoltu.io"
     _speed_names = {
-        SLOW: 'percentile_40',
-        MEDIUM: 'percentile_75',
-        FAST: 'percentile_95',
-        FASTEST: 'percentile_98'
+        SLOW: "percentile_40",
+        MEDIUM: "percentile_75",
+        FAST: "percentile_95",
+        FASTEST: "percentile_98",
     }
-    _default_speed = 'fast'
+    _default_speed = "fast"
 
     def _parse_gas_prices(self):
         self._probe_feed()
         self.gas_prices = dict()
         for canonical_speed_name, zoltu_speed in self._speed_names.items():
             gwei_price = self._raw_data[zoltu_speed].split(" ")[0]
-            wei_price = int(Web3.to_wei(gwei_price, 'gwei'))
+            wei_price = int(Web3.to_wei(gwei_price, "gwei"))
             self.gas_prices[canonical_speed_name] = wei_price

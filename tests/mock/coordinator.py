@@ -20,7 +20,6 @@ from tests.mock.interfaces import MockBlockchain
 
 
 class MockCoordinatorAgent(MockContractAgent):
-
     Participant = CoordinatorAgent.Ritual.Participant
     Ritual = CoordinatorAgent.Ritual
     RitualStatus = CoordinatorAgent.Ritual.Status
@@ -38,7 +37,9 @@ class MockCoordinatorAgent(MockContractAgent):
         START_RITUAL = 0
         START_AGGREGATION_ROUND = 1
 
-    def __init__(self, blockchain: MockBlockchain, max_dkg_size: int = 64, timeout: int = 600):
+    def __init__(
+        self, blockchain: MockBlockchain, max_dkg_size: int = 64, timeout: int = 600
+    ):
         self.blockchain = blockchain
         self.timeout = timeout
         self.max_dkg_size = max_dkg_size
@@ -64,7 +65,10 @@ class MockCoordinatorAgent(MockContractAgent):
         return dkg_size // 2 + 1
 
     def emit_event(self, ritual_id: int, signal: Events, **kwargs) -> None:
-        self.EVENTS[(int(time.time_ns()), ritual_id)] = (signal, {**kwargs, 'ritual_id': ritual_id})
+        self.EVENTS[(int(time.time_ns()), ritual_id)] = (
+            signal,
+            {**kwargs, "ritual_id": ritual_id},
+        )
 
     def reset(self, **kwargs) -> None:
         # self.rituals = []

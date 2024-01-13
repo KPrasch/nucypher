@@ -40,12 +40,11 @@ def test_cached_chain_id(mocker, chain_id_return_value):
 
 
 class MockGethProvider:
-    endpoint_uri = 'http://192.168.9.0:8545'
-    client_version = 'Geth/v1.4.11-stable-fed692f6/darwin/go1.7'
+    endpoint_uri = "http://192.168.9.0:8545"
+    client_version = "Geth/v1.4.11-stable-fed692f6/darwin/go1.7"
 
 
 class SyncedMockW3Eth:
-
     # Support older and newer versions of web3 py in-test
     version = 5
     chain_id = hex(5)
@@ -53,17 +52,16 @@ class SyncedMockW3Eth:
 
     def getBlock(self, blockNumber):
         return {
-            'timestamp': datetime.datetime.timestamp(datetime.datetime.now() - datetime.timedelta(seconds=25))
+            "timestamp": datetime.datetime.timestamp(
+                datetime.datetime.now() - datetime.timedelta(seconds=25)
+            )
         }
 
 
 class MockedW3GethWithPeers:
-
     @property
     def admin(self):
-
         class GethAdmin:
-
             def peers(self):
                 return [1, 2, 3]
 
@@ -74,8 +72,8 @@ class MockedW3GethWithPeers:
 # Mock Web3
 #
 
-class SyncedMockWeb3:
 
+class SyncedMockWeb3:
     net = SyncedMockW3Eth()
     eth = SyncedMockW3Eth()
     geth = MockedW3GethWithPeers()
@@ -97,8 +95,8 @@ class SyncedMockWeb3:
 # Mock Blockchain
 #
 
-class BlockchainInterfaceTestBase(BlockchainInterface):
 
+class BlockchainInterfaceTestBase(BlockchainInterface):
     Web3 = SyncedMockWeb3
 
     def _configure_registry(self, *args, **kwargs):
@@ -112,11 +110,9 @@ class BlockchainInterfaceTestBase(BlockchainInterface):
 
 
 class ProviderTypeTestClient(BlockchainInterfaceTestBase):
-    def __init__(self,
-                 expected_provider_class,
-                 actual_provider_to_attach,
-                 *args,
-                 **kwargs):
+    def __init__(
+        self, expected_provider_class, actual_provider_to_attach, *args, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.expected_provider_class = expected_provider_class
         self.test_provider_to_attach = actual_provider_to_attach
@@ -131,7 +127,6 @@ class ProviderTypeTestClient(BlockchainInterfaceTestBase):
 
 
 class GethClientTestBlockchain(BlockchainInterfaceTestBase):
-
     def _attach_blockchain_provider(self, *args, **kwargs) -> None:
         super()._attach_blockchain_provider(provider=MockGethProvider())
 
@@ -172,9 +167,19 @@ def test_detect_provider_type_https():
 def test_gas_prices(mocker, mock_ethereum_client):
     web3_mock = mock_ethereum_client.w3
 
-    web3_mock.eth.generate_gas_price = mocker.Mock(side_effect=[None, GAS_PRICE_FROM_STRATEGY])
-    type(web3_mock.eth).gas_price = PropertyMock(return_value=DEFAULT_GAS_PRICE)  # See docs of PropertyMock
+    web3_mock.eth.generate_gas_price = mocker.Mock(
+        side_effect=[None, GAS_PRICE_FROM_STRATEGY]
+    )
+    type(web3_mock.eth).gas_price = PropertyMock(
+        return_value=DEFAULT_GAS_PRICE
+    )  # See docs of PropertyMock
 
     assert mock_ethereum_client.gas_price == DEFAULT_GAS_PRICE
-    assert mock_ethereum_client.gas_price_for_transaction("there's no gas strategy") == DEFAULT_GAS_PRICE
-    assert mock_ethereum_client.gas_price_for_transaction("2nd time is the charm") == GAS_PRICE_FROM_STRATEGY
+    assert (
+        mock_ethereum_client.gas_price_for_transaction("there's no gas strategy")
+        == DEFAULT_GAS_PRICE
+    )
+    assert (
+        mock_ethereum_client.gas_price_for_transaction("2nd time is the charm")
+        == GAS_PRICE_FROM_STRATEGY
+    )

@@ -4,7 +4,9 @@ from nucypher.policy.conditions.evm import ContractCondition
 from nucypher.policy.conditions.lingo import ConditionLingo
 
 
-def test_simple_lingo_serialization(custom_abi_with_multiple_parameters, erc1155_balance_condition_data):
+def test_simple_lingo_serialization(
+    custom_abi_with_multiple_parameters, erc1155_balance_condition_data
+):
     original_data = custom_abi_with_multiple_parameters
     condition = ContractCondition.from_json(original_data)
     serialized_data = condition.to_json()

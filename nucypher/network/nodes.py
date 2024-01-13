@@ -279,7 +279,7 @@ class Learner:
         self._peering_deferred = None
         self._discovery_canceller = DiscoveryCanceller()
 
-        self.node_class =  characters.lawful.Ursula
+        self.node_class = characters.lawful.Ursula
 
         # This node has not initialized its metadata yet.
         self.peers.record_fleet_state(skip_this_node=True)
@@ -295,7 +295,9 @@ class Learner:
             import os
 
             frames = inspect.stack(3)
-            self._peering_task = task.LoopingCall(self.continue_peering, learner=self, frames=frames)
+            self._peering_task = task.LoopingCall(
+                self.continue_peering, learner=self, frames=frames
+            )
             self._init_frames = frames
             from tests.conftest import global_mutable_where_everybody
 
@@ -345,12 +347,13 @@ class Learner:
         self.log.info("Finished contacting seednodes.")
         return discovered
 
-    def remember_peer(self,
-                      node,
-                      force_verification_recheck: bool = False,
-                      record_fleet_state: bool = True,
-                      eager: bool = False):
-
+    def remember_peer(
+        self,
+        node,
+        force_verification_recheck: bool = False,
+        record_fleet_state: bool = True,
+        eager: bool = False,
+    ):
         if node == self:  # No need to remember self.
             return False
 
@@ -378,15 +381,23 @@ class Learner:
                     eth_endpoint=self.eth_endpoint,
                 )
             except SSLError:
-                self.log.debug(f"SSL Error while trying to verify node {node.rest_interface}.")
+                self.log.debug(
+                    f"SSL Error while trying to verify node {node.rest_interface}."
+                )
                 self.peers.mark_for_removal(SSLError, node)
                 success = False
             except RestMiddleware.Unreachable:
-                self.log.debug("No Response while trying to verify node {}|{}.".format(node.rest_interface, node))
+                self.log.debug(
+                    "No Response while trying to verify node {}|{}.".format(
+                        node.rest_interface, node
+                    )
+                )
                 self.peers.mark_for_removal(node.Unreachable, node)
                 success = False
             except Teacher.NotStaking:
-                self.log.debug(f'Provider:Operator {node.checksum_address}:{node.operator_address} is not staking.')
+                self.log.debug(
+                    f"Provider:Operator {node.checksum_address}:{node.operator_address} is not staking."
+                )
                 self.peers.mark_for_removal(Teacher.NotStaking, node)
                 success = False
 
@@ -401,12 +412,16 @@ class Learner:
             self.log.info("Starting P2P.")
             self.learn_from_peer()
 
-            self.peering_deferred = self._peering_task.start(interval=self._SHORT_LEARNING_DELAY)
+            self.peering_deferred = self._peering_task.start(
+                interval=self._SHORT_LEARNING_DELAY
+            )
             self.peering_deferred.addErrback(self.handle_peering_errors)
             return self.peering_deferred
         else:
             self.log.info("Starting P2P.")
-            learner_deferred = self._peering_task.start(interval=self._SHORT_LEARNING_DELAY, now=False)
+            learner_deferred = self._peering_task.start(
+                interval=self._SHORT_LEARNING_DELAY, now=False
+            )
             learner_deferred.addErrback(self.handle_peering_errors)
             self.peering_deferred = learner_deferred
             return self.peering_deferred
@@ -424,9 +439,13 @@ class Learner:
         crash_right_now = getattr(_exception, "crash_right_now", False)
         if self._abort_on_peering_error or crash_right_now:
             reactor.callFromThread(self._crash_gracefully, failure=failure)
-            self.log.critical("Unhandled error during node peering.  Attempting graceful crash.")
+            self.log.critical(
+                "Unhandled error during node peering.  Attempting graceful crash."
+            )
         else:
-            self.log.warn(f"Unhandled error during node peering: {failure.getTraceback()}")
+            self.log.warn(
+                f"Unhandled error during node peering: {failure.getTraceback()}"
+            )
             if not self._peering_task.running:
                 self.start_peering()  # TODO: Consider a single entry point for this with more elegant pause and unpause.  NRN
 
@@ -470,12 +489,15 @@ class Learner:
             self.cycle_peers()
         peer = self._current_peer
         return peer
+
     def continue_peering(self):
         self._peering_deferred = Deferred(canceller=self._discovery_canceller)
 
         def _discover_or_abort(_first_result):
             # self.log.debug(f"{self} peering at {datetime.datetime.now()}")   # 1712
-            result = self.learn_from_peer(eager=False, canceller=self._discovery_canceller)
+            result = self.learn_from_peer(
+                eager=False, canceller=self._discovery_canceller
+            )
             # self.log.debug(f"{self} finished peering at {datetime.datetime.now()}")  # 1712
             return result
 
@@ -489,11 +511,13 @@ class Learner:
 
     # TODO: Dehydrate these next two methods.  NRN
 
-    def block_until_number_of_peers_is(self,
-                                       number_of_nodes_to_know: int,
-                                       timeout: int = 10,
-                                       learn_on_this_thread: bool = False,
-                                       eager: bool = False):
+    def block_until_number_of_peers_is(
+        self,
+        number_of_nodes_to_know: int,
+        timeout: int = 10,
+        learn_on_this_thread: bool = False,
+        eager: bool = False,
+    ):
         start = maya.now()
         starting_round = self._peering_round
 
@@ -513,11 +537,16 @@ class Learner:
                 return True
 
             if not self._peering_task.running:
-                self.log.warn("Blocking to learn about nodes, but peering loop isn't running.")
+                self.log.warn(
+                    "Blocking to learn about nodes, but peering loop isn't running."
+                )
             if learn_on_this_thread:
                 try:
                     self.learn_from_peer(eager=eager)
-                except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectTimeout):
+                except (
+                    requests.exceptions.ReadTimeout,
+                    requests.exceptions.ConnectTimeout,
+                ):
                     # TODO: Even this "same thread" logic can be done off the main thread.  NRN
                     self.log.warn(
                         "Teacher was unreachable.  No good way to handle this on the main thread."
@@ -528,10 +557,14 @@ class Learner:
             elapsed = (round_finish - start).seconds
             if elapsed > timeout:
                 if len(self.peers) >= number_of_nodes_to_know:  # Last chance!
-                    self.log.info(f"Learned about enough nodes after {rounds_undertaken} rounds.")
+                    self.log.info(
+                        f"Learned about enough nodes after {rounds_undertaken} rounds."
+                    )
                     return True
                 if not self._peering_task.running:
-                    raise RuntimeError("Learning loop is not running.  Start it with start_peering().")
+                    raise RuntimeError(
+                        "Learning loop is not running.  Start it with start_peering()."
+                    )
                 elif not reactor.running and not learn_on_this_thread:
                     raise RuntimeError(
                         f"The reactor isn't running, but you're trying to use it for discovery.  You need to start the Reactor in order to use {self} this way."
@@ -574,7 +607,8 @@ class Learner:
                 self.learn_from_peer(eager=True)
             elif not self._peering_task.running:
                 raise RuntimeError(
-                    "Tried to block while discovering nodes on another thread, but the peering task isn't running.")
+                    "Tried to block while discovering nodes on another thread, but the peering task isn't running."
+                )
 
             if (maya.now() - start).seconds > timeout:
                 still_unknown = addresses.difference(self.peers.addresses())
@@ -653,18 +687,22 @@ class Learner:
 
         current_peer.mature()
         if self.domain != current_peer.domain:
-            self.log.debug(f"{current_peer} is serving '{current_peer.domain}', "
-                           f"ignore since we are peering '{self.domain}'")
+            self.log.debug(
+                f"{current_peer} is serving '{current_peer.domain}', "
+                f"ignore since we are peering '{self.domain}'"
+            )
             return
 
         try:
             response = self.network_middleware.get_peers_via_rest(
                 node=current_peer,
                 announce_nodes=announce_nodes,
-                fleet_state_checksum=self.peers.checksum
+                fleet_state_checksum=self.peers.checksum,
             )
         except (*NodeSeemsToBeDown, RestMiddleware.Unreachable) as e:
-            self.log.info(f"Peer {current_peer.seed_node_metadata(as_peer_uri=True)} is unreachable: {e}.")
+            self.log.info(
+                f"Peer {current_peer.seed_node_metadata(as_peer_uri=True)} is unreachable: {e}."
+            )
             return
         except current_peer.InvalidNode as e:
             self.log.warn(f"Peer {str(current_peer.checksum_address)} is invalid: {e}.")
@@ -685,7 +723,9 @@ class Learner:
         #
 
         if response.status_code != 200:
-            self.log.info(f"Bad response from peer {current_peer}: {response} - {response.text}")
+            self.log.info(
+                f"Bad response from peer {current_peer}: {response} - {response.text}"
+            )
             return
         response_data = response.content
 
@@ -713,35 +753,45 @@ class Learner:
                 current_peer.checksum_address,
                 self.peers.checksum,
                 fleet_state_updated,
-                self.peers.population)
+                self.peers.population,
+            )
             return FLEET_STATES_MATCH
 
         # Process the sprouts we received from the peer.
         sprouts = [NodeSprout(node) for node in metadata_payload.announce_nodes]
         for sprout in sprouts:
             try:
-                node_or_false = self.remember_peer(sprout,
-                                                   record_fleet_state=False,
-                                                   # Do we want both of these to be decided by `eager`?
-                                                   eager=eager)
+                node_or_false = self.remember_peer(
+                    sprout,
+                    record_fleet_state=False,
+                    # Do we want both of these to be decided by `eager`?
+                    eager=eager,
+                )
                 if node_or_false is not False:
                     remembered.append(node_or_false)
 
             except NodeSeemsToBeDown:
-                self.log.debug(f"Verification Failed - "
-                               f"Cannot establish connection to {sprout.rest_url()}.")
+                self.log.debug(
+                    f"Verification Failed - "
+                    f"Cannot establish connection to {sprout.rest_url()}."
+                )
 
             except SuspiciousActivity:
-                message = f"Suspicious Activity: Discovered sprout with bad signature: {sprout.rest_url()}." \
-                          f"Propagated by: {current_peer.checksum_address}"
+                message = (
+                    f"Suspicious Activity: Discovered sprout with bad signature: {sprout.rest_url()}."
+                    f"Propagated by: {current_peer.checksum_address}"
+                )
                 self.peers.mark_for_removal(SuspiciousActivity, sprout)
                 self.log.warn(message)
 
-        peering_round_log_message = "Learning round {}.  Teacher: {} knew about {} nodes, {} were new."
-        self.log.info(peering_round_log_message.format(self._peering_round,
-                                                        current_peer,
-                                                        len(sprouts),
-                                                        len(remembered)))
+        peering_round_log_message = (
+            "Learning round {}.  Teacher: {} knew about {} nodes, {} were new."
+        )
+        self.log.info(
+            peering_round_log_message.format(
+                self._peering_round, current_peer, len(sprouts), len(remembered)
+            )
+        )
         if remembered:
             self.peers.record_fleet_state()
 
@@ -798,7 +848,7 @@ class Teacher:
 
     def seed_node_metadata(self, as_peer_uri=False) -> SeednodeMetadata:
         if as_peer_uri:
-            peer_uri = f'{self.checksum_address}@{self.rest_server.rest_interface.host}:{self.rest_server.rest_interface.port}'
+            peer_uri = f"{self.checksum_address}@{self.rest_server.rest_interface.host}:{self.rest_server.rest_interface.port}"
             return peer_uri
         return SeednodeMetadata(
             self.checksum_address,
@@ -810,8 +860,9 @@ class Teacher:
         # TODO (#1537): FleetSensor does metadata-to-byte conversion as well,
         # we may be able to cache the results there.
         announce_nodes = [self.metadata()] + [node.metadata() for node in self.peers]
-        response_payload = MetadataResponsePayload(timestamp_epoch=self.peers.timestamp.epoch,
-                                                   announce_nodes=announce_nodes)
+        response_payload = MetadataResponsePayload(
+            timestamp_epoch=self.peers.timestamp.epoch, announce_nodes=announce_nodes
+        )
         response = MetadataResponse(self.stamp.as_umbral_signer(), response_payload)
         return bytes(response)
 
@@ -845,7 +896,9 @@ class Teacher:
         application_agent = ContractAgency.get_agent(
             TACoApplicationAgent, registry=registry, blockchain_endpoint=eth_endpoint
         )  # type: TACoApplicationAgent
-        is_staking = application_agent.is_authorized(staking_provider=self.checksum_address)
+        is_staking = application_agent.is_authorized(
+            staking_provider=self.checksum_address
+        )
         return is_staking
 
     def validate_operator(
@@ -853,9 +906,10 @@ class Teacher:
         registry: ContractRegistry = None,
         eth_endpoint: Optional[str] = None,
     ) -> None:
-
         if registry and not eth_endpoint:
-            raise ValueError("If registry is provided, eth_provider_uri must also be provided.")
+            raise ValueError(
+                "If registry is provided, eth_provider_uri must also be provided."
+            )
 
         # On-chain staking check, if registry is present
         if registry:

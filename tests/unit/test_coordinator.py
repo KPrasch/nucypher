@@ -11,7 +11,7 @@ from tests.utils.blockchain import TestAccount
 DKG_SIZE = 4
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def nodes_wallets():
     accounts = OrderedDict()
     for _ in range(DKG_SIZE):
@@ -22,7 +22,7 @@ def nodes_wallets():
     return accounts
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def coordinator():
     return MockCoordinatorAgent(blockchain=MockBlockchain())
 
@@ -67,9 +67,7 @@ def test_mock_coordinator_initiation(
     assert set(signal_data["participants"]) == nodes_wallets.keys()
 
 
-def test_mock_coordinator_round_1(
-    nodes_wallets, coordinator, random_transcript
-):
+def test_mock_coordinator_round_1(nodes_wallets, coordinator, random_transcript):
     ritual = coordinator.rituals[0]
     assert (
         coordinator.get_ritual_status(0)
@@ -83,9 +81,7 @@ def test_mock_coordinator_round_1(
         transcript = random_transcript
 
         coordinator.post_transcript(
-            ritual_id=0,
-            transcript=transcript,
-            wallet=nodes_wallets[node_address]
+            ritual_id=0, transcript=transcript, wallet=nodes_wallets[node_address]
         )
 
         performance = ritual.participants[index]
@@ -124,7 +120,7 @@ def test_mock_coordinator_round_2(
             aggregated_transcript=aggregated_transcript,
             public_key=dkg_public_key,
             participant_public_key=participant_public_key,
-            wallet=nodes_wallets[node_address]
+            wallet=nodes_wallets[node_address],
         )
         participant_public_keys.append(participant_public_key)
         if index == len(nodes_wallets) - 1:

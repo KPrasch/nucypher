@@ -27,12 +27,14 @@ def _confirm(__words: str) -> None:
     )
     emitter.message(f"{__words}\n", color="cyan")
     if not click.confirm("Have you backed up your seed phrase?"):
-        emitter.message('Keystore generation aborted.', color='red')
+        emitter.message("Keystore generation aborted.", color="red")
         raise click.Abort()
     click.clear()
 
     # confirmation
     __response = click.prompt("Confirm seed words")
     if __response != __words:
-        raise ValueError('Incorrect seed words confirmation. No keystore has been created, try again.')
+        raise ValueError(
+            "Incorrect seed words confirmation. No keystore has been created, try again."
+        )
     click.clear()

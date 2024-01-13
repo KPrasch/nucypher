@@ -162,14 +162,14 @@ def test_return_value_test_with_resolved_context():
 
 def test_return_value_test_integer():
     # >
-    test = ReturnValueTest(comparator='>', value='0')
-    assert test.eval('1')
-    assert not test.eval('-1')
+    test = ReturnValueTest(comparator=">", value="0")
+    assert test.eval("1")
+    assert not test.eval("-1")
     # mixing types can work
     assert test.eval(1)
     assert not test.eval(-1)
 
-    test = ReturnValueTest(comparator='>', value=0)
+    test = ReturnValueTest(comparator=">", value=0)
     assert test.eval(1)
     assert not test.eval(0)
     assert not test.eval(-1)
@@ -213,7 +213,7 @@ def test_return_value_test_string():
     with pytest.raises(ReturnValueTest.InvalidExpression):
         _test = ReturnValueTest(comparator="==", value="foo")
 
-    test = ReturnValueTest(comparator='==', value='"foo"')
+    test = ReturnValueTest(comparator="==", value='"foo"')
     assert test.eval('"foo"')
     assert not test.eval('"bar"')
 

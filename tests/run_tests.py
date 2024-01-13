@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 import maya
@@ -6,8 +5,8 @@ import pytest
 
 
 class NucypherPytestRunner:
-    TEST_PATH = Path('tests') / 'cli'
-    PYTEST_ARGS = ['--verbose', TEST_PATH]
+    TEST_PATH = Path("tests") / "cli"
+    PYTEST_ARGS = ["--verbose", TEST_PATH]
 
     def pytest_sessionstart(self):
         print("*** Running Nucypher CLI Tests ***")

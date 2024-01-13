@@ -9,9 +9,7 @@ from nucypher.network.middleware import RestMiddleware
 from nucypher.policy.payment import SubscriptionManagerPayment
 
 
-def test_try_to_post_free_service_by_hacking_enact(
-    alice, bob, testerchain, mocker
-):
+def test_try_to_post_free_service_by_hacking_enact(alice, bob, testerchain, mocker):
     """
     This time we won't rely on the tabulation in Alice's enact() to catch the problem.
     """

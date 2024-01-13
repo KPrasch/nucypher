@@ -35,7 +35,7 @@ def mock_operator_confirmation(random_address, mock_taco_application_agent):
     info = TACoApplicationAgent.StakingProviderInfo(
         operator=random_address,
         operator_confirmed=True,
-        operator_start_timestamp=Timestamp(int(time.time()))
+        operator_start_timestamp=Timestamp(int(time.time())),
     )
     mock_taco_application_agent.get_staking_provider_info.return_value = info
 
@@ -49,7 +49,7 @@ def test_ursula_info_metrics_collector(test_registry, ursulas):
     collector = UrsulaInfoMetricsCollector(ursula=ursula)
 
     collector_registry = CollectorRegistry()
-    prefix = 'test_ursula_info_metrics_collector'
+    prefix = "test_ursula_info_metrics_collector"
     collector.initialize(metrics_prefix=prefix, registry=collector_registry)
     collector.collect()
 
@@ -68,12 +68,15 @@ def test_ursula_info_metrics_collector(test_registry, ursulas):
     assert reencryption_requests == 0
 
 
-@pytest.mark.skipif(condition=(not PROMETHEUS_INSTALLED), reason="prometheus_client is required for test")
+@pytest.mark.skipif(
+    condition=(not PROMETHEUS_INSTALLED),
+    reason="prometheus_client is required for test",
+)
 def test_blockchain_metrics_collector(testerchain):
     collector = BlockchainMetricsCollector(eth_endpoint=MOCK_ETH_PROVIDER_URI)
 
     collector_registry = CollectorRegistry()
-    prefix = 'test_blockchain_metrics_collector'
+    prefix = "test_blockchain_metrics_collector"
     collector.initialize(metrics_prefix=prefix, registry=collector_registry)
     collector.collect()
 
@@ -88,10 +91,12 @@ def test_blockchain_metrics_collector(testerchain):
     assert block_number == testerchain.get_block_number()
 
 
-@pytest.mark.skipif(condition=(not PROMETHEUS_INSTALLED), reason="prometheus_client is required for test")
+@pytest.mark.skipif(
+    condition=(not PROMETHEUS_INSTALLED),
+    reason="prometheus_client is required for test",
+)
 @pytest.mark.usefixtures("mock_operator_confirmation")
 def test_staking_provider_metrics_collector(test_registry, accounts):
-
     staking_provider_address = random.choice(accounts.stake_provider_wallets)
     collector = StakingProviderMetricsCollector(
         staking_provider_address=staking_provider_address,
@@ -134,7 +139,10 @@ def test_staking_provider_metrics_collector(test_registry, accounts):
     assert operator_start == staking_provider_info.operator_start_timestamp
 
 
-@pytest.mark.skipif(condition=(not PROMETHEUS_INSTALLED), reason="prometheus_client is required for test")
+@pytest.mark.skipif(
+    condition=(not PROMETHEUS_INSTALLED),
+    reason="prometheus_client is required for test",
+)
 def test_operator_metrics_collector(test_registry, ursulas):
     ursula = random.choice(ursulas)
     collector = OperatorMetricsCollector(
@@ -143,7 +151,7 @@ def test_operator_metrics_collector(test_registry, ursulas):
         contract_registry=test_registry,
     )
     collector_registry = CollectorRegistry()
-    prefix = 'test_worker_metrics_collector'
+    prefix = "test_worker_metrics_collector"
     collector.initialize(metrics_prefix=prefix, registry=collector_registry)
     collector.collect()
 
@@ -152,25 +160,32 @@ def test_operator_metrics_collector(test_registry, ursulas):
     assert operator_eth == float(ursula.eth_balance)
 
 
-@pytest.mark.skipif(condition=(not PROMETHEUS_INSTALLED), reason="prometheus_client is required for test")
+@pytest.mark.skipif(
+    condition=(not PROMETHEUS_INSTALLED),
+    reason="prometheus_client is required for test",
+)
 @pytest.mark.usefixtures("mock_operator_confirmation")
 def test_all_metrics_collectors_sanity_collect(ursulas):
     ursula = random.choice(ursulas)
 
     collector_registry = CollectorRegistry()
-    prefix = 'test_all_metrics_collectors'
+    prefix = "test_all_metrics_collectors"
 
     metrics_collectors = create_metrics_collectors(ursula=ursula)
-    initialize_collectors(metrics_collectors=metrics_collectors,
-                          collector_registry=collector_registry,
-                          prefix=prefix)
+    initialize_collectors(
+        metrics_collectors=metrics_collectors,
+        collector_registry=collector_registry,
+        prefix=prefix,
+    )
 
     for collector in metrics_collectors:
         collector.collect()
 
 
-def initialize_collectors(metrics_collectors: List['MetricsCollector'],
-                          collector_registry: 'CollectorRegistry',
-                          prefix: str) -> None:
+def initialize_collectors(
+    metrics_collectors: List["MetricsCollector"],
+    collector_registry: "CollectorRegistry",
+    prefix: str,
+) -> None:
     for collector in metrics_collectors:
         collector.initialize(metrics_prefix=prefix, registry=collector_registry)

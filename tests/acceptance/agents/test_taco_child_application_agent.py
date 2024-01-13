@@ -14,9 +14,7 @@ def test_get_min_authorization(
 
 
 @pytest.mark.usefixtures("bond_operators")
-def test_authorized_tokens(
-    testerchain, taco_application, taco_child_application_agent
-):
+def test_authorized_tokens(testerchain, taco_application, taco_child_application_agent):
     provider_account = testerchain.accounts.stake_provider_wallets[0]
     authorized_amount = taco_child_application_agent.get_authorized_stake(
         staking_provider=provider_account.address

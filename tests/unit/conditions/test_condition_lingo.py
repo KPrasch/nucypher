@@ -284,7 +284,9 @@ def test_condition_lingo_repr(lingo_with_compound_conditions):
     assert f"size={len(bytes(clingo))}" in clingo_string
 
 
-def test_lingo_parameter_int_type_preservation(custom_abi_with_multiple_parameters, mocker):
+def test_lingo_parameter_int_type_preservation(
+    custom_abi_with_multiple_parameters, mocker
+):
     mocker.patch.dict(
         nucypher.policy.conditions.context._DIRECTIVES,
         {USER_ADDRESS_CONTEXT: lambda: NULL_ADDRESS},

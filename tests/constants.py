@@ -29,9 +29,9 @@ GLOBAL_ALLOW_LIST = "GlobalAllowList"
 # Local Signer Keystore
 #
 
-KEYFILE_NAME_TEMPLATE = 'UTC--2020-{month}-21T03-42-07.869432648Z--{address}'
+KEYFILE_NAME_TEMPLATE = "UTC--2020-{month}-21T03-42-07.869432648Z--{address}"
 
-MOCK_KEYSTORE_PATH = '/home/fakeMcfakeson/.ethereum/llamanet/keystore/'
+MOCK_KEYSTORE_PATH = "/home/fakeMcfakeson/.ethereum/llamanet/keystore/"
 
 
 #
@@ -41,9 +41,9 @@ MOCK_KEYSTORE_PATH = '/home/fakeMcfakeson/.ethereum/llamanet/keystore/'
 
 ONE_YEAR_IN_SECONDS = ((60 * 60) * 24) * 365
 
-BONUS_TOKENS_FOR_TESTS = int(Web3.to_wei(150_000, 'ether'))
+BONUS_TOKENS_FOR_TESTS = int(Web3.to_wei(150_000, "ether"))
 
-DEVELOPMENT_ETH_AIRDROP_AMOUNT = int(Web3().to_wei(100, 'ether'))
+DEVELOPMENT_ETH_AIRDROP_AMOUNT = int(Web3().to_wei(100, "ether"))
 
 TESTERCHAIN_CHAIN_ID = 131277322940537
 
@@ -63,7 +63,9 @@ TEMPORARY_DOMAIN = TACoDomain(
 
 __valid_password_chars = string.ascii_uppercase + string.ascii_lowercase + string.digits
 
-INSECURE_DEVELOPMENT_PASSWORD = ''.join(SystemRandom().choice(__valid_password_chars) for _ in range(32))
+INSECURE_DEVELOPMENT_PASSWORD = "".join(
+    SystemRandom().choice(__valid_password_chars) for _ in range(32)
+)
 
 #
 # Known Enrico signer
@@ -80,15 +82,24 @@ DEFAULT_TEST_ENRICO_PRIVATE_KEY = HexBytes(
 
 BASE_TEMP_DIR = Path(tempfile.gettempdir())
 
-BASE_TEMP_PREFIX = 'nucypher-tmp-'
+BASE_TEMP_PREFIX = "nucypher-tmp-"
 
 DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S.%f"
 
-MOCK_CUSTOM_INSTALLATION_PATH = BASE_TEMP_DIR / f'{BASE_TEMP_PREFIX}test-custom-{datetime.now().strftime(DATETIME_FORMAT)}'
+MOCK_CUSTOM_INSTALLATION_PATH = (
+    BASE_TEMP_DIR
+    / f"{BASE_TEMP_PREFIX}test-custom-{datetime.now().strftime(DATETIME_FORMAT)}"
+)
 
-MOCK_CUSTOM_INSTALLATION_PATH_2 = BASE_TEMP_DIR / f'{BASE_TEMP_PREFIX}test-custom-2-{datetime.now().strftime(DATETIME_FORMAT)}'
+MOCK_CUSTOM_INSTALLATION_PATH_2 = (
+    BASE_TEMP_DIR
+    / f"{BASE_TEMP_PREFIX}test-custom-2-{datetime.now().strftime(DATETIME_FORMAT)}"
+)
 
-MOCK_REGISTRY_FILEPATH = BASE_TEMP_DIR / f'{BASE_TEMP_PREFIX}mock-registry-{datetime.now().strftime(DATETIME_FORMAT)}.json'
+MOCK_REGISTRY_FILEPATH = (
+    BASE_TEMP_DIR
+    / f"{BASE_TEMP_PREFIX}mock-registry-{datetime.now().strftime(DATETIME_FORMAT)}.json"
+)
 
 PYEVM_DEV_URI = "tester://pyevm"
 
@@ -96,7 +107,7 @@ TEST_ETH_PROVIDER_URI = PYEVM_DEV_URI  # TODO: Pytest flag entry point?
 
 TEST_POLYGON_PROVIDER_URI = PYEVM_DEV_URI  # TODO: Introduce multichain separation tests
 
-MOCK_ETH_PROVIDER_URI = 'tester://mock'
+MOCK_ETH_PROVIDER_URI = "tester://mock"
 
 #
 # Node Configuration
@@ -106,8 +117,8 @@ MOCK_POLICY_DEFAULT_THRESHOLD = 3
 
 # These IP addresses are reserved for usage in documentation
 # https://tools.ietf.org/html/rfc5737
-MOCK_IP_ADDRESS = '192.0.2.100'
-MOCK_IP_ADDRESS_2 = '203.0.113.20'
+MOCK_IP_ADDRESS = "192.0.2.100"
+MOCK_IP_ADDRESS_2 = "203.0.113.20"
 
 
 #
@@ -123,20 +134,24 @@ MIN_OPERATOR_SECONDS = 60 * 60 * 24  # one day in seconds
 
 TEST_GAS_LIMIT = 8_000_000  # gas
 
-PYEVM_GAS_LIMIT = TEST_GAS_LIMIT  # TODO: move elsewhere (used to set pyevm gas limit in tests)?
+PYEVM_GAS_LIMIT = (
+    TEST_GAS_LIMIT  # TODO: move elsewhere (used to set pyevm gas limit in tests)?
+)
 
 
 #
 # CLI
 #
 
-YES = 'Y'
-YES_ENTER = YES + '\n'
+YES = "Y"
+YES_ENTER = YES + "\n"
 
-NO = 'N'
-NO_ENTER = NO + '\n'
+NO = "N"
+NO_ENTER = NO + "\n"
 
-FAKE_PASSWORD_CONFIRMED = '{password}\n{password}\n'.format(password=INSECURE_DEVELOPMENT_PASSWORD)
+FAKE_PASSWORD_CONFIRMED = "{password}\n{password}\n".format(
+    password=INSECURE_DEVELOPMENT_PASSWORD
+)
 
 
 #
@@ -145,14 +160,11 @@ FAKE_PASSWORD_CONFIRMED = '{password}\n{password}\n'.format(password=INSECURE_DE
 
 RPC_TOO_MANY_REQUESTS = {
     "jsonrpc": "2.0",
-    "error": {
-        "code": 429,
-        "message": "Too many concurrent requests"
-    }
+    "error": {"code": 429, "message": "Too many concurrent requests"},
 }
 
 RPC_SUCCESSFUL_RESPONSE = {
     "jsonrpc": "2.0",
     "id": 1,
-    "result": "Geth/v1.9.20-stable-979fc968/linux-amd64/go1.15"
+    "result": "Geth/v1.9.20-stable-979fc968/linux-amd64/go1.15",
 }

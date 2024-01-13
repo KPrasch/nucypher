@@ -1,4 +1,3 @@
-
 import pytest
 from eth_utils import to_checksum_address
 from nucypher_core import Address, NodeMetadata, NodeMetadataPayload
@@ -27,7 +26,6 @@ MOCK_PORT = 1111
 
 
 class Dummy:  # Teacher
-
     def __init__(self, canonical_address):
         self.canonical_address = canonical_address
         self.checksum_address = to_checksum_address(canonical_address)
@@ -40,7 +38,7 @@ class Dummy:  # Teacher
     class BadResponse:
         status_code = 404
         text = None
-        content = 'DUMMY 404'
+        content = "DUMMY 404"
 
     def mature(self):
         return self
@@ -81,14 +79,16 @@ class Dummy:  # Teacher
 @pytest.fixture(autouse=True)
 def mock_requests(mocker):
     """prevents making live HTTP requests from this module"""
-    make_request = 'nucypher.utilities.networking._request'
+    make_request = "nucypher.utilities.networking._request"
     yield mocker.patch(make_request, return_value=None)
 
 
 @pytest.fixture(autouse=True)
 def mock_client(mocker):
     cert, pk = generate_self_signed_certificate(host=MOCK_IP_ADDRESS)
-    yield mocker.patch.object(NucypherMiddlewareClient, 'invoke_method', return_value=Dummy.GoodResponse)
+    yield mocker.patch.object(
+        NucypherMiddlewareClient, "invoke_method", return_value=Dummy.GoodResponse
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -105,33 +105,28 @@ def test_get_external_ip_from_centralized_source(mock_requests):
 def test_get_external_ip_from_empty_peers(mock_requests):
     sensor = FleetSensor(domain=MOCK_DOMAIN)
     assert len(sensor) == 0
-    get_external_ip_from_peers(
-        peers=sensor, eth_endpoint=MOCK_ETH_PROVIDER_URI
-    )
+    get_external_ip_from_peers(peers=sensor, eth_endpoint=MOCK_ETH_PROVIDER_URI)
     # skipped because there are no known nodes
     mock_requests.assert_not_called()
 
 
 def test_get_external_ip_from_peers_with_one_peer(mock_requests):
     sensor = FleetSensor(domain=MOCK_DOMAIN)
-    sensor.record_node(Dummy(b'deadbeefdeadbeefdead'))
+    sensor.record_node(Dummy(b"deadbeefdeadbeefdead"))
     sensor.record_fleet_state()
     assert len(sensor) == 1
-    get_external_ip_from_peers(
-        peers=sensor, eth_endpoint=MOCK_ETH_PROVIDER_URI
-    )
+    get_external_ip_from_peers(peers=sensor, eth_endpoint=MOCK_ETH_PROVIDER_URI)
     # skipped because there are too few known nodes
     mock_requests.assert_not_called()
 
 
 def test_get_external_ip_from_peers(mock_client):
-
     # Setup FleetSensor
     sensor = FleetSensor(domain=MOCK_DOMAIN)
     sample_size = 3
-    sensor.record_node(Dummy(b'deadbeefdeadbeefdead'))
-    sensor.record_node(Dummy(b'deadllamadeadllamade'))
-    sensor.record_node(Dummy(b'deadmousedeadmousede'))
+    sensor.record_node(Dummy(b"deadbeefdeadbeefdead"))
+    sensor.record_node(Dummy(b"deadllamadeadllamade"))
+    sensor.record_node(Dummy(b"deadmousedeadmousede"))
     sensor.record_fleet_state()
     assert len(sensor) == sample_size
 
@@ -151,18 +146,19 @@ def test_get_external_ip_from_peers(mock_client):
 
 
 def test_get_external_ip_from_peers_client(mocker, mock_client):
-
     # Setup FleetSensor
     sensor = FleetSensor(domain=MOCK_DOMAIN)
     sample_size = 3
-    sensor.record_node(Dummy(b'deadbeefdeadbeefdead'))
-    sensor.record_node(Dummy(b'deadllamadeadllamade'))
-    sensor.record_node(Dummy(b'deadmousedeadmousede'))
+    sensor.record_node(Dummy(b"deadbeefdeadbeefdead"))
+    sensor.record_node(Dummy(b"deadllamadeadllamade"))
+    sensor.record_node(Dummy(b"deadmousedeadmousede"))
     sensor.record_fleet_state()
     assert len(sensor) == sample_size
 
     # Setup HTTP Client
-    mocker.patch.object(Ursula, 'from_peer_uri', return_value=Dummy(b'deadporkdeadporkdead'))
+    mocker.patch.object(
+        Ursula, "from_peer_uri", return_value=Dummy(b"deadporkdeadporkdead")
+    )
     peer_uri = TEACHER_NODES[MOCK_DOMAIN][0]
 
     get_external_ip_from_peers(
@@ -171,8 +167,8 @@ def test_get_external_ip_from_peers_client(mocker, mock_client):
     assert mock_client.call_count == 1  # first node responded
 
     function, endpoint = mock_client.call_args[0]
-    assert function.__name__ == 'get'
-    assert endpoint == f'https://{peer_uri}/ping'
+    assert function.__name__ == "get"
+    assert endpoint == f"https://{peer_uri}/ping"
 
 
 def test_get_external_ip_default_peer_unreachable(mocker):
@@ -186,10 +182,11 @@ def test_get_external_ip_default_peer_unreachable(mocker):
 
 
 def test_get_external_ip_from_default_peer(mocker, mock_client, mock_requests):
-
     mock_client.return_value = Dummy.GoodResponse
     peer_uri = TEACHER_NODES[MOCK_DOMAIN][0]
-    mocker.patch.object(Ursula, 'from_peer_uri', return_value=Dummy(b'deadbeefdeadbeefdead'))
+    mocker.patch.object(
+        Ursula, "from_peer_uri", return_value=Dummy(b"deadbeefdeadbeefdead")
+    )
 
     # "Success"
     ip = get_external_ip_from_default_peer(
@@ -201,12 +198,12 @@ def test_get_external_ip_from_default_peer(mocker, mock_client, mock_requests):
     mock_requests.assert_not_called()
     mock_client.assert_called_once()
     function, endpoint = mock_client.call_args[0]
-    assert function.__name__ == 'get'
-    assert endpoint == f'https://{peer_uri}/ping'
+    assert function.__name__ == "get"
+    assert endpoint == f"https://{peer_uri}/ping"
 
 
 def test_get_external_ip_default_unknown_domain():
-    unknown_domain = 'thisisnotarealdomain'
+    unknown_domain = "thisisnotarealdomain"
 
     # Without fleet sensor
     with pytest.raises(UnknownIPAddress):
@@ -225,12 +222,20 @@ def test_get_external_ip_default_unknown_domain():
 
 
 def test_get_external_ip_cascade_failure(mocker, mock_requests):
-    first = mocker.patch('nucypher.utilities.networking.get_external_ip_from_peers', return_value=None)
-    second = mocker.patch('nucypher.utilities.networking.get_external_ip_from_default_peer', return_value=None)
-    third = mocker.patch('nucypher.utilities.networking.get_external_ip_from_centralized_source', return_value=None)
+    first = mocker.patch(
+        "nucypher.utilities.networking.get_external_ip_from_peers", return_value=None
+    )
+    second = mocker.patch(
+        "nucypher.utilities.networking.get_external_ip_from_default_peer",
+        return_value=None,
+    )
+    third = mocker.patch(
+        "nucypher.utilities.networking.get_external_ip_from_centralized_source",
+        return_value=None,
+    )
 
     sensor = FleetSensor(domain=MOCK_DOMAIN)
-    sensor.record_node(Dummy(b'deadbeefdeadbeefdead'))
+    sensor.record_node(Dummy(b"deadbeefdeadbeefdead"))
     sensor.record_fleet_state()
 
     with pytest.raises(UnknownIPAddress, match="External IP address detection failed"):

@@ -1,10 +1,7 @@
-
-
 import io
 
 
 class MockStdinWrapper:
-
     def __init__(self):
         self.mock_stdin = MockStdin()
         self.mock_getpass = MockGetpass()
@@ -22,15 +19,14 @@ class MockStdinWrapper:
 
 
 class MockStdinBase:
-
     def __init__(self):
         self.stream = io.StringIO()
         self.lines = 0
 
     def line(self, s):
-        pos = self.stream.tell() # preserve the current read pointer
+        pos = self.stream.tell()  # preserve the current read pointer
         self.stream.seek(0, io.SEEK_END)
-        self.stream.write(s + '\n')
+        self.stream.write(s + "\n")
         self.stream.seek(pos)
         self.lines += 1
 
@@ -49,14 +45,15 @@ class MockGetpass(MockStdinBase):
     """
 
     def __call__(self, prompt):
-        print(prompt, end='')
+        print(prompt, end="")
         s = self._readline()
-        return s[:-1] # remove the final line break
+        return s[:-1]  # remove the final line break
 
 
 class MockStdin(MockStdinBase):
     """
     Mocks `sys.stdin`
     """
+
     def readline(self):
         return self._readline()

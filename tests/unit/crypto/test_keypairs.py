@@ -61,11 +61,11 @@ def test_signing():
     umbral_privkey = SecretKey.random()
     sig_keypair = keypairs.SigningKeypair(umbral_privkey)
 
-    msg = b'peace at dawn'
+    msg = b"peace at dawn"
     signature = sig_keypair.sign(msg)
     assert signature.verify(sig_keypair.pubkey, msg)
 
-    bad_msg = b'bad message'
+    bad_msg = b"bad message"
     assert not signature.verify(sig_keypair.pubkey, bad_msg)
 
 

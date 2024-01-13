@@ -18,6 +18,7 @@ from tests.utils.blockchain import ReservedTestAccountManager
 
 class __ActivePortCache:
     """Thread-safe cache for storing current active ports."""
+
     def __init__(self):
         self._lock = Lock()
         self.active_ports = set()
@@ -50,7 +51,7 @@ def select_test_port() -> int:
 
     closed_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     with contextlib.closing(closed_socket) as open_socket:
-        open_socket.bind(('localhost', 0))
+        open_socket.bind(("localhost", 0))
         port = open_socket.getsockname()[1]
         # active ports check should be last and short-circuited using or
         if (
@@ -73,17 +74,16 @@ def make_ursulas(
     account_start_index: int = 0,
     **ursula_overrides
 ) -> List[Ursula]:
-
     ursulas = list()
-    for provider, operator in islice(zip(
+    for provider, operator in islice(
+        zip(
             accounts.stake_provider_wallets[account_start_index:],
-            accounts.ursula_wallets[account_start_index:]
-    ), quantity):
-
+            accounts.ursula_wallets[account_start_index:],
+        ),
+        quantity,
+    ):
         ursula = ursula_config.produce(
-            port=select_test_port(),
-            wallet=operator,
-            **ursula_overrides
+            port=select_test_port(), wallet=operator, **ursula_overrides
         )
 
         # mocks bonding with a stake provider (for unit and integration suites)

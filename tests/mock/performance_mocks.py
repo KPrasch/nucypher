@@ -6,17 +6,23 @@ from nucypher_core.umbral import PublicKey
 from nucypher.network.server import make_rest_app
 from tests.mock.serials import good_serials
 
-mock_message_verification = patch('nucypher.characters.lawful.Alice.verify_from', new=lambda *args, **kwargs: None)
+mock_message_verification = patch(
+    "nucypher.characters.lawful.Alice.verify_from", new=lambda *args, **kwargs: None
+)
 
 
 def fake_keep_peering(selfish, learner=None, *args, **kwargs):
     return None
 
 
-mock_continue_peering = patch('nucypher.network.nodes.Learner.continue_peering', new=fake_keep_peering)
+mock_continue_peering = patch(
+    "nucypher.network.nodes.Learner.continue_peering", new=fake_keep_peering
+)
 
-mock_record_fleet_state = patch("nucypher.acumen.perception.FleetSensor.record_fleet_state",
-                                new=lambda *args, **kwargs: None)
+mock_record_fleet_state = patch(
+    "nucypher.acumen.perception.FleetSensor.record_fleet_state",
+    new=lambda *args, **kwargs: None,
+)
 
 """
 Some hairy stuff ahead.  We want 5,000 Ursulas for some of these tests.  OK, so what effect does that have?  For one thing, if you generate 5k Ursulas, you end up generate some 20k keypairs (validating, signing, delegating, and TLSHosting for each of the 5k Ursulas). That causes this test to go from taking about 7s total (on jMyles' laptop) to about 2min. So that's obviously unacceptable.
@@ -39,12 +45,15 @@ class NotAPublicKey:
     def _tick():
         for serial in good_serials:
             yield serial
+
     tick = _tick()
 
     def __init__(self, serial=None):
         if serial is None:
             serial_int = next(self.tick)
-            self.serial = serial_int.to_bytes(self._serial_bytes_length, byteorder="big")
+            self.serial = serial_int.to_bytes(
+                self._serial_bytes_length, byteorder="big"
+            )
         else:
             self.serial = serial
 
@@ -71,21 +80,18 @@ class NotAPublicKey:
 
 
 class NotAPrivateKey:
-
     def public_key(self):
         return NotAPublicKey()
 
 
 class NotASignature:
-
-    fake_signature_bytes = b'@\xbfS&\x97\xb3\x9e\x9e\xd3\\j\x9f\x0e\x8fY\x0c\xbeS\x08d\x0b%s\xf6\x17\xe2\xb6\xcd\x95u\xaapON\xd9E\xb3\x10M\xe1\xf4u\x0bL\x99q\xd6\r\x8e_\xe5I\x1e\xe5\xa2\xcf\xe5\x8be_\x077Gz'
+    fake_signature_bytes = b"@\xbfS&\x97\xb3\x9e\x9e\xd3\\j\x9f\x0e\x8fY\x0c\xbeS\x08d\x0b%s\xf6\x17\xe2\xb6\xcd\x95u\xaapON\xd9E\xb3\x10M\xe1\xf4u\x0bL\x99q\xd6\r\x8e_\xe5I\x1e\xe5\xa2\xcf\xe5\x8be_\x077Gz"
 
     def __bytes__(self):
         return self.fake_signature_bytes
 
 
 class NotASigner:
-
     def __init__(self, secret_key):
         self._secret_key = secret_key
 
@@ -110,8 +116,10 @@ class NotACert:
         return NotAPublicKey()
 
 
-mock_cert_loading = patch("nucypher.network.nodes.load_der_x509_certificate",
-                          new=lambda *args, **kwargs: NotACert())
+mock_cert_loading = patch(
+    "nucypher.network.nodes.load_der_x509_certificate",
+    new=lambda *args, **kwargs: NotACert(),
+)
 
 
 def do_not_create_cert(*args, **kwargs):
@@ -155,10 +163,13 @@ class NotARestApp:
     def actual_rest_app(self):
         if self._actual_rest_app is None:
             self._actual_rest_app = make_rest_app(this_node=self.this_node)
-            _new_view_functions = self._ViewFunctions(self._actual_rest_app.view_functions)
+            _new_view_functions = self._ViewFunctions(
+                self._actual_rest_app.view_functions
+            )
             self._actual_rest_app.view_functions = _new_view_functions
             self._actual_rest_apps.append(
-                self._actual_rest_app)  # Remember now, we're appending to the class-bound list.
+                self._actual_rest_app
+            )  # Remember now, we're appending to the class-bound list.
         return self._actual_rest_app
 
     def test_client(self):
@@ -179,12 +190,22 @@ class VerificationTracker:
         cls.metadata_verifications += 1
 
 
-mock_cert_generation = patch("nucypher.crypto.tls.generate_self_signed_certificate", new=do_not_create_cert)
-mock_rest_app_creation = patch("nucypher.characters.lawful.make_rest_app",
-                               new=NotARestApp.create)
+mock_cert_generation = patch(
+    "nucypher.crypto.tls.generate_self_signed_certificate", new=do_not_create_cert
+)
+mock_rest_app_creation = patch(
+    "nucypher.characters.lawful.make_rest_app", new=NotARestApp.create
+)
 
-mock_remember_peer = patch("nucypher.characters.lawful.Ursula.remember_peer", new=simple_remember)
-mock_verify_node = patch("nucypher.characters.lawful.Ursula.verify_node", new=VerificationTracker.fake_verify_node)
+mock_remember_peer = patch(
+    "nucypher.characters.lawful.Ursula.remember_peer", new=simple_remember
+)
+mock_verify_node = patch(
+    "nucypher.characters.lawful.Ursula.verify_node",
+    new=VerificationTracker.fake_verify_node,
+)
 
-mock_metadata_validation = patch("nucypher.network.nodes.Teacher.validate_metadata",
-                                 new=VerificationTracker.fake_verify_metadata)
+mock_metadata_validation = patch(
+    "nucypher.network.nodes.Teacher.validate_metadata",
+    new=VerificationTracker.fake_verify_metadata,
+)

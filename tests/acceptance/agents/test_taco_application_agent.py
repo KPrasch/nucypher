@@ -80,8 +80,8 @@ def test_authorized_tokens(
 def test_get_staker_population(taco_application_agent, accounts):
     # Apart from all the providers in the fixture, we also added a new provider above
     assert (
-            taco_application_agent.get_staking_providers_population()
-            == len(accounts.stake_provider_wallets) + 1
+        taco_application_agent.get_staking_providers_population()
+        == len(accounts.stake_provider_wallets) + 1
     )
 
 

@@ -33,7 +33,11 @@ class LocalAccount(EthLocalAccount):
         If standardize is True, this signature will need to be passed to nucypher_core.umbral.RecoverableSignature,
         so we are cleaning the chain identifier from the recovery byte, bringing it to the standard choice of {0, 1}.
         """
-        signature = super().sign_message(signable_message=encode_defunct(primitive=message)).signature
+        signature = (
+            super()
+            .sign_message(signable_message=encode_defunct(primitive=message))
+            .signature
+        )
         if standardize:
             signature = to_standard_signature_bytes(signature)
         return HexBytes(signature)
@@ -43,21 +47,27 @@ class LocalAccount(EthLocalAccount):
         Sign a transaction with the private key of this account.
         Handles an edge case: do not include a 'to' field when deploying a contract.
         """
-        if not transaction_dict['to']:
-            transaction_dict = dissoc(transaction_dict, 'to')
-        signed_raw_transaction = super().sign_transaction(transaction_dict=transaction_dict).rawTransaction
+        if not transaction_dict["to"]:
+            transaction_dict = dissoc(transaction_dict, "to")
+        signed_raw_transaction = (
+            super().sign_transaction(transaction_dict=transaction_dict).rawTransaction
+        )
         return HexBytes(signed_raw_transaction)
 
     @classmethod
-    def from_mnemonic(cls, mnemonic: str, password: str, filepath: Path) -> Tuple['LocalAccount', Path]:
+    def from_mnemonic(
+        cls, mnemonic: str, password: str, filepath: Path
+    ) -> Tuple["LocalAccount", Path]:
         """Derive an account from a mnemonic phrase and save the resulting keystore to the disk."""
-        account = EthAccount.from_mnemonic(mnemonic=mnemonic, account_path=cls.__HD_PATH)
+        account = EthAccount.from_mnemonic(
+            mnemonic=mnemonic, account_path=cls.__HD_PATH
+        )
         account = cls(key=PrivateKey(account.key), account=EthAccount)
         filepath = account.to_keystore(path=filepath, password=password)
         return account, filepath
 
     @classmethod
-    def from_keystore(cls, path: Path, password: str) -> 'LocalAccount':
+    def from_keystore(cls, path: Path, password: str) -> "LocalAccount":
         """
         Decrypt a keystore file using its password and return the resulting account.
         Keystore files must be in web3 secret storage format.
@@ -82,7 +92,7 @@ class LocalAccount(EthLocalAccount):
         Read a file and return its contents.
         This method is discrete from for testing & mocking purposes
         ."""
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             data = f.read()
         return data
 
@@ -92,7 +102,7 @@ class LocalAccount(EthLocalAccount):
         Write data to a file.
         This method is discrete from for testing & mocking purposes.
         """
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             f.write(data)
 
     @classmethod
@@ -102,13 +112,13 @@ class LocalAccount(EthLocalAccount):
         try:
             metadata = json.loads(data)
         except JSONDecodeError:
-            raise cls.InvalidKeystore(f'Invalid JSON in wallet keystore at {filepath}.')
+            raise cls.InvalidKeystore(f"Invalid JSON in wallet keystore at {filepath}.")
         return metadata
 
     @classmethod
     def _write_wallet(cls, filepath: Path, data: Dict) -> None:
         """Write keystore data to a file."""
         if filepath.exists():
-            raise FileExistsError(f'File {filepath} already exists.')
+            raise FileExistsError(f"File {filepath} already exists.")
         filepath.parent.mkdir(parents=True, exist_ok=True)
         cls._write(filepath=filepath, data=json.dumps(data))

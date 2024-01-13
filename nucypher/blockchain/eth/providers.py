@@ -23,22 +23,26 @@ def _get_pyevm_test_backend() -> PyEVMBackend:
         # TODO: Consider packaged support of --dev mode with testerchain
         from tests.constants import PYEVM_GAS_LIMIT
     except ImportError:
-        raise DevelopmentInstallationRequired(importable_name='tests.constants')
+        raise DevelopmentInstallationRequired(importable_name="tests.constants")
 
-    genesis_params = PyEVMBackend._generate_genesis_params(overrides={'gas_limit': PYEVM_GAS_LIMIT})
+    genesis_params = PyEVMBackend._generate_genesis_params(
+        overrides={"gas_limit": PYEVM_GAS_LIMIT}
+    )
     pyevm_backend = PyEVMBackend(genesis_parameters=genesis_params)
     pyevm_backend.reset_to_genesis(genesis_params=genesis_params, num_accounts=10)
     return pyevm_backend
 
 
-def _get_ethereum_tester(test_backend: Union[PyEVMBackend, MockBackend]) -> EthereumTesterProvider:
+def _get_ethereum_tester(
+    test_backend: Union[PyEVMBackend, MockBackend]
+) -> EthereumTesterProvider:
     eth_tester = EthereumTester(backend=test_backend, auto_mine_transactions=True)
     provider = EthereumTesterProvider(ethereum_tester=eth_tester)
     return provider
 
 
 def _get_pyevm_test_provider(endpoint) -> BaseProvider:
-    """ Test provider entry-point"""
+    """Test provider entry-point"""
     # https://github.com/ethereum/eth-tester#pyevm-experimental
     pyevm_eth_tester = _get_pyevm_test_backend()
     provider = _get_ethereum_tester(test_backend=pyevm_eth_tester)

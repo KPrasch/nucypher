@@ -19,19 +19,20 @@ class Vladimir(Ursula):
     The power of Ursula, but with a heart forged deep in the mountains of Microsoft or a State Actor or whatever.
     """
 
-    fraud_address = '0xbad022A87Df21E4c787C7B1effD5077014b8CC45'
-    fraud_key = 'a75d701cc4199f7646909d15f22e2e0ef6094b3e2aa47a188f35f47e8932a7b9'
+    fraud_address = "0xbad022A87Df21E4c787C7B1effD5077014b8CC45"
+    fraud_key = "a75d701cc4199f7646909d15f22e2e0ef6094b3e2aa47a188f35f47e8932a7b9"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._checksum_address = self.fraud_address
 
     @classmethod
-    def from_target_ursula(cls,
-                           target_ursula: Ursula,
-                           substitute_verifying_key: bool = False,
-                           sign_metadata: bool = False,
-                           ) -> 'Vladimir':
+    def from_target_ursula(
+        cls,
+        target_ursula: Ursula,
+        substitute_verifying_key: bool = False,
+        sign_metadata: bool = False,
+    ) -> "Vladimir":
         """
         Sometimes Vladimir seeks to attack or imitate a *specific* target Ursula.
 
@@ -93,8 +94,10 @@ class Vladimir(Ursula):
 
         # Our basic replacement. We want to impersonate the target Ursula.
         vladimir._staking_provider_address = vlads_wallet.address
-        metadata_bytes = metadata_bytes.replace(bytes(metadata.payload.staking_provider_address),
-                                                to_canonical_address(vladimir.staking_provider_address))
+        metadata_bytes = metadata_bytes.replace(
+            bytes(metadata.payload.staking_provider_address),
+            to_canonical_address(vladimir.staking_provider_address),
+        )
 
         # Use our own verifying key
         if substitute_verifying_key:
@@ -107,7 +110,9 @@ class Vladimir(Ursula):
 
         # Re-generate metadata signature using our signing key
         if sign_metadata:
-            fake_metadata = NodeMetadata(vladimir.stamp.as_umbral_signer(), fake_metadata.payload)
+            fake_metadata = NodeMetadata(
+                vladimir.stamp.as_umbral_signer(), fake_metadata.payload
+            )
 
         # Put metadata back
         vladimir._metadata = fake_metadata
@@ -132,7 +137,9 @@ class Amonia(Alice):
         def what_do_you_mean_you_dont_tip(policy, *args, **kwargs):
             return b"He convinced me, gimme back my $"
 
-        with patch("nucypher.policy.policies.Policy._publish", what_do_you_mean_you_dont_tip):
+        with patch(
+            "nucypher.policy.policies.Policy._publish", what_do_you_mean_you_dont_tip
+        ):
             return super().grant(*args, **kwargs)
 
     def circumvent_safegaurds_and_grant_without_paying(self, *args, **kwargs):
@@ -141,5 +148,7 @@ class Amonia(Alice):
 
         Can I grant for free if I change the client code to my liking?
         """
-        with patch("nucypher.policy.policies.Policy._publish", self.grant_without_paying):
+        with patch(
+            "nucypher.policy.policies.Policy._publish", self.grant_without_paying
+        ):
             return self.grant_without_paying(*args, **kwargs)

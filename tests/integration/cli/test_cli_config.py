@@ -20,7 +20,7 @@ from tests.constants import (
     YES,
 )
 
-CONFIG_CLASSES = (UrsulaConfiguration, )
+CONFIG_CLASSES = (UrsulaConfiguration,)
 
 
 ENV = {
@@ -52,25 +52,25 @@ def test_initialize_via_cli(
         "--config-root",
         str(custom_filepath.absolute()),
         "--debug",
-        "--force"
+        "--force",
     )
 
     if config_class == UrsulaConfiguration:
-        init_args += ('--host', MOCK_IP_ADDRESS)
+        init_args += ("--host", MOCK_IP_ADDRESS)
 
-    result = click_runner.invoke(nucypher_cli,
-                                 init_args,
-                                 input=YES + YES,
-                                 catch_exceptions=False,
-                                 env=ENV)
+    result = click_runner.invoke(
+        nucypher_cli, init_args, input=YES + YES, catch_exceptions=False, env=ENV
+    )
     assert result.exit_code == 0, result.output
 
     # CLI Output
-    assert str(MOCK_CUSTOM_INSTALLATION_PATH) in result.output, "Configuration not in system temporary directory"
+    assert (
+        str(MOCK_CUSTOM_INSTALLATION_PATH) in result.output
+    ), "Configuration not in system temporary directory"
 
     # Files and Directories
-    assert custom_filepath.is_dir(), 'Configuration file does not exist'
-    assert (custom_filepath / 'keystore').is_dir(), 'Keystore does not exist'
+    assert custom_filepath.is_dir(), "Configuration file does not exist"
+    assert (custom_filepath / "keystore").is_dir(), "Keystore does not exist"
 
 
 @pytest.mark.parametrize("config_class", CONFIG_CLASSES)
@@ -86,9 +86,13 @@ def test_reconfigure_via_cli(
 
     custom_config_filepath = custom_filepath / config_class.generate_filename()
 
-    view_args = (config_class.CHARACTER_CLASS.__name__.lower(), 'config',
-                 '--config-file', str(custom_config_filepath.absolute()),
-                 '--debug')
+    view_args = (
+        config_class.CHARACTER_CLASS.__name__.lower(),
+        "config",
+        "--config-file",
+        str(custom_config_filepath.absolute()),
+        "--debug",
+    )
 
     result = click_runner.invoke(nucypher_cli, view_args, env=ENV)
     assert result.exit_code == 0, result.output

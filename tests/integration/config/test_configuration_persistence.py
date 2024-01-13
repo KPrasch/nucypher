@@ -11,19 +11,19 @@ from tests.utils.middleware import MockRestMiddleware
 
 
 def test_alices_powers_are_persistent(ursulas, temp_dir_path, testerchain):
-    config_root = temp_dir_path / 'nucypher-custom-alice-config'
+    config_root = temp_dir_path / "nucypher-custom-alice-config"
     alice_config = AliceConfiguration(
         eth_endpoint=MOCK_ETH_PROVIDER_URI,
         config_root=config_root,
         network_middleware=MockRestMiddleware(eth_endpoint=MOCK_ETH_PROVIDER_URI),
         domain=TEMPORARY_DOMAIN_NAME,
-        seed_nodes=ursulas
+        seed_nodes=ursulas,
     )
 
     # Generate keys and write them the disk
     alice_config.initialize(
         keystore_password=INSECURE_DEVELOPMENT_PASSWORD,
-        wallet_password=INSECURE_DEVELOPMENT_PASSWORD
+        wallet_password=INSECURE_DEVELOPMENT_PASSWORD,
     )
 
     # Unlock Alice's keystore
@@ -58,7 +58,9 @@ def test_alices_powers_are_persistent(ursulas, temp_dir_path, testerchain):
         network_middleware=MockRestMiddleware(eth_endpoint=MOCK_ETH_PROVIDER_URI),
     )
 
-    bob_policy = alice.grant(bob, label, threshold=threshold, shares=shares, expiration=policy_end_datetime)
+    bob_policy = alice.grant(
+        bob, label, threshold=threshold, shares=shares, expiration=policy_end_datetime
+    )
 
     assert policy_pubkey == bob_policy.public_key
 
@@ -104,7 +106,13 @@ def test_alices_powers_are_persistent(ursulas, temp_dir_path, testerchain):
     # from previous policy
     threshold, shares = 2, 5
     policy_end_datetime = maya.now() + datetime.timedelta(days=3)
-    roberto_policy = new_alice.grant(roberto, label, threshold=threshold, shares=shares, expiration=policy_end_datetime)
+    roberto_policy = new_alice.grant(
+        roberto,
+        label,
+        threshold=threshold,
+        shares=shares,
+        expiration=policy_end_datetime,
+    )
 
     # Both policies must share the same public key (i.e., the policy public key)
     assert policy_pubkey == roberto_policy.public_key

@@ -49,6 +49,7 @@ class SignatureStamp(object):
         :return: Hexdigest fingerprint of key (keccak-256) in bytes
         """
         from nucypher.crypto.utils import keccak_digest
+
         return keccak_digest(bytes(self)).hex().encode()
 
 
@@ -59,6 +60,7 @@ class StrangerStamp(SignatureStamp):
 
     def __call__(self, *args, **kwargs):
         from nucypher.crypto.powers import NoSigningPower
+
         message = "This isn't your SignatureStamp; it belongs to (a Stranger).  You can't sign with it."
         raise NoSigningPower(message)
 

@@ -1,6 +1,3 @@
-
-
-
 from cryptography.exceptions import InternalError
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -10,9 +7,11 @@ from nacl.secret import SecretBox
 
 from nucypher.crypto.constants import BLAKE2B
 
-__MASTER_KEY_LENGTH = 32  # This will be passed to HKDF, but it is not picky about the length
+__MASTER_KEY_LENGTH = (
+    32  # This will be passed to HKDF, but it is not picky about the length
+)
 __WRAPPING_KEY_LENGTH = SecretBox.KEY_SIZE
-__WRAPPING_KEY_INFO = b'NuCypher-KeyWrap'
+__WRAPPING_KEY_INFO = b"NuCypher-KeyWrap"
 __HKDF_HASH_ALGORITHM = BLAKE2B
 
 
@@ -39,10 +38,10 @@ def derive_key_material_from_password(password: bytes, salt: bytes) -> bytes:
         derived_key = Scrypt(
             salt=salt,
             length=__MASTER_KEY_LENGTH,
-            n=2 ** _scrypt_cost,
+            n=2**_scrypt_cost,
             r=8,
             p=1,
-            backend=default_backend()
+            backend=default_backend(),
         ).derive(password)
     except InternalError as e:
         required_memory = 128 * 2**_scrypt_cost * 8 // (10**6)
@@ -67,7 +66,7 @@ def derive_wrapping_key_from_key_material(key_material: bytes, salt: bytes) -> b
         length=__WRAPPING_KEY_LENGTH,
         salt=salt,
         info=__WRAPPING_KEY_INFO,
-        backend=default_backend()
+        backend=default_backend(),
     ).derive(key_material)
     return wrapping_key
 

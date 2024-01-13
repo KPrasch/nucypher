@@ -41,7 +41,8 @@ class Character(Learner):
         network_middleware: RestMiddleware = None,
         crypto_power: CryptoPower = None,
         crypto_power_ups: List[CryptoPowerUp] = None,
-        *args, **kwargs
+        *args,
+        **kwargs,
     ):
         """
         A participant in the cryptological drama (a screenplay, if you like) of NuCypher.
@@ -58,7 +59,9 @@ class Character(Learner):
         self.keystore = keystore
 
         if crypto_power and crypto_power_ups:
-            raise ValueError("Pass crypto_power or crypto_power_ups (or neither), but not both.")
+            raise ValueError(
+                "Pass crypto_power or crypto_power_ups (or neither), but not both."
+            )
         crypto_power_ups = crypto_power_ups or list()
 
         if crypto_power:
@@ -96,7 +99,8 @@ class Character(Learner):
                 self,
                 domain=self.domain,
                 network_middleware=self.network_middleware,
-                *args, **kwargs,
+                *args,
+                **kwargs,
             )
 
     def __eq__(self, other) -> bool:
@@ -127,11 +131,14 @@ class Character(Learner):
             return self._stamp
 
     @classmethod
-    def from_public_keys(cls,
-                         powers_and_material: Dict = None,
-                         verifying_key: Optional[PublicKey] = None,
-                         encrypting_key: Optional[PublicKey] = None,
-                         *args, **kwargs) -> 'Character':
+    def from_public_keys(
+        cls,
+        powers_and_material: Dict = None,
+        verifying_key: Optional[PublicKey] = None,
+        encrypting_key: Optional[PublicKey] = None,
+        *args,
+        **kwargs,
+    ) -> "Character":
         """
         Sometimes we discover a Character and, at the same moment,
         learn the public parts of more of their powers. Here, we take a Dict

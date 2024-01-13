@@ -15,10 +15,7 @@ from web3.types import TxReceipt, Wei
 from nucypher.utilities.logging import Logger
 
 ContractInterfaces = Union[
-    CONTRACT_CALL,
-    TRANSACTION,
-    CONTRACT_ATTRIBUTE,
-    UNKNOWN_CONTRACT_INTERFACE
+    CONTRACT_CALL, TRANSACTION, CONTRACT_ATTRIBUTE, UNKNOWN_CONTRACT_INTERFACE
 ]
 ContractReturnValue = TypeVar(
     "ContractReturnValue", bound=Union[TxReceipt, Wei, int, str, bool]
@@ -48,18 +45,20 @@ def validate_checksum_address(func: Callable) -> Callable:
 
     """
 
-    parameter_name_suffix = '_address'
-    aliases = ('account', 'address')
-    log = Logger('EIP-55-validator')
+    parameter_name_suffix = "_address"
+    aliases = ("account", "address")
+    log = Logger("EIP-55-validator")
 
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
-
         # Check for the presence of checksum addresses in this call
         params = inspect.getcallargs(func, *args, **kwargs)
-        addresses_as_parameters = (parameter_name for parameter_name in params
-                                   if parameter_name.endswith(parameter_name_suffix)
-                                   or parameter_name in aliases)
+        addresses_as_parameters = (
+            parameter_name
+            for parameter_name in params
+            if parameter_name.endswith(parameter_name_suffix)
+            or parameter_name in aliases
+        )
 
         for parameter_name in addresses_as_parameters:
             checksum_address = params[parameter_name]
@@ -69,7 +68,11 @@ def validate_checksum_address(func: Callable) -> Callable:
 
             signature = inspect.signature(func)
             parameter_is_optional = signature.parameters[parameter_name].default is None
-            if parameter_is_optional and checksum_address is None or checksum_address is NO_BLOCKCHAIN_CONNECTION:
+            if (
+                parameter_is_optional
+                and checksum_address is None
+                or checksum_address is NO_BLOCKCHAIN_CONNECTION
+            ):
                 continue
 
             address_is_valid = eth_utils.is_checksum_address(checksum_address)
@@ -81,12 +84,16 @@ def validate_checksum_address(func: Callable) -> Callable:
             # Invalid Type
             if not isinstance(checksum_address, str):
                 actual_type_name = checksum_address.__class__.__name__
-                message = '{} is an invalid type for parameter "{}".'.format(actual_type_name, parameter_name)
+                message = '{} is an invalid type for parameter "{}".'.format(
+                    actual_type_name, parameter_name
+                )
                 log.debug(message)
                 raise TypeError(message)
 
             # Invalid Value
-            message = '"{}" is not a valid EIP-55 checksum address.'.format(checksum_address)
+            message = '"{}" is not a valid EIP-55 checksum address.'.format(
+                checksum_address
+            )
             log.debug(message)
             raise InvalidChecksumAddress(message)
         else:
@@ -95,7 +102,9 @@ def validate_checksum_address(func: Callable) -> Callable:
     return wrapped
 
 
-def contract_api(interface: Optional[ContractInterfaces] = UNKNOWN_CONTRACT_INTERFACE) -> Callable:
+def contract_api(
+    interface: Optional[ContractInterfaces] = UNKNOWN_CONTRACT_INTERFACE,
+) -> Callable:
     """Decorator factory for contract API markers"""
 
     def decorator(agent_method: Callable) -> Callable[..., ContractReturnValue]:

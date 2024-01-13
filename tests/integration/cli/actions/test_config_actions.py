@@ -21,10 +21,10 @@ from nucypher.config.constants import TEMPORARY_DOMAIN_NAME
 from tests.constants import YES
 
 BAD_CONFIG_FILE_CONTENTS = (
-    {'some': 'garbage'},
-    'some garbage',
+    {"some": "garbage"},
+    "some garbage",
     2,
-    '',
+    "",
 )
 
 
@@ -36,9 +36,8 @@ CONFIGS = [
 ]
 
 
-@pytest.fixture(scope='function', params=CONFIGS)
+@pytest.fixture(scope="function", params=CONFIGS)
 def config(request, mocker):
-
     # Setup
     config = request.getfixturevalue(request.param)
     config_class, config_file = config.__class__, config.filepath
@@ -48,16 +47,22 @@ def config(request, mocker):
     JSON_payload = config.deserialize(payload=raw_payload)
 
     # Isolate from filesystem
-    mocker.patch('__main__.open', return_value=raw_payload)
+    mocker.patch("__main__.open", return_value=raw_payload)
 
     # Mock configuration disk I/O
-    mocker.patch.object(config_class, '_read_configuration_file', return_value=JSON_payload)
-    mocker.patch.object(config_class, '_write_configuration_file', return_value=config_file)
+    mocker.patch.object(
+        config_class, "_read_configuration_file", return_value=JSON_payload
+    )
+    mocker.patch.object(
+        config_class, "_write_configuration_file", return_value=config_file
+    )
 
     # Spy on the code path
-    mocker.patch.object(config_class, 'update', side_effect=config_class._write_configuration_file)
-    mocker.spy(configure, 'handle_invalid_configuration_file')
-    mocker.spy(configure, 'handle_missing_configuration_file')
+    mocker.patch.object(
+        config_class, "update", side_effect=config_class._write_configuration_file
+    )
+    mocker.spy(configure, "handle_invalid_configuration_file")
+    mocker.spy(configure, "handle_missing_configuration_file")
 
     yield config
     mocker.resetall()  # dont carry over context between functions
@@ -66,53 +71,73 @@ def config(request, mocker):
 def test_update_configuration_cli_action(config, test_emitter, capsys):
     config_class, config_file = config.__class__, config.filepath
     updates = dict(domain=TEMPORARY_DOMAIN_NAME)
-    get_or_update_configuration(emitter=test_emitter, config_class=config_class, filepath=config_file, updates=updates)
+    get_or_update_configuration(
+        emitter=test_emitter,
+        config_class=config_class,
+        filepath=config_file,
+        updates=updates,
+    )
     config.update.assert_called_once_with(**updates)
     configure.handle_invalid_configuration_file.assert_not_called()
     configure.handle_missing_configuration_file.assert_not_called()
     captured = capsys.readouterr()
-    assert SUCCESSFUL_UPDATE_CONFIGURATION_VALUES.format(fields='domain') in captured.out
+    assert (
+        SUCCESSFUL_UPDATE_CONFIGURATION_VALUES.format(fields="domain") in captured.out
+    )
 
 
-def test_handle_update_missing_configuration_file_cli_action(config,
-                                                             test_emitter,
-                                                             mocker):
+def test_handle_update_missing_configuration_file_cli_action(
+    config, test_emitter, mocker
+):
     config_class, config_file = config.__class__, config.filepath
-    mocker.patch.object(config_class, '_read_configuration_file', side_effect=FileNotFoundError)
+    mocker.patch.object(
+        config_class, "_read_configuration_file", side_effect=FileNotFoundError
+    )
     updates = dict(domain=TEMPORARY_DOMAIN_NAME)
     with pytest.raises(click.FileError):
-        get_or_update_configuration(emitter=test_emitter,
-                                    config_class=config_class,
-                                    filepath=config_file,
-                                    updates=updates)
+        get_or_update_configuration(
+            emitter=test_emitter,
+            config_class=config_class,
+            filepath=config_file,
+            updates=updates,
+        )
     configure.handle_missing_configuration_file.assert_called()
     config._write_configuration_file.assert_not_called()
     configure.handle_invalid_configuration_file.assert_not_called()
 
 
-def test_handle_update_invalid_configuration_file_cli_action(config,
-                                                             test_emitter,
-                                                             mocker,
-                                                             capsys):
+def test_handle_update_invalid_configuration_file_cli_action(
+    config, test_emitter, mocker, capsys
+):
     config_class = config.__class__
     config_file = config.filepath
-    mocker.patch.object(config_class, '_read_configuration_file', side_effect=config_class.ConfigurationError)
+    mocker.patch.object(
+        config_class,
+        "_read_configuration_file",
+        side_effect=config_class.ConfigurationError,
+    )
     updates = dict(domain=TEMPORARY_DOMAIN_NAME)
     with pytest.raises(config_class.ConfigurationError):
-        get_or_update_configuration(emitter=test_emitter,
-                                    config_class=config_class,
-                                    filepath=config_file,
-                                    updates=updates)
+        get_or_update_configuration(
+            emitter=test_emitter,
+            config_class=config_class,
+            filepath=config_file,
+            updates=updates,
+        )
     configure.handle_missing_configuration_file.assert_not_called()
     config._write_configuration_file.assert_not_called()
     configure.handle_invalid_configuration_file.assert_called()
     captured = capsys.readouterr()
-    assert INVALID_CONFIGURATION_FILE_WARNING.format(filepath=config_file) in captured.out
+    assert (
+        INVALID_CONFIGURATION_FILE_WARNING.format(filepath=config_file) in captured.out
+    )
 
 
-def test_destroy_configuration_cli_action(config, test_emitter, capsys, mocker, mock_stdin):
+def test_destroy_configuration_cli_action(
+    config, test_emitter, capsys, mocker, mock_stdin
+):
     config_class = config.__class__
-    mock_config_destroy = mocker.patch.object(config_class, 'destroy')
+    mock_config_destroy = mocker.patch.object(config_class, "destroy")
     mock_stdin.line(YES)
     destroy_configuration(emitter=test_emitter, character_config=config)
     mock_config_destroy.assert_called_once()
@@ -129,34 +154,43 @@ def test_handle_missing_configuration_file_cli_action(config):
     message = MISSING_CONFIGURATION_FILE.format(name=name, init_command=init_command)
     assert not config_file.exists()
     with pytest.raises(click.exceptions.FileError, match=message):
-        handle_missing_configuration_file(config_file=config_file,
-                                          character_config_class=config_class)
+        handle_missing_configuration_file(
+            config_file=config_file, character_config_class=config_class
+        )
 
 
-@pytest.mark.parametrize('bad_config_payload', BAD_CONFIG_FILE_CONTENTS)
-def test_handle_invalid_configuration_file_cli_action(mocker, config, test_emitter, capsys, bad_config_payload):
+@pytest.mark.parametrize("bad_config_payload", BAD_CONFIG_FILE_CONTENTS)
+def test_handle_invalid_configuration_file_cli_action(
+    mocker, config, test_emitter, capsys, bad_config_payload
+):
     config_class = config.__class__
     config_file = Path(config.filepath)
-    mocker.patch.object(config_class, '_read_configuration_file', return_value=bad_config_payload)
+    mocker.patch.object(
+        config_class, "_read_configuration_file", return_value=bad_config_payload
+    )
     with pytest.raises(config_class.ConfigurationError):
-        handle_invalid_configuration_file(emitter=test_emitter,
-                                          config_class=config_class,
-                                          filepath=config_file)
+        handle_invalid_configuration_file(
+            emitter=test_emitter, config_class=config_class, filepath=config_file
+        )
     captured = capsys.readouterr()
     message_1 = INVALID_CONFIGURATION_FILE_WARNING.format(filepath=config_file)
     assert message_1 in captured.out
 
 
-@pytest.mark.parametrize('side_effect', (TypeError,))
-def test_handle_corrupted_configuration_file_cli_action(mocker, config, test_emitter, capsys, side_effect):
+@pytest.mark.parametrize("side_effect", (TypeError,))
+def test_handle_corrupted_configuration_file_cli_action(
+    mocker, config, test_emitter, capsys, side_effect
+):
     config_class = config.__class__
     config_file = Path(config.filepath)
-    mocker.patch('__main__.open', return_value=b'AAAAAAAAAAAAA')
-    mocker.patch.object(config_class, '_read_configuration_file', side_effect=side_effect)
+    mocker.patch("__main__.open", return_value=b"AAAAAAAAAAAAA")
+    mocker.patch.object(
+        config_class, "_read_configuration_file", side_effect=side_effect
+    )
     with pytest.raises(side_effect):
-        handle_invalid_configuration_file(emitter=test_emitter,
-                                          config_class=config_class,
-                                          filepath=config_file)
+        handle_invalid_configuration_file(
+            emitter=test_emitter, config_class=config_class, filepath=config_file
+        )
     captured = capsys.readouterr()
     message_1 = INVALID_CONFIGURATION_FILE_WARNING.format(filepath=config_file)
     message_2 = INVALID_JSON_IN_CONFIGURATION_WARNING.format(filepath=config_file)

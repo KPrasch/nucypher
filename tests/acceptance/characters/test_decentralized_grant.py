@@ -13,9 +13,10 @@ policy_end_datetime = maya.now() + datetime.timedelta(days=35)
 
 
 def check(policy, bob, ursulas):
-
     # Check the generated treasure map is decryptable by Bob.
-    treasure_map = bob._decrypt_treasure_map(policy.treasure_map, policy.publisher_verifying_key)
+    treasure_map = bob._decrypt_treasure_map(
+        policy.treasure_map, policy.publisher_verifying_key
+    )
 
     # The number of actual destinations is exactly equal to shares.
     assert len(treasure_map.destinations) == shares

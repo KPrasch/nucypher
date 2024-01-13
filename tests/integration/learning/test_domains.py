@@ -64,7 +64,7 @@ def test_learner_learns_about_domains_separately(
         domain=domain_1,
         registry=registry_1,
         quantity=1,
-        account_start_index=2
+        account_start_index=2,
     ).pop()
     other_first_domain_learner.remember_peer(_nobody, eager=True)
 
@@ -74,7 +74,7 @@ def test_learner_learns_about_domains_separately(
         registry=registry_2,
         know_each_other=True,
         quantity=3,
-        account_start_index=3
+        account_start_index=3,
     )
 
     assert len(hero_learner.peers) == 0
@@ -99,14 +99,14 @@ def test_learner_learns_about_domains_separately(
         domain=domain_1,
         registry=registry_1,
         quantity=1,
-        account_start_index=6
+        account_start_index=6,
     ).pop()
     _new_second_domain_learner = lonely_ursula_maker(
         accounts=accounts,
         domain=domain_2,
         registry=registry_2,
         quantity=1,
-        account_start_index=7
+        account_start_index=7,
     ).pop()
 
     new_first_domain_learner.remember_peer(hero_learner, eager=True)
@@ -131,7 +131,7 @@ def test_learner_uses_both_seed_nodes_and_fallback_sage_nodes(
     test_registry,
     ursula_test_config,
     testerchain,
-    accounts
+    accounts,
 ):
     mocker.patch.dict(TEACHER_NODES, {domain_1: ("peer-uri",)}, clear=True)
 
@@ -155,7 +155,7 @@ def test_learner_uses_both_seed_nodes_and_fallback_sage_nodes(
         quantity=2,
         account_start_index=4,
     )
-    mocker.patch.object(Ursula, 'from_peer_uri', return_value=peer)
+    mocker.patch.object(Ursula, "from_peer_uri", return_value=peer)
 
     # The learner should learn about all nodes
     learner.learn_from_peer()

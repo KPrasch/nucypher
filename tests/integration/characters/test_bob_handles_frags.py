@@ -12,7 +12,8 @@ def _policy_info_kwargs(enacted_policy):
     return dict(
         encrypted_treasure_map=enacted_policy.treasure_map,
         alice_verifying_key=enacted_policy.publisher_verifying_key,
-        )
+    )
+
 
 def test_retrieval_kit(enacted_policy, ursulas):
     messages, message_kits = make_message_kits(enacted_policy.public_key)
@@ -76,7 +77,6 @@ def test_single_retrieve_conditions_empty_list(enacted_policy, bob, ursulas):
 
 
 def test_use_external_cache(enacted_policy, bob, ursulas):
-
     bob.start_peering()
     messages, message_kits = make_message_kits(enacted_policy.public_key)
 
@@ -91,7 +91,7 @@ def test_use_external_cache(enacted_policy, bob, ursulas):
     loaded_message_kits = bob.retrieve(
         message_kits=message_kits,
         **_policy_info_kwargs(enacted_policy),
-        )
+    )
 
     # Not enough cfrags yet
     assert not any(mk.is_decryptable_by_receiver() for mk in loaded_message_kits)
@@ -107,7 +107,7 @@ def test_use_external_cache(enacted_policy, bob, ursulas):
     loaded_message_kits = bob.retrieve(
         message_kits=loaded_message_kits,
         **_policy_info_kwargs(enacted_policy),
-        )
+    )
 
     assert all(mk.is_decryptable_by_receiver() for mk in loaded_message_kits)
 
@@ -119,6 +119,6 @@ def test_use_external_cache(enacted_policy, bob, ursulas):
     cleartexts = bob.retrieve_and_decrypt(
         message_kits=loaded_message_kits,
         **_policy_info_kwargs(enacted_policy),
-        )
+    )
 
     assert cleartexts == messages

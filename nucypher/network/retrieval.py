@@ -1,4 +1,3 @@
-
 import json
 import random
 from collections import defaultdict
@@ -41,8 +40,9 @@ class RetrievalPlan:
     during retrieval.
     """
 
-    def __init__(self, treasure_map: TreasureMap, retrieval_kits: Sequence[RetrievalKit]):
-
+    def __init__(
+        self, treasure_map: TreasureMap, retrieval_kits: Sequence[RetrievalKit]
+    ):
         self._retrieval_kits = retrieval_kits
         self._threshold = treasure_map.threshold
 
@@ -57,12 +57,14 @@ class RetrievalPlan:
         }  # {capsule: {ursula_address: error}}
 
         # Records the addresses of Ursulas that were already queried, indexed by capsule.
-        self._queried_addresses = {retrieval_kit.capsule: set(retrieval_kit.queried_addresses)
-                                   for retrieval_kit in retrieval_kits}
+        self._queried_addresses = {
+            retrieval_kit.capsule: set(retrieval_kit.queried_addresses)
+            for retrieval_kit in retrieval_kits
+        }
 
         # Records the capsules already processed by a corresponding Ursula.
         # An inverse of `_queried_addresses`.
-        self._processed_capsules = defaultdict(set) # {ursula_address: {capsule}}
+        self._processed_capsules = defaultdict(set)  # {ursula_address: {capsule}}
         for retrieval_kit in retrieval_kits:
             for address in retrieval_kit.queried_addresses:
                 self._processed_capsules[address].add(retrieval_kit.capsule)
@@ -75,14 +77,17 @@ class RetrievalPlan:
             ursulas_to_contact_last |= queried_addresses
 
         # Randomize Ursulas' priorities
-        ursulas_pick_order = list(treasure_map.destinations) # checksum addresses
-        random.shuffle(ursulas_pick_order) # mutates list in-place
+        ursulas_pick_order = list(treasure_map.destinations)  # checksum addresses
+        random.shuffle(ursulas_pick_order)  # mutates list in-place
 
-        ursulas_pick_order = [ursula for ursula in ursulas_pick_order
-                              if ursula not in ursulas_to_contact_last]
+        ursulas_pick_order = [
+            ursula
+            for ursula in ursulas_pick_order
+            if ursula not in ursulas_to_contact_last
+        ]
         self._ursulas_pick_order = ursulas_pick_order + list(ursulas_to_contact_last)
 
-    def get_work_order(self) -> 'RetrievalWorkOrder':
+    def get_work_order(self) -> "RetrievalWorkOrder":
         """
         Returns a new retrieval work order based on the current plan state.
         """
@@ -92,19 +97,27 @@ class RetrievalPlan:
             for rk in self._retrieval_kits:
                 # Only request reencryption for capsules that:
                 # - haven't been processed by this Ursula
-                processed = rk.capsule in self._processed_capsules.get(ursula_address, set())
+                processed = rk.capsule in self._processed_capsules.get(
+                    ursula_address, set()
+                )
                 # - don't already have cfrags from `threshold` Ursulas
                 enough = len(self._queried_addresses[rk.capsule]) >= self._threshold
                 if (not processed) and (not enough):
                     retrieval_kits.append(rk)
 
             if len(retrieval_kits) > 0:
-                return RetrievalWorkOrder(ursula_address=ursula_address, retrieval_kits=retrieval_kits)
+                return RetrievalWorkOrder(
+                    ursula_address=ursula_address, retrieval_kits=retrieval_kits
+                )
 
         # Execution will not reach this point if `is_complete()` returned `False` before this call.
         raise RuntimeError("No Ursulas left")
 
-    def update(self, work_order: 'RetrievalWorkOrder', cfrags: Dict[Capsule, VerifiedCapsuleFrag]):
+    def update(
+        self,
+        work_order: "RetrievalWorkOrder",
+        cfrags: Dict[Capsule, VerifiedCapsuleFrag],
+    ):
         """
         Updates the plan state, recording the cfrags obtained for capsules during a query.
         """
@@ -113,20 +126,26 @@ class RetrievalPlan:
             self._processed_capsules[work_order.ursula_address].add(capsule)
             self._results[capsule][work_order.ursula_address] = cfrag
 
-    def update_errors(self,
-                      work_order: "RetrievalWorkOrder",
-                      ursula_address: ChecksumAddress,
-                      error_message: str):
+    def update_errors(
+        self,
+        work_order: "RetrievalWorkOrder",
+        ursula_address: ChecksumAddress,
+        error_message: str,
+    ):
         for capsule in work_order.capsules:
             self._errors[capsule][ursula_address] = error_message
 
     def is_complete(self) -> bool:
         return (
             # there are no more Ursulas to query
-            not bool(self._ursulas_pick_order) or
+            not bool(self._ursulas_pick_order)
+            or
             # all the capsules have enough cfrags for decryption
-            all(len(addresses) >= self._threshold for addresses in self._queried_addresses.values())
+            all(
+                len(addresses) >= self._threshold
+                for addresses in self._queried_addresses.values()
             )
+        )
 
     def results(self) -> Tuple[List["RetrievalResult"], List[RetrievalError]]:
         results = []
@@ -208,16 +227,20 @@ class PRERetrievalClient(ThresholdAccessControlClient):
             )
         except NodeSeemsToBeDown as e:
             # TODO: What to do here?  Ursula isn't supposed to be down.  NRN
-            message = (f"Ursula ({ursula}) seems to be down "
-                       f"while trying to complete ReencryptionRequest: {reencryption_request}")
+            message = (
+                f"Ursula ({ursula}) seems to be down "
+                f"while trying to complete ReencryptionRequest: {reencryption_request}"
+            )
             self.log.info(message)
             raise RuntimeError(message) from e
         except middleware.NotFound as e:
             # This Ursula claims not to have a matching KFrag.  Maybe this has been revoked?
             # TODO: What's the thing to do here?
             # Do we want to track these Ursulas in some way in case they're lying?  #567
-            message = (f"Ursula ({ursula}) claims not to not know of the policy {reencryption_request.hrac}. "
-                       f"Has access been revoked?")
+            message = (
+                f"Ursula ({ursula}) claims not to not know of the policy {reencryption_request.hrac}. "
+                f"Has access been revoked?"
+            )
             self.log.warn(message)
             raise RuntimeError(message) from e
         except middleware.UnexpectedResponse:
@@ -233,11 +256,13 @@ class PRERetrievalClient(ThresholdAccessControlClient):
         ursula_verifying_key = ursula.stamp.as_umbral_pubkey()
 
         try:
-            verified_cfrags = reencryption_response.verify(capsules=reencryption_request.capsules,
-                                                           alice_verifying_key=alice_verifying_key,
-                                                           ursula_verifying_key=ursula_verifying_key,
-                                                           policy_encrypting_key=policy_encrypting_key,
-                                                           bob_encrypting_key=bob_encrypting_key)
+            verified_cfrags = reencryption_response.verify(
+                capsules=reencryption_request.capsules,
+                alice_verifying_key=alice_verifying_key,
+                ursula_verifying_key=ursula_verifying_key,
+                policy_encrypting_key=policy_encrypting_key,
+                bob_encrypting_key=bob_encrypting_key,
+            )
         except InvalidSignature as e:
             self.log.warn(f"Invalid signature for ReencryptionResponse: {e}")
             raise
@@ -252,8 +277,10 @@ class PRERetrievalClient(ThresholdAccessControlClient):
             self.log.warn(message)
             raise RuntimeError(message)
 
-        return {capsule: vcfrag for capsule, vcfrag
-                in zip(reencryption_request.capsules, verified_cfrags)}
+        return {
+            capsule: vcfrag
+            for capsule, vcfrag in zip(reencryption_request.capsules, verified_cfrags)
+        }
 
     def retrieve_cfrags(
         self,
@@ -276,7 +303,9 @@ class PRERetrievalClient(ThresholdAccessControlClient):
             ursulas=ursulas_in_map, threshold=treasure_map.threshold, timeout=timeout
         )
 
-        retrieval_plan = RetrievalPlan(treasure_map=treasure_map, retrieval_kits=retrieval_kits)
+        retrieval_plan = RetrievalPlan(
+            treasure_map=treasure_map, retrieval_kits=retrieval_kits
+        )
 
         while not retrieval_plan.is_complete():
             # TODO (#2789): Currently we'll only query one Ursula once during the retrieval.
@@ -285,7 +314,9 @@ class PRERetrievalClient(ThresholdAccessControlClient):
             work_order = retrieval_plan.get_work_order()
 
             # TODO (#1995): when that issue is fixed, conversion is no longer needed
-            ursula_checksum_address = to_checksum_address(bytes(work_order.ursula_address))
+            ursula_checksum_address = to_checksum_address(
+                bytes(work_order.ursula_address)
+            )
 
             if ursula_checksum_address not in self._learner.peers:
                 continue
@@ -304,7 +335,7 @@ class PRERetrievalClient(ThresholdAccessControlClient):
                 hrac=treasure_map.hrac,
                 encrypted_kfrag=treasure_map.destinations[work_order.ursula_address],
                 bob_verifying_key=bob_verifying_key,
-                publisher_verifying_key=treasure_map.publisher_verifying_key
+                publisher_verifying_key=treasure_map.publisher_verifying_key,
             )
 
             try:

@@ -1,6 +1,3 @@
-
-
-
 import pathlib
 from contextlib import contextmanager
 
@@ -33,7 +30,9 @@ def initialize_sentry(dsn: str):
         import sentry_sdk
         from sentry_sdk.integrations.logging import LoggingIntegration
     except ImportError:
-        raise ImportError('Sentry SDK is not installed. Please install it and try again.')
+        raise ImportError(
+            "Sentry SDK is not installed. Please install it and try again."
+        )
 
     import logging
 
@@ -41,32 +40,31 @@ def initialize_sentry(dsn: str):
     ignored_loggers = ()
 
     def before_breadcrumb(crumb, hint):
-        logger = crumb.get('category')
+        logger = crumb.get("category")
         if logger in ignored_loggers:
             return
         return crumb
 
     def before_send(event, hint):
-        logger = event.get('logger')
+        logger = event.get("logger")
         if logger in ignored_loggers:
             return
         return event
 
     sentry_logging = LoggingIntegration(
         level=logging.DEBUG,  # Capture debug and above as breadcrumbs
-        event_level=logging.ERROR  # Send errors as events
+        event_level=logging.ERROR,  # Send errors as events
     )
     sentry_sdk.init(
         dsn=dsn,
         release=nucypher.__version__,
         integrations=[sentry_logging],
         before_breadcrumb=before_breadcrumb,
-        before_send=before_send
+        before_send=before_send,
     )
 
 
 class GlobalLoggerSettings:
-
     log_level = LogLevel.levelWithName("info")
     _json_ipc = False  # TODO: Oh no... #1754
 
@@ -119,7 +117,7 @@ class GlobalLoggerSettings:
 
 
 def console_observer(event):
-    if event['log_level'] >= GlobalLoggerSettings.log_level:
+    if event["log_level"] >= GlobalLoggerSettings.log_level:
         print(formatEvent(event))
 
 
@@ -139,17 +137,21 @@ def sentry_observer(event):
     try:
         from sentry_sdk import add_breadcrumb, capture_exception
     except ImportError:
-        raise ImportError('Sentry SDK is not installed. Please install it and try again.')
+        raise ImportError(
+            "Sentry SDK is not installed. Please install it and try again."
+        )
 
     # Handle breadcrumbs...
-    if not event.get('isError') or 'failure' not in event:
-        add_breadcrumb(level=event.get('log_level').name,
-                       message=event.get('log_format'),
-                       category=event.get('log_namespace'))
+    if not event.get("isError") or "failure" not in event:
+        add_breadcrumb(
+            level=event.get("log_level").name,
+            message=event.get("log_format"),
+            category=event.get("log_namespace"),
+        )
         return
 
     # ...Handle Failures
-    f = event['failure']
+    f = event["failure"]
     capture_exception((f.type, f.value, f.getTracebackObject()))
 
 
@@ -159,14 +161,24 @@ def _ensure_dir_exists(path):
 
 def get_json_file_observer(name=DEFAULT_JSON_LOG_FILENAME, path=USER_LOG_DIR):
     _ensure_dir_exists(path)
-    logfile = LogFile(name=name, directory=path, rotateLength=MAXIMUM_LOG_SIZE, maxRotatedFiles=MAX_LOG_FILES)
+    logfile = LogFile(
+        name=name,
+        directory=path,
+        rotateLength=MAXIMUM_LOG_SIZE,
+        maxRotatedFiles=MAX_LOG_FILES,
+    )
     observer = jsonFileLogObserver(outFile=logfile)
     return observer
 
 
 def get_text_file_observer(name=DEFAULT_LOG_FILENAME, path=USER_LOG_DIR):
     _ensure_dir_exists(path)
-    logfile = LogFile(name=name, directory=path, rotateLength=MAXIMUM_LOG_SIZE, maxRotatedFiles=MAX_LOG_FILES)
+    logfile = LogFile(
+        name=name,
+        directory=path,
+        rotateLength=MAXIMUM_LOG_SIZE,
+        maxRotatedFiles=MAX_LOG_FILES,
+    )
     observer = FileLogObserver(formatEvent=formatEventAsClassicLogText, outFile=logfile)
     return observer
 
@@ -175,7 +187,8 @@ class Logger(TwistedLogger):
     """Drop-in replacement of Twisted's Logger, patching the emit() method to tolerate inputs with curly braces,
     i.e., not compliant with PEP 3101.
 
-    See Issue #724 and, particularly, https://github.com/nucypher/nucypher/issues/724#issuecomment-600190455"""
+    See Issue #724 and, particularly, https://github.com/nucypher/nucypher/issues/724#issuecomment-600190455
+    """
 
     @classmethod
     def escape_format_string(cls, string):

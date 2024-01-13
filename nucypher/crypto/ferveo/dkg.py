@@ -16,7 +16,7 @@ from nucypher_core.ferveo import (
 
 from nucypher.utilities.logging import Logger
 
-LOGGER = Logger('ferveo-dkg')
+LOGGER = Logger("ferveo-dkg")
 
 
 _VARIANTS = {
@@ -37,9 +37,11 @@ def _make_dkg(
         shares_num=shares,
         security_threshold=threshold,
         validators=nodes,
-        me=me
+        me=me,
     )
-    LOGGER.debug(f"Initialized DKG backend for {threshold}/{shares} nodes: {', '.join(n.address[:6] for n in nodes)}")
+    LOGGER.debug(
+        f"Initialized DKG backend for {threshold}/{shares} nodes: {', '.join(n.address[:6] for n in nodes)}"
+    )
     return dkg
 
 
@@ -81,7 +83,8 @@ def derive_decryption_share(
     ciphertext_header: CiphertextHeader,
     aad: bytes,
     variant: FerveoVariant,
-    *args, **kwargs
+    *args,
+    **kwargs,
 ) -> Union[DecryptionShareSimple, DecryptionSharePrecomputed]:
     dkg = _make_dkg(nodes=nodes, *args, **kwargs)
     if not all((nodes, aggregated_transcript, keypair, ciphertext_header, aad)):
@@ -96,6 +99,6 @@ def derive_decryption_share(
         dkg,
         ciphertext_header,
         aad,
-        keypair
+        keypair,
     )
     return share

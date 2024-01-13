@@ -42,13 +42,18 @@ class _TestMiddlewareClient(NucypherMiddlewareClient):
         try:
             return mkuc[port]
         except KeyError:
-             raise BadTestUrsulas(
-                "Can't find an Ursula with port {} - did you spin up the right test ursulas?".format(port))
+            raise BadTestUrsulas(
+                "Can't find an Ursula with port {} - did you spin up the right test ursulas?".format(
+                    port
+                )
+            )
 
     def parse_node_or_host_and_port(self, node=None, host=None, port=None):
         if node:
             if any((host, port)):
-                raise ValueError("Don't pass host and port if you are passing the node.")
+                raise ValueError(
+                    "Don't pass host and port if you are passing the node."
+                )
             mock_client = self._get_mock_client_by_ursula(node)
         elif all((host, port)):
             node = self._get_ursula_by_port(port)
@@ -60,7 +65,9 @@ class _TestMiddlewareClient(NucypherMiddlewareClient):
 
     def invoke_method(self, method, url, *args, **kwargs):
         self.clean_params(kwargs)
-        kwargs.pop("timeout", None)  # Just get rid of timeout; not needed for the test client.
+        kwargs.pop(
+            "timeout", None
+        )  # Just get rid of timeout; not needed for the test client.
         response = method(url, *args, **kwargs)
         return response
 
@@ -82,10 +89,7 @@ class MockRestMiddlewareForLargeFleetTests(MockRestMiddleware):
     A MockRestMiddleware with workaround necessary to test the conditions that arise with thousands of nodes.
     """
 
-    def get_peers_via_rest(self,
-                           node,
-                           fleet_state_checksum,
-                           announce_nodes=None):
+    def get_peers_via_rest(self, node, fleet_state_checksum, announce_nodes=None):
         response_bytes = node.bytestring_of_peers()
         r = Response(response_bytes)
         r.content = r.data
@@ -96,6 +100,7 @@ class SluggishLargeFleetMiddleware(MockRestMiddlewareForLargeFleetTests):
     """
     Similar to above, but with added delay to simulate network latency.
     """
+
     def put_treasure_map_on_node(self, node, *args, **kwargs):
         time.sleep(random.randrange(5, 15) / 100)
         result = super().put_treasure_map_on_node(node=node, *args, **kwargs)
@@ -104,7 +109,6 @@ class SluggishLargeFleetMiddleware(MockRestMiddlewareForLargeFleetTests):
 
 
 class _MiddlewareClientWithConnectionProblems(_TestMiddlewareClient):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ports_that_are_down = set()
@@ -162,15 +166,14 @@ class EvilMiddleWare(MockRestMiddleware):
         Try to get Ursula to propagate a malicious (or otherwise shitty) interface ID.
         """
         fleet_state_checksum = FleetStateChecksum(this_node=None, other_nodes=[])
-        request = MetadataRequest(fleet_state_checksum=fleet_state_checksum, announce_nodes=[shitty_metadata])
-        response = self.client.post(node_or_sprout=ursula,
-                                    path="node_metadata",
-                                    data=bytes(request)
-                                    )
+        request = MetadataRequest(
+            fleet_state_checksum=fleet_state_checksum, announce_nodes=[shitty_metadata]
+        )
+        response = self.client.post(
+            node_or_sprout=ursula, path="node_metadata", data=bytes(request)
+        )
         return response
 
     def upload_arbitrary_data(self, node, path, data):
-        response = self.client.post(node_or_sprout=node,
-                                    path=path,
-                                    data=data)
+        response = self.client.post(node_or_sprout=node, path=path, data=data)
         return response

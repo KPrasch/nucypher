@@ -1,5 +1,3 @@
-
-
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -8,28 +6,36 @@ from nucypher.blockchain.eth.events import ContractEventsThrottler
 
 
 def test_contract_events_throttler_to_block_check():
-    event_name = 'TestEvent'
+    event_name = "TestEvent"
     latest_block = 50
     blockchain = MagicMock()
     blockchain.client.block_number = latest_block
     agent = Mock(events={event_name: Mock(return_value=[])}, blockchain=blockchain)
 
     # from_block < to_block
-    throttler = ContractEventsThrottler(agent=agent, event_name=event_name, from_block=1, to_block=10)
+    throttler = ContractEventsThrottler(
+        agent=agent, event_name=event_name, from_block=1, to_block=10
+    )
     assert throttler.from_block == 1
     assert throttler.to_block == 10
 
     # to_block < from_block
     with pytest.raises(ValueError):
-        ContractEventsThrottler(agent=agent, event_name=event_name, from_block=10, to_block=8)
+        ContractEventsThrottler(
+            agent=agent, event_name=event_name, from_block=10, to_block=8
+        )
 
     # to_block can be equal to from_block
-    throttler = ContractEventsThrottler(agent=agent, event_name=event_name, from_block=10, to_block=10)
+    throttler = ContractEventsThrottler(
+        agent=agent, event_name=event_name, from_block=10, to_block=10
+    )
     assert throttler.from_block == 10
     assert throttler.to_block == 10
 
     # from_block and to_block value of zero allowed
-    throttler = ContractEventsThrottler(agent=agent, event_name=event_name, from_block=0, to_block=0)
+    throttler = ContractEventsThrottler(
+        agent=agent, event_name=event_name, from_block=0, to_block=0
+    )
     assert throttler.from_block == 0
     assert throttler.to_block == 0
 
@@ -39,16 +45,20 @@ def test_contract_events_throttler_to_block_check():
 
     # latest block is lower than from_block
     with pytest.raises(ValueError):
-        ContractEventsThrottler(agent=agent, event_name=event_name, from_block=latest_block + 1)
+        ContractEventsThrottler(
+            agent=agent, event_name=event_name, from_block=latest_block + 1
+        )
 
     # latest block is equal to from_block
-    throttler = ContractEventsThrottler(agent=agent, event_name=event_name, from_block=latest_block)
+    throttler = ContractEventsThrottler(
+        agent=agent, event_name=event_name, from_block=latest_block
+    )
     assert throttler.from_block == latest_block
     assert throttler.to_block == latest_block
 
 
 def test_contract_events_throttler_inclusive_block_ranges():
-    event_name = 'TestEvent'
+    event_name = "TestEvent"
 
     #
     # 1 block at a time
@@ -60,7 +70,7 @@ def test_contract_events_throttler_inclusive_block_ranges():
         event_name=event_name,
         from_block=0,
         to_block=10,
-        max_blocks_per_call=1
+        max_blocks_per_call=1,
     )
 
     for _ in events_throttler:
@@ -81,7 +91,7 @@ def test_contract_events_throttler_inclusive_block_ranges():
     #
     mock_method = Mock(return_value=[])
     agent = Mock(events={event_name: mock_method})
-    argument_filters = {'address': '0xdeadbeef'}
+    argument_filters = {"address": "0xdeadbeef"}
     events_throttler = ContractEventsThrottler(
         agent=agent,
         event_name=event_name,

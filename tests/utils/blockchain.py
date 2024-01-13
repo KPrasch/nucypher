@@ -23,18 +23,17 @@ class TestAccount(LocalAccount):
     __test__ = False  # prohibit pytest from collecting this object as a test
 
     @classmethod
-    def random(cls, *args, **kwargs) -> 'LocalAccount':
+    def random(cls, *args, **kwargs) -> "LocalAccount":
         account = EthAccount.create(*args, **kwargs)
         return cls(key=PrivateKey(account.key), account=EthAccount)
 
     @classmethod
-    def from_key(cls, private_key: PrivateKey) -> 'LocalAccount':
+    def from_key(cls, private_key: PrivateKey) -> "LocalAccount":
         account = EthAccount.from_key(private_key=private_key)
         return cls(key=PrivateKey(account.key), account=EthAccount)
 
 
 class ReservedTestAccountManager(TestAccountManager):
-
     NUMBER_OF_URSULAS_IN_TESTS = 10
     NUMBER_OF_STAKING_PROVIDERS_IN_TESTS = NUMBER_OF_URSULAS_IN_TESTS
 
@@ -56,7 +55,10 @@ class ReservedTestAccountManager(TestAccountManager):
     def accounts(self) -> List[TestAccount]:
         if self.__wallets:
             return self.__wallets
-        wallets = [TestAccount.from_key(a.private_key) for a in super(ReservedTestAccountManager, self).accounts]
+        wallets = [
+            TestAccount.from_key(a.private_key)
+            for a in super(ReservedTestAccountManager, self).accounts
+        ]
         self.__wallets = wallets
         return wallets
 
@@ -78,12 +80,16 @@ class ReservedTestAccountManager(TestAccountManager):
 
     def ursula_wallet(self, index: int):
         if index not in self.__OPERATORS_RANGE:
-            raise ValueError(f"Ursula index must be lower than {self.NUMBER_OF_URSULAS_IN_TESTS}")
+            raise ValueError(
+                f"Ursula index must be lower than {self.NUMBER_OF_URSULAS_IN_TESTS}"
+            )
         return self[self._FIRST_URSULA + index]
 
     def provider_wallet(self, index: int):
         if index not in self.__STAKING_PROVIDERS_RANGE:
-            raise ValueError(f"Stake provider index must be lower than {self.NUMBER_OF_STAKING_PROVIDERS_IN_TESTS}")
+            raise ValueError(
+                f"Stake provider index must be lower than {self.NUMBER_OF_STAKING_PROVIDERS_IN_TESTS}"
+            )
         return self[self._FIRST_STAKING_PROVIDER + index]
 
     @property
@@ -114,9 +120,12 @@ class TesterBlockchain(BlockchainInterface):
     __test__ = False  # prohibit pytest from collecting this object as a test
 
     # Web3
-    GAS_STRATEGIES = {**BlockchainInterface.GAS_STRATEGIES, 'free': free_gas_price_strategy}
+    GAS_STRATEGIES = {
+        **BlockchainInterface.GAS_STRATEGIES,
+        "free": free_gas_price_strategy,
+    }
     ETH_PROVIDER_URI = TEST_ETH_PROVIDER_URI
-    DEFAULT_GAS_STRATEGY = 'free'
+    DEFAULT_GAS_STRATEGY = "free"
 
     def __init__(self, *args, **kwargs):
         EXPECTED_CONFIRMATION_TIME_IN_SECONDS["free"] = 5  # Just some upper-limit
@@ -124,7 +133,9 @@ class TesterBlockchain(BlockchainInterface):
         self.accounts = ReservedTestAccountManager()
         self.connect()
 
-    def wait_for_receipt(self, txhash: Union[bytes, str, HexBytes], timeout: int = None) -> TxReceipt:
+    def wait_for_receipt(
+        self, txhash: Union[bytes, str, HexBytes], timeout: int = None
+    ) -> TxReceipt:
         timeout = timeout or self.TIMEOUT
         result = self.client.wait_for_receipt(transaction_hash=txhash, timeout=timeout)
         return result
@@ -140,7 +151,7 @@ class TesterBlockchain(BlockchainInterface):
             raise ValueError("Specify either hours or seconds, not a combination")
 
         if hours:
-            duration = hours * (60*60)
+            duration = hours * (60 * 60)
             base = 60 * 60
         elif seconds:
             duration = seconds
@@ -148,12 +159,11 @@ class TesterBlockchain(BlockchainInterface):
         else:
             raise ValueError("Specify either hours, or seconds.")
 
-        now = self.w3.eth.get_block('latest').timestamp
-        end_timestamp = ((now+duration)//base) * base
+        now = self.w3.eth.get_block("latest").timestamp
+        end_timestamp = ((now + duration) // base) * base
 
         self.w3.eth.w3.testing.timeTravel(timestamp=end_timestamp)
         self.w3.eth.w3.testing.mine(1)
 
-        delta = maya.timedelta(seconds=end_timestamp-now)
-        self.log.info(f"Time traveled {delta} "
-                      f"| epoch {end_timestamp}")
+        delta = maya.timedelta(seconds=end_timestamp - now)
+        self.log.info(f"Time traveled {delta} " f"| epoch {end_timestamp}")

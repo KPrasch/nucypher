@@ -85,14 +85,15 @@ _option_middleware = click.option(
 # Alphabetical
 #
 
+
 def option_contract_name(
     required: bool = False, valid_options: Sequence[str] = TACO_CONTRACT_NAMES
 ):
     return click.option(
-        '--contract-name',
+        "--contract-name",
         help="Specify a single contract by name",
         type=click.Choice(valid_options),
-        required=required
+        required=required,
     )
 
 
@@ -106,7 +107,8 @@ def option_domain(
         help="TACo Domain Name",
         type=NuCypherDomainName(validate=validate),
         required=required,
-        default=default)
+        default=default,
+    )
 
 
 def option_eth_endpoint(default=None, required: bool = False):
@@ -116,7 +118,7 @@ def option_eth_endpoint(default=None, required: bool = False):
         help="Blockchain provider's URI i.e. 'file:///path/to/geth.ipc'",
         type=click.STRING,
         required=required,
-        default=default
+        default=default,
     )
 
 
@@ -131,7 +133,6 @@ def group_options(option_class, **options):
         option_name = option_class.__option_name__
 
     def _decorator(func):
-
         @functools.wraps(func)
         def wrapper(**kwargs):
             to_group = {}
@@ -139,7 +140,8 @@ def group_options(option_class, **options):
                 if name not in kwargs:
                     raise ValueError(
                         f"When trying to group CLI options into {option_name}, "
-                        f"{name} was not found among arguments")
+                        f"{name} was not found among arguments"
+                    )
                 to_group[name] = kwargs[name]
                 del kwargs[name]
 

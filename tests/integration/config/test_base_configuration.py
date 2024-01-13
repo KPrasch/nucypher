@@ -10,16 +10,15 @@ from nucypher.config.base import BaseConfiguration
 # Local Test Constants
 #
 
-configuration_name = 'something'
-expected_extension = 'json'
-configuration_value = 're-emerging llamas'
-manual_expected_default_filepath = Path('/', 'tmp', 'something.json')
-manual_expected_modified_filepath = Path('/', 'tmp', 'something-1.json')
+configuration_name = "something"
+expected_extension = "json"
+configuration_value = "re-emerging llamas"
+manual_expected_default_filepath = Path("/", "tmp", "something.json")
+manual_expected_modified_filepath = Path("/", "tmp", "something-1.json")
 
 
-@pytest.fixture(scope='function', autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def expected_configuration_filepaths():
-
     # Setup
     if manual_expected_default_filepath.exists():
         manual_expected_default_filepath.unlink()
@@ -36,9 +35,8 @@ def expected_configuration_filepaths():
 
 
 class RestorableTestItem(BaseConfiguration):
-
-    NAME = 'something'
-    DEFAULT_CONFIG_ROOT = Path('/tmp')
+    NAME = "something"
+    DEFAULT_CONFIG_ROOT = Path("/tmp")
     VERSION = 1
 
     def __init__(self, item: str, *args, **kwargs):
@@ -46,8 +44,7 @@ class RestorableTestItem(BaseConfiguration):
         super().__init__(*args, **kwargs)
 
     def static_payload(self) -> dict:
-        payload = dict(**super().static_payload(),
-                       item=self.item)
+        payload = dict(**super().static_payload(), item=self.item)
         return payload
 
 
@@ -57,7 +54,6 @@ def test_base_configuration_defaults():
 
 
 def test_configuration_implementation():
-
     # Cannot init BaseClass without subclassing
     with pytest.raises(TypeError):
         _bad_item = BaseConfiguration()
@@ -73,8 +69,9 @@ def test_configuration_implementation():
     # Subclasses must implement _NAME
     class NoNameItem(BaseConfiguration):
         VERSION = 1
+
         def static_payload(self) -> dict:
-            item_payload = {'key': 'value'}
+            item_payload = {"key": "value"}
             payload = {**super().static_payload(), **item_payload}
             return payload
 
@@ -83,12 +80,11 @@ def test_configuration_implementation():
 
     # Correct minimum viable implementation
     class BareMinimumConfigurableItem(BaseConfiguration):
-
-        NAME = 'bare-minimum'
+        NAME = "bare-minimum"
         VERSION = 2
 
         def static_payload(self) -> dict:
-            item_payload = {'key': 'value'}
+            item_payload = {"key": "value"}
             payload = {**super().static_payload(), **item_payload}
             return payload
 
@@ -102,7 +98,6 @@ def test_configuration_creation():
 
 
 def test_configuration_filepath_utilities():
-
     #
     # Class-Scoped
     #
@@ -110,10 +105,14 @@ def test_configuration_filepath_utilities():
     assert RestorableTestItem._CONFIG_FILE_EXTENSION == expected_extension
 
     assert RestorableTestItem.NAME == configuration_name
-    expected_default_filename = f'{RestorableTestItem.NAME}.{RestorableTestItem._CONFIG_FILE_EXTENSION}'
+    expected_default_filename = (
+        f"{RestorableTestItem.NAME}.{RestorableTestItem._CONFIG_FILE_EXTENSION}"
+    )
     assert RestorableTestItem.generate_filename() == expected_default_filename
 
-    expected_default_filepath = RestorableTestItem.DEFAULT_CONFIG_ROOT / expected_default_filename
+    expected_default_filepath = (
+        RestorableTestItem.DEFAULT_CONFIG_ROOT / expected_default_filename
+    )
     assert expected_default_filepath == manual_expected_default_filepath
     assert RestorableTestItem.default_filepath() == expected_default_filepath
 
@@ -122,12 +121,15 @@ def test_configuration_filepath_utilities():
 
 
 def test_configuration_preservation():
-
     # Create
     restorable_item = RestorableTestItem(item=configuration_value)
 
-    expected_default_filename = f'{RestorableTestItem.NAME}.{RestorableTestItem._CONFIG_FILE_EXTENSION}'
-    expected_default_filepath = RestorableTestItem.DEFAULT_CONFIG_ROOT / expected_default_filename
+    expected_default_filename = (
+        f"{RestorableTestItem.NAME}.{RestorableTestItem._CONFIG_FILE_EXTENSION}"
+    )
+    expected_default_filepath = (
+        RestorableTestItem.DEFAULT_CONFIG_ROOT / expected_default_filename
+    )
 
     # remove the file if it exists
     if expected_default_filepath.exists():
@@ -151,15 +153,18 @@ def test_configuration_preservation():
 
     # Restore from JSON Configuration
     try:
-
         # Ensure configuration file is readable
-        with open(restorable_item.filepath, 'r') as f:
+        with open(restorable_item.filepath, "r") as f:
             contents = f.read()
 
         # Ensure file contents are JSON deserializable
         deserialized_file_contents = json.loads(contents)
-        del deserialized_file_contents['version']  # do not test version of config serialization here.
-        deserialized_file_contents['config_root'] = Path(deserialized_file_contents['config_root'])
+        del deserialized_file_contents[
+            "version"
+        ]  # do not test version of config serialization here.
+        deserialized_file_contents["config_root"] = Path(
+            deserialized_file_contents["config_root"]
+        )
 
         deserialized_payload = RestorableTestItem.deserialize(payload=contents)
         assert deserialized_payload == deserialized_file_contents

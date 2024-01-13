@@ -17,7 +17,6 @@ from tests.utils.middleware import MockRestMiddleware
 def test_bob_full_retrieve_flow(
     ursulas, bob, alice, capsule_side_channel, treasure_map, enacted_policy
 ):
-
     for ursula in ursulas:
         bob.remember_peer(ursula)
 
@@ -61,7 +60,7 @@ def test_bob_retrieves(alice, ursulas):
     # Alice creates a policy granting access to Bob
     # Just for fun, let's assume she distributes KFrags among Ursulas unknown to Bob
     shares = ReservedTestAccountManager.NUMBER_OF_URSULAS_IN_TESTS - 2
-    label = b'label://' + os.urandom(32)
+    label = b"label://" + os.urandom(32)
     contract_end_datetime = maya.now() + datetime.timedelta(days=5)
     policy = alice.grant(
         bob=bob,
@@ -83,15 +82,19 @@ def test_bob_retrieves(alice, ursulas):
     alices_verifying_key = alice.stamp.as_umbral_pubkey()
 
     # Bob takes the message_kit and retrieves the message within
-    delivered_cleartexts = bob.retrieve_and_decrypt([message_kit],
-                                                    alice_verifying_key=alices_verifying_key,
-                                                    encrypted_treasure_map=policy.treasure_map)
+    delivered_cleartexts = bob.retrieve_and_decrypt(
+        [message_kit],
+        alice_verifying_key=alices_verifying_key,
+        encrypted_treasure_map=policy.treasure_map,
+    )
 
     assert plaintext == delivered_cleartexts[0]
 
-    cleartexts_delivered_a_second_time = bob.retrieve_and_decrypt([message_kit],
-                                                                  alice_verifying_key=alices_verifying_key,
-                                                                  encrypted_treasure_map=policy.treasure_map)
+    cleartexts_delivered_a_second_time = bob.retrieve_and_decrypt(
+        [message_kit],
+        alice_verifying_key=alices_verifying_key,
+        encrypted_treasure_map=policy.treasure_map,
+    )
 
     # Indeed, they're the same cleartexts.
     assert delivered_cleartexts == cleartexts_delivered_a_second_time
@@ -102,9 +105,11 @@ def test_bob_retrieves(alice, ursulas):
 
     # One thing to note here is that Bob *can* still retrieve with the cached CFrags,
     # even though this Policy has been revoked.  #892
-    _cleartexts = bob.retrieve_and_decrypt([message_kit],
-                                           alice_verifying_key=alices_verifying_key,
-                                           encrypted_treasure_map=policy.treasure_map)
+    _cleartexts = bob.retrieve_and_decrypt(
+        [message_kit],
+        alice_verifying_key=alices_verifying_key,
+        encrypted_treasure_map=policy.treasure_map,
+    )
     assert _cleartexts == delivered_cleartexts  # TODO: 892
 
     bob.disenchant()
@@ -125,15 +130,18 @@ def test_bob_retrieves_with_treasure_map(
     text1 = bob.retrieve_and_decrypt(
         [message_kit],
         alice_verifying_key=alice_verifying_key,
-        encrypted_treasure_map=treasure_map)
+        encrypted_treasure_map=treasure_map,
+    )
 
-    assert text1 == [b'Welcome to flippering number 1.']
+    assert text1 == [b"Welcome to flippering number 1."]
 
 
 def test_bob_retrieves_too_late(bob, ursulas, enacted_policy, capsule_side_channel):
     clock = Clock()
     clock.advance(time.time())
-    clock.advance(86400 * 8)  # 1 week  # TODO: this is supposed to be seven days, not eight
+    clock.advance(
+        86400 * 8
+    )  # 1 week  # TODO: this is supposed to be seven days, not eight
 
     message_kit = capsule_side_channel()
     treasure_map = enacted_policy.treasure_map
@@ -143,5 +151,5 @@ def test_bob_retrieves_too_late(bob, ursulas, enacted_policy, capsule_side_chann
     bob.retrieve_and_decrypt(
         [message_kit],
         alice_verifying_key=alice_verifying_key,
-        encrypted_treasure_map=treasure_map
+        encrypted_treasure_map=treasure_map,
     )

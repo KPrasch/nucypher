@@ -40,9 +40,11 @@ IP_DETECTION_LOGGER = Logger("external-ip-detection")
 
 def validate_operator_ip(ip: str) -> None:
     if ip in RESERVED_IP_ADDRESSES:
-        raise InvalidOperatorIP(f"{ip} is not a valid or permitted operator IP address. "
-                                f"Verify the 'host' configuration value is set to the "
-                                f"external IPV4 address")
+        raise InvalidOperatorIP(
+            f"{ip} is not a valid or permitted operator IP address. "
+            f"Verify the 'host' configuration value is set to the "
+            f"external IPV4 address"
+        )
 
 
 def _request(url: str, certificate=None) -> Union[str, None]:
@@ -83,13 +85,17 @@ def _request_from_node(
         try:
             ip = str(ip_address(response.text))
         except ValueError:
-            error = f'Teacher {peer} returned an invalid IP response; Got {response.text}'
+            error = (
+                f"Teacher {peer} returned an invalid IP response; Got {response.text}"
+            )
             raise UnknownIPAddress(error)
-        log.info(f'Fetched external IP address ({ip}) from peer ({peer}).')
+        log.info(f"Fetched external IP address ({ip}) from peer ({peer}).")
         return ip
     else:
         # Something strange happened... move on anyways.
-        log.debug(f'Failed to get external IP from peer node ({peer} returned {response.status_code})')
+        log.debug(
+            f"Failed to get external IP from peer node ({peer} returned {response.status_code})"
+        )
 
 
 def get_external_ip_from_default_peer(
@@ -102,7 +108,7 @@ def get_external_ip_from_default_peer(
     from nucypher.characters.lawful import Ursula
     from nucypher.network.nodes import TEACHER_NODES
 
-    base_error = 'Cannot determine IP using default peer'
+    base_error = "Cannot determine IP using default peer"
 
     if domain not in TEACHER_NODES:
         log.debug(f'{base_error}: Unknown domain "{domain}".')
@@ -179,9 +185,7 @@ def determine_external_ip_address(
 
     # primary source
     if peers:
-        host = get_external_ip_from_peers(
-            peers=peers, eth_endpoint=eth_endpoint
-        )
+        host = get_external_ip_from_peers(peers=peers, eth_endpoint=eth_endpoint)
 
     # fallback 1
     if not host:
@@ -195,5 +199,5 @@ def determine_external_ip_address(
 
     # complete failure!
     if not host:
-        raise UnknownIPAddress('External IP address detection failed')
+        raise UnknownIPAddress("External IP address detection failed")
     return host

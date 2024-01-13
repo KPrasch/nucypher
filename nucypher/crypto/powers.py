@@ -45,12 +45,14 @@ class NoSigningPower(PowerUpError):
 class NoDecryptingPower(PowerUpError):
     pass
 
+
 class NoRitualisticPower(PowerUpError):
     pass
 
 
 class NotImplmplemented(PowerUpError):
     pass
+
 
 class NoThresholdRequestDecryptingPower(PowerUpError):
     pass
@@ -84,8 +86,11 @@ class CryptoPower(object):
             power_up_instance = power_up()
         else:
             raise TypeError(
-                ("power_up must be a subclass of CryptoPowerUp or an instance "
-                 "of a CryptoPowerUp subclass."))
+                (
+                    "power_up must be a subclass of CryptoPowerUp or an instance "
+                    "of a CryptoPowerUp subclass."
+                )
+            )
         self.__power_ups[power_up_class] = power_up_instance
 
         if power_up.confers_public_key:
@@ -102,6 +107,7 @@ class CryptoPowerUp:
     """
     Gives you MORE CryptoPower!
     """
+
     confers_public_key = False
 
     def activate(self, *args, **kwargs):
@@ -129,8 +135,7 @@ class KeyPairBasedPower(CryptoPowerUp):
                         public_key = PublicKey.from_compressed_bytes(public_key)
                     except TypeError:
                         public_key = public_key
-                self.keypair = self._keypair_class(
-                    public_key=public_key)
+                self.keypair = self._keypair_class(public_key=public_key)
             else:
                 # They didn't even pass a public key.  We have no choice but to generate a keypair.
                 self.keypair = self._keypair_class(generate_keys_if_needed=True)
@@ -143,9 +148,11 @@ class KeyPairBasedPower(CryptoPowerUp):
                 message = f"This {self.__class__} has a keypair, {self.keypair.__class__}, which doesn't provide {item}."
                 raise PowerUpError(message)
         else:
-            raise PowerUpError("This {} doesn't provide {}.".format(self.__class__, item))
+            raise PowerUpError(
+                "This {} doesn't provide {}.".format(self.__class__, item)
+            )
 
-    def public_key(self) -> 'PublicKey':
+    def public_key(self) -> "PublicKey":
         return self.keypair.pubkey
 
 
@@ -190,41 +197,41 @@ class RitualisticPower(KeyPairBasedPower):
             keypair=self.keypair._privkey,
             ciphertext_header=ciphertext_header,
             aad=aad,
-            variant=variant
+            variant=variant,
         )
         return decryption_share
 
     def generate_transcript(
-            self,
-            checksum_address: ChecksumAddress,
-            ritual_id: int,
-            shares: int,
-            threshold: int,
-            nodes: list
+        self,
+        checksum_address: ChecksumAddress,
+        ritual_id: int,
+        shares: int,
+        threshold: int,
+        nodes: list,
     ) -> Transcript:
         transcript = dkg.generate_transcript(
             ritual_id=ritual_id,
             me=Validator(address=checksum_address, public_key=self.keypair.pubkey),
             shares=shares,
             threshold=threshold,
-            nodes=nodes
+            nodes=nodes,
         )
         return transcript
 
     def aggregate_transcripts(
-            self,
-            ritual_id: int,
-            checksum_address: ChecksumAddress,
-            shares: int,
-            threshold: int,
-            transcripts: list
+        self,
+        ritual_id: int,
+        checksum_address: ChecksumAddress,
+        shares: int,
+        threshold: int,
+        transcripts: list,
     ) -> Tuple[AggregatedTranscript, DkgPublicKey]:
         aggregated_transcript, dkg_public_key = dkg.aggregate_transcripts(
             ritual_id=ritual_id,
             me=Validator(address=checksum_address, public_key=self.keypair.pubkey),
             shares=shares,
             threshold=threshold,
-            transcripts=transcripts
+            transcripts=transcripts,
         )
         return aggregated_transcript, dkg_public_key
 
@@ -285,7 +292,6 @@ class ThresholdRequestDecryptingPower(DerivedKeyBasedPower):
 
 
 class DelegatingPower(DerivedKeyBasedPower):
-
     def __init__(self, secret_key_factory: Optional[SecretKeyFactory] = None):
         if not secret_key_factory:
             secret_key_factory = SecretKeyFactory.random()
@@ -297,13 +303,9 @@ class DelegatingPower(DerivedKeyBasedPower):
     def get_pubkey_from_label(self, label):
         return self._get_privkey_from_label(label).public_key()
 
-    def generate_kfrags(self,
-                        bob_pubkey_enc,
-                        signer,
-                        label: bytes,
-                        threshold: int,
-                        shares: int
-                        ) -> Tuple[PublicKey, List]:
+    def generate_kfrags(
+        self, bob_pubkey_enc, signer, label: bytes, threshold: int, shares: int
+    ) -> Tuple[PublicKey, List]:
         """
         Generates re-encryption key frags ("KFrags") and returns them.
 
@@ -315,14 +317,15 @@ class DelegatingPower(DerivedKeyBasedPower):
         """
 
         __private_key = self._get_privkey_from_label(label)
-        kfrags = generate_kfrags(delegating_sk=__private_key,
-                                 receiving_pk=bob_pubkey_enc,
-                                 threshold=threshold,
-                                 shares=shares,
-                                 signer=signer,
-                                 sign_delegating_key=False,
-                                 sign_receiving_key=False,
-                                 )
+        kfrags = generate_kfrags(
+            delegating_sk=__private_key,
+            receiving_pk=bob_pubkey_enc,
+            threshold=threshold,
+            shares=shares,
+            signer=signer,
+            sign_delegating_key=False,
+            sign_receiving_key=False,
+        )
         return __private_key.public_key(), kfrags
 
     def get_decrypting_power_from_label(self, label):
@@ -341,18 +344,26 @@ class TLSHostingPower(KeyPairBasedPower):
 
     not_found_error = NoHostingPower
 
-    def __init__(self,
-                 host: str,
-                 public_certificate=None,
-                 public_certificate_filepath=None,
-                 *args, **kwargs) -> None:
-
+    def __init__(
+        self,
+        host: str,
+        public_certificate=None,
+        public_certificate_filepath=None,
+        *args,
+        **kwargs,
+    ) -> None:
         if public_certificate and public_certificate_filepath:
             # TODO: Design decision here: if they do pass both, and they're identical, do we let that slide?  NRN
-            raise ValueError("Pass either a public_certificate or a public_certificate_filepath, not both.")
+            raise ValueError(
+                "Pass either a public_certificate or a public_certificate_filepath, not both."
+            )
 
         if public_certificate:
-            kwargs['keypair'] = HostingKeypair(certificate=public_certificate, host=host)
+            kwargs["keypair"] = HostingKeypair(
+                certificate=public_certificate, host=host
+            )
         elif public_certificate_filepath:
-            kwargs['keypair'] = HostingKeypair(certificate_filepath=public_certificate_filepath, host=host)
+            kwargs["keypair"] = HostingKeypair(
+                certificate_filepath=public_certificate_filepath, host=host
+            )
         super().__init__(*args, **kwargs)

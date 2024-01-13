@@ -12,12 +12,15 @@ def test_ursula_stamp_verification_tolerance(ursulas, mocker):
     lonely_learner, peer, unsigned, *the_others = list(ursulas)
 
     warnings = []
+
     def warning_trapper(event):
-        if event['log_level'] == LogLevel.warn:
+        if event["log_level"] == LogLevel.warn:
             warnings.append(event)
 
     # Make a bad identity evidence
-    unsigned._Ursula__operator_signature = unsigned._Ursula__operator_signature[:-12] + (b'\x00' * 12)
+    unsigned._Ursula__operator_signature = unsigned._Ursula__operator_signature[
+        :-12
+    ] + (b"\x00" * 12)
     # Reset the metadata cache
     unsigned._metadata = None
 
@@ -32,7 +35,7 @@ def test_ursula_stamp_verification_tolerance(ursulas, mocker):
 
     # We received one warning during peering, and it was about this very matter.
     assert len(warnings) == 1
-    warning = warnings[0]['log_format']
+    warning = warnings[0]["log_format"]
     assert str(unsigned.rest_url()) in warning
     assert "Suspicious Activity" in warning
 
@@ -55,16 +58,14 @@ def test_ursula_stamp_verification_tolerance(ursulas, mocker):
         )
         return bytes(response)
 
-    mocker.patch.object(
-        peer, "bytestring_of_peers", bad_bytestring_of_peers
-    )
+    mocker.patch.object(peer, "bytestring_of_peers", bad_bytestring_of_peers)
 
     globalLogPublisher.addObserver(warning_trapper)
     lonely_learner.learn_from_peer(eager=True)
     globalLogPublisher.removeObserver(warning_trapper)
 
     assert len(warnings) == 2
-    warning = warnings[1]['log_format']
+    warning = warnings[1]["log_format"]
     assert str(peer) in warning
     assert "Failed to verify MetadataResponse from Teacher" in warning
 
@@ -79,7 +80,6 @@ def test_invalid_operators_tolerance(
     mocker,
     deployer_account,
 ):
-
     _staking_provider = testerchain.accounts.stake_provider_wallets[0]
     existing_ursula, other_ursula, ursula, *the_others = list(ursulas)
 
@@ -131,8 +131,9 @@ def test_invalid_operators_tolerance(
         )
 
     warnings = []
+
     def warning_trapper(event):
-        if event['log_level'] == LogLevel.warn:
+        if event["log_level"] == LogLevel.warn:
             warnings.append(event)
 
     # Let's learn from this invalid node
@@ -142,7 +143,7 @@ def test_invalid_operators_tolerance(
     globalLogPublisher.removeObserver(warning_trapper)
 
     assert len(warnings) == 1
-    warning = warnings[-1]['log_format']
+    warning = warnings[-1]["log_format"]
     assert str(ursula.checksum_address) in warning
     assert f"{ursula.checksum_address} is not staking" in warning
     assert ursula not in existing_ursula.peers

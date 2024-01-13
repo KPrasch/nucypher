@@ -61,9 +61,11 @@ class Policy:
         self.nodes = None  # set by publication
 
         self.publisher = publisher
-        self.hrac = HRAC(publisher_verifying_key=self.publisher.stamp.as_umbral_pubkey(),
-                         bob_verifying_key=self.bob.stamp.as_umbral_pubkey(),
-                         label=self.label)
+        self.hrac = HRAC(
+            publisher_verifying_key=self.publisher.stamp.as_umbral_pubkey(),
+            bob_verifying_key=self.bob.stamp.as_umbral_pubkey(),
+            label=self.label,
+        )
         self.pre_payment_method = pre_payment_method
         self.pre_payment_method.validate_price(
             shares=self.shares, value=value, duration=duration
@@ -99,7 +101,9 @@ class Policy:
         if status_code == HTTPStatus.OK:
             return ursula
         else:
-            raise RuntimeError(f"{ursula} is not available for selection ({status_code}).")
+            raise RuntimeError(
+                f"{ursula} is not available for selection ({status_code})."
+            )
 
     def _sample(
         self,
@@ -110,9 +114,13 @@ class Policy:
         """Send concurrent requests to the /ping HTTP endpoint of nodes drawn from the reservoir."""
 
         ursulas = ursulas or []
-        handpicked_addresses = [ChecksumAddress(ursula.checksum_address) for ursula in ursulas]
+        handpicked_addresses = [
+            ChecksumAddress(ursula.checksum_address) for ursula in ursulas
+        ]
 
-        self.publisher.block_until_number_of_peers_is(self.shares, learn_on_this_thread=True, eager=True)
+        self.publisher.block_until_number_of_peers_is(
+            self.shares, learn_on_this_thread=True, eager=True
+        )
         reservoir = self._make_reservoir(handpicked_addresses)
         value_factory = PrefetchStrategy(reservoir, self.shares)
 
@@ -124,7 +132,7 @@ class Policy:
             value_factory=value_factory,
             target_successes=self.shares,
             timeout=timeout,
-            stagger_timeout=1
+            stagger_timeout=1,
         )
         worker_pool.start()
         try:
@@ -137,12 +145,19 @@ class Policy:
             worker_pool.join()
         failures = worker_pool.get_failures()
 
-        accepted_addresses = ", ".join(ursula.checksum_address for ursula in successes.values())
+        accepted_addresses = ", ".join(
+            ursula.checksum_address for ursula in successes.values()
+        )
         if len(successes) < self.shares:
-            rejections = "\n".join(f"{address}: {value}" for address, (type_, value, traceback) in failures.items())
-            message = "Failed to contact enough sampled nodes.\n"\
-                      f"Selected:\n{accepted_addresses}\n" \
-                      f"Unavailable:\n{rejections}"
+            rejections = "\n".join(
+                f"{address}: {value}"
+                for address, (type_, value, traceback) in failures.items()
+            )
+            message = (
+                "Failed to contact enough sampled nodes.\n"
+                f"Selected:\n{accepted_addresses}\n"
+                f"Unavailable:\n{rejections}"
+            )
             self.log.debug(message)
             raise self.NotEnoughUrsulas(message)
 
@@ -161,29 +176,40 @@ class Policy:
         self._publish(ursulas=ursulas)
 
         assigned_kfrags = {
-            Address(ursula.canonical_address): (ursula.public_keys(DecryptingPower), vkfrag)
+            Address(ursula.canonical_address): (
+                ursula.public_keys(DecryptingPower),
+                vkfrag,
+            )
             for ursula, vkfrag in zip(ursulas, self.kfrags)
         }
 
-        treasure_map = TreasureMap(signer=self.publisher.stamp.as_umbral_signer(),
-                                   hrac=self.hrac,
-                                   policy_encrypting_key=self.public_key,
-                                   assigned_kfrags=assigned_kfrags,
-                                   threshold=self.threshold)
+        treasure_map = TreasureMap(
+            signer=self.publisher.stamp.as_umbral_signer(),
+            hrac=self.hrac,
+            policy_encrypting_key=self.public_key,
+            assigned_kfrags=assigned_kfrags,
+            threshold=self.threshold,
+        )
 
-        enc_treasure_map = treasure_map.encrypt(signer=self.publisher.stamp.as_umbral_signer(),
-                                                recipient_key=self.bob.public_keys(DecryptingPower))
+        enc_treasure_map = treasure_map.encrypt(
+            signer=self.publisher.stamp.as_umbral_signer(),
+            recipient_key=self.bob.public_keys(DecryptingPower),
+        )
 
         # TODO: Signal revocation without using encrypted kfrag
-        revocation_kit = RevocationKit(treasure_map=treasure_map, signer=self.publisher.stamp)
+        revocation_kit = RevocationKit(
+            treasure_map=treasure_map, signer=self.publisher.stamp
+        )
 
-        enacted_policy = EnactedPolicy(self.hrac,
-                                       self.label,
-                                       self.public_key,
-                                       treasure_map.threshold,
-                                       enc_treasure_map,
-                                       revocation_kit,
-                                       self.publisher.stamp.as_umbral_pubkey())
+        enacted_policy = EnactedPolicy(
+            self.hrac,
+            self.label,
+            self.public_key,
+            treasure_map.threshold,
+            enc_treasure_map,
+            revocation_kit,
+            self.publisher.stamp.as_umbral_pubkey(),
+        )
 
         return enacted_policy
 

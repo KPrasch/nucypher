@@ -178,7 +178,9 @@ class BaseConfiguration(ABC):
         default_path = (config_root or cls.DEFAULT_CONFIG_ROOT) / filename
         return default_path
 
-    def generate_filepath(self, filepath: Optional[Path] = None, override: bool = False) -> Path:
+    def generate_filepath(
+        self, filepath: Optional[Path] = None, override: bool = False
+    ) -> Path:
         """
         Generates a filepath for saving to writing to a configuration file.
 
@@ -220,7 +222,9 @@ class BaseConfiguration(ABC):
             )
         return result
 
-    def to_configuration_file(self, filepath: Optional[Path] = None, override: bool = False) -> Path:
+    def to_configuration_file(
+        self, filepath: Optional[Path] = None, override: bool = False
+    ) -> Path:
         filepath = self.generate_filepath(filepath=filepath, override=override)
         self._ensure_config_root_exists()
         filepath = self._write_configuration_file(filepath=filepath, override=override)
@@ -311,9 +315,9 @@ class CharacterConfiguration(BaseConfiguration):
     MNEMONIC_KEYSTORE = False
     DEFAULT_DOMAIN = domains.DEFAULT_DOMAIN
     DEFAULT_NETWORK_MIDDLEWARE = RestMiddleware
-    TEMP_CONFIGURATION_DIR_PREFIX = 'tmp-nucypher'
-    WALLET_FILEPATH_ENVVAR = 'NUCYPHER_WALLET_PASSWORD'
-    DEFAULT_WALLET_FILEPATH_STEM = 'keystore/wallet.json'
+    TEMP_CONFIGURATION_DIR_PREFIX = "tmp-nucypher"
+    WALLET_FILEPATH_ENVVAR = "NUCYPHER_WALLET_PASSWORD"
+    DEFAULT_WALLET_FILEPATH_STEM = "keystore/wallet.json"
 
     # When we begin to support other threshold schemes,
     # this will be one of the concepts that makes us want a factory.  #571
@@ -379,8 +383,14 @@ class CharacterConfiguration(BaseConfiguration):
         self.crypto_power = crypto_power
         if keystore_filepath and not keystore:
             keystore = Keystore(keystore_filepath=keystore_filepath)
-        self.__keystore = self.__keystore = keystore or NO_KEYSTORE_ATTACHED.bool_value(False)
-        self.keystore_dir = Path(keystore.keystore_filepath).parent if keystore else UNINITIALIZED_CONFIGURATION
+        self.__keystore = self.__keystore = keystore or NO_KEYSTORE_ATTACHED.bool_value(
+            False
+        )
+        self.keystore_dir = (
+            Path(keystore.keystore_filepath).parent
+            if keystore
+            else UNINITIALIZED_CONFIGURATION
+        )
 
         # Wallet
         self.wallet = wallet
@@ -496,9 +506,9 @@ class CharacterConfiguration(BaseConfiguration):
 
     @property
     def wallet_address(self) -> ChecksumAddress:
-        with open(self.wallet_filepath, 'r') as f:
+        with open(self.wallet_filepath, "r") as f:
             keyfile_json = json.load(f)
-        return to_checksum_address(keyfile_json['address'])
+        return to_checksum_address(keyfile_json["address"])
 
     @property
     def keystore(self) -> Keystore:
@@ -517,11 +527,12 @@ class CharacterConfiguration(BaseConfiguration):
 
     @classmethod
     def generate(
-            cls,
-            keystore_password: str,
-            wallet_password: str,
-            key_material: Optional[bytes] = None,
-            *args, **kwargs
+        cls,
+        keystore_password: str,
+        wallet_password: str,
+        key_material: Optional[bytes] = None,
+        *args,
+        **kwargs,
     ):
         node_config = cls(dev_mode=False, *args, **kwargs)
         node_config.initialize(
@@ -612,7 +623,9 @@ class CharacterConfiguration(BaseConfiguration):
 
     def static_payload(self) -> dict:
         """JSON-Exported static configuration values for initializing Ursula"""
-        keystore_filepath = str(self.keystore.keystore_filepath) if self.keystore else None
+        keystore_filepath = (
+            str(self.keystore.keystore_filepath) if self.keystore else None
+        )
         payload = dict(
             keystore_filepath=keystore_filepath,
             domain=str(self.domain),
@@ -621,7 +634,9 @@ class CharacterConfiguration(BaseConfiguration):
         # Optional values (mode)
         if self.eth_endpoint:
             payload.update(
-                dict(eth_endpoint=self.eth_endpoint,)
+                dict(
+                    eth_endpoint=self.eth_endpoint,
+                )
             )
         if self.registry_filepath:
             payload.update(dict(registry_filepath=self.registry_filepath))
@@ -656,7 +671,9 @@ class CharacterConfiguration(BaseConfiguration):
 
         return payload
 
-    def generate_filepath(self, filepath: Optional[Path] = None, override: bool = False) -> Path:
+    def generate_filepath(
+        self, filepath: Optional[Path] = None, override: bool = False
+    ) -> Path:
         filepath = super().generate_filepath(filepath=filepath, override=override)
         return filepath
 
@@ -695,10 +712,10 @@ class CharacterConfiguration(BaseConfiguration):
         return power_ups
 
     def initialize(
-            self,
-            keystore_password: str,
-            wallet_password: Optional[str],
-            key_material: Optional[bytes] = None
+        self,
+        keystore_password: str,
+        wallet_password: Optional[str],
+        key_material: Optional[bytes] = None,
     ) -> Path:
         """Initialize a new configuration and write installation files to disk."""
 
@@ -731,10 +748,10 @@ class CharacterConfiguration(BaseConfiguration):
         return Path(self.config_root)
 
     def keygen(
-            self,
-            keystore_password: str,
-            wallet_password: Optional[str],
-            key_material: Optional[bytes] = None
+        self,
+        keystore_password: str,
+        wallet_password: Optional[str],
+        key_material: Optional[bytes] = None,
     ) -> Keystore:
         if key_material:
             self.__keystore = Keystore.import_secure(
@@ -756,8 +773,7 @@ class CharacterConfiguration(BaseConfiguration):
                     # This is an existing keystore, so we need to load the wallet.
                     # We'll decrypt the wallet with the keystore password here to ensure it's correct.
                     self.wallet = LocalAccount.from_keystore(
-                        path=self.wallet_filepath,
-                        password=wallet_password
+                        path=self.wallet_filepath, password=wallet_password
                     )
                 else:
                     # This is a new keystore without an ethereum wallet, so we need to generate a wallet.

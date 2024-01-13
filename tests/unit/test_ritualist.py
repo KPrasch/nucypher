@@ -165,7 +165,7 @@ def test_perform_round_1(
 def test_perform_round_2(
     ursula,
     cohort,
-        wallet,
+    wallet,
     agent,
     mocker,
     random_transcript,

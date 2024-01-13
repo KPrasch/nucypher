@@ -16,7 +16,7 @@ def test_operator_never_bonded(mocker, get_random_checksum_address):
     application_agent = mocker.Mock()
     application_agent.get_staking_provider_from_operator.return_value = NULL_ADDRESS
 
-    mocker.patch.object(ContractAgency, 'get_agent', return_value=application_agent)
+    mocker.patch.object(ContractAgency, "get_agent", return_value=application_agent)
 
     tracker = OperatorBondedTracker(ursula=ursula)
     try:
@@ -42,7 +42,7 @@ def test_operator_bonded_but_becomes_unbonded(mocker, get_random_checksum_addres
     staking_provider = get_random_checksum_address()
     application_agent.get_staking_provider_from_operator.return_value = staking_provider
 
-    mocker.patch.object(ContractAgency, 'get_agent', return_value=application_agent)
+    mocker.patch.object(ContractAgency, "get_agent", return_value=application_agent)
 
     tracker = OperatorBondedTracker(ursula=ursula)
     try:
@@ -53,7 +53,9 @@ def test_operator_bonded_but_becomes_unbonded(mocker, get_random_checksum_addres
         for i in range(1, 10):
             d = threads.deferToThread(tracker.run)
             yield d
-            assert application_agent.get_staking_provider_from_operator.call_count == i, "check for operator bonded called"
+            assert (
+                application_agent.get_staking_provider_from_operator.call_count == i
+            ), "check for operator bonded called"
             ursula.stop.assert_not_called()
 
         # becomes unbonded

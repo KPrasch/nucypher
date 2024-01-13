@@ -91,7 +91,7 @@ def probability_reference_no_replacement(weights, idxs):
     return p
 
 
-@pytest.mark.parametrize('sample_size', [1, 2, 3])
+@pytest.mark.parametrize("sample_size", [1, 2, 3])
 def test_weighted_sampler(sample_size):
     weights = [1, 9, 100, 2, 18, 70]
     elements = list(range(len(weights)))

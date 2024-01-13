@@ -7,21 +7,21 @@ from nucypher_core.umbral import PublicKey, SecretKey, VerifiedCapsuleFrag
 
 
 class PolicyMessageKit:
-
     @classmethod
-    def from_message_kit(cls,
-                         message_kit: MessageKit,
-                         policy_encrypting_key: PublicKey,
-                         threshold: int
-                         ) -> 'PolicyMessageKit':
-        return cls(policy_encrypting_key, threshold, RetrievalResult.empty(), message_kit)
+    def from_message_kit(
+        cls, message_kit: MessageKit, policy_encrypting_key: PublicKey, threshold: int
+    ) -> "PolicyMessageKit":
+        return cls(
+            policy_encrypting_key, threshold, RetrievalResult.empty(), message_kit
+        )
 
-    def __init__(self,
-                 policy_encrypting_key: PublicKey,
-                 threshold: int,
-                 result: 'RetrievalResult',
-                 message_kit: MessageKit,
-                 ):
+    def __init__(
+        self,
+        policy_encrypting_key: PublicKey,
+        threshold: int,
+        result: "RetrievalResult",
+        message_kit: MessageKit,
+    ):
         self.message_kit = message_kit
         self.policy_encrypting_key = policy_encrypting_key
         self.threshold = threshold
@@ -35,18 +35,20 @@ class PolicyMessageKit:
         )
 
     def decrypt(self, sk: SecretKey) -> bytes:
-        return self.message_kit.decrypt_reencrypted(sk,
-                                                    self.policy_encrypting_key,
-                                                    list(self._result.cfrags.values()))
+        return self.message_kit.decrypt_reencrypted(
+            sk, self.policy_encrypting_key, list(self._result.cfrags.values())
+        )
 
     def is_decryptable_by_receiver(self) -> bool:
         return len(self._result.cfrags) >= self.threshold
 
-    def with_result(self, result: 'RetrievalResult') -> 'PolicyMessageKit':
-        return PolicyMessageKit(policy_encrypting_key=self.policy_encrypting_key,
-                                threshold=self.threshold,
-                                result=self._result.with_result(result),
-                                message_kit=self.message_kit)
+    def with_result(self, result: "RetrievalResult") -> "PolicyMessageKit":
+        return PolicyMessageKit(
+            policy_encrypting_key=self.policy_encrypting_key,
+            threshold=self.threshold,
+            result=self._result.with_result(result),
+            message_kit=self.message_kit,
+        )
 
     @property
     def conditions(self) -> Conditions:
@@ -70,7 +72,7 @@ class RetrievalResult:
         # TODO (#1995): propagate this to use canonical addresses everywhere
         return set([Address(to_canonical_address(address)) for address in self.cfrags])
 
-    def with_result(self, result: 'RetrievalResult') -> 'RetrievalResult':
+    def with_result(self, result: "RetrievalResult") -> "RetrievalResult":
         """
         Joins two RetrievalResult objects.
 

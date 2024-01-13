@@ -18,9 +18,13 @@ nucypher {init_command}
 
 
 SELECT_DOMAIN = "Select TACo Domain"
-NO_CONFIGURATIONS_ON_DISK = "No {name} configurations found. Run 'nucypher {command} init' then try again."
+NO_CONFIGURATIONS_ON_DISK = (
+    "No {name} configurations found. Run 'nucypher {command} init' then try again."
+)
 SUCCESSFUL_UPDATE_CONFIGURATION_VALUES = "Updated configuration values: {fields}"
-INVALID_JSON_IN_CONFIGURATION_WARNING = "Invalid JSON in Configuration File at {filepath}."
+INVALID_JSON_IN_CONFIGURATION_WARNING = (
+    "Invalid JSON in Configuration File at {filepath}."
+)
 INVALID_CONFIGURATION_FILE_WARNING = "Invalid Configuration at {filepath}."
 NO_ACCOUNTS = "No accounts were found."
 GENERIC_SELECT_ACCOUNT = "Select index of account"
@@ -42,7 +46,9 @@ IGNORE_OLD_CONFIGURATION = """
 Ignoring configuration file '{config_file}' - version is too old,
 Run `nucypher ursula config migrate --config-file '{config_file}'` to update it.
 """
-DEFAULT_TO_LONE_CONFIG_FILE = "Defaulting to {config_class} configuration file: '{config_file}'"
+DEFAULT_TO_LONE_CONFIG_FILE = (
+    "Defaulting to {config_class} configuration file: '{config_file}'"
+)
 
 #  Authentication
 PASSWORD_COLLECTION_NOTICE = """
@@ -51,9 +57,9 @@ Do not forget this password, and ideally store it using a password manager.
 """
 
 COLLECT_ETH_PASSWORD = "Enter ethereum account password"
-COLLECT_NUCYPHER_PASSWORD = 'Enter nucypher keystore password'
+COLLECT_NUCYPHER_PASSWORD = "Enter nucypher keystore password"
 GENERIC_PASSWORD_PROMPT = "Enter password"
-DECRYPTING_CHARACTER_KEYSTORE = 'Authenticating {name}'
+DECRYPTING_CHARACTER_KEYSTORE = "Authenticating {name}"
 REPEAT_FOR_CONFIRMATION = "Repeat for confirmation:"
 
 # Networking

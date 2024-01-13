@@ -34,22 +34,20 @@ class PaymentMethod(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def quote(self,
-              shares: int,
-              duration: Optional[int] = None,
-              commencement: Optional[Timestamp] = None,
-              expiration: Optional[int] = None,
-              value: Optional[int] = None,
-              rate: Optional[int] = None
-              ) -> Quote:
+    def quote(
+        self,
+        shares: int,
+        duration: Optional[int] = None,
+        commencement: Optional[Timestamp] = None,
+        expiration: Optional[int] = None,
+        value: Optional[int] = None,
+        rate: Optional[int] = None,
+    ) -> Quote:
         """Generates a valid quote for this PRE payment method using pricing details."""
         raise NotImplementedError
 
     @abstractmethod
-    def validate_price(self,
-                       shares: int,
-                       value: int,
-                       duration: int) -> None:
+    def validate_price(self, shares: int, value: int, duration: int) -> None:
         raise NotImplementedError
 
 
@@ -97,7 +95,7 @@ class SubscriptionManagerPayment(ContractPayment):
     """Handle policy payment using the SubscriptionManager contract."""
 
     _AGENT = SubscriptionManagerAgent
-    NAME = 'SubscriptionManager'
+    NAME = "SubscriptionManager"
 
     def verify(self, payee: ChecksumAddress, request: ReencryptionRequest) -> bool:
         """Verify policy payment by reading the SubscriptionManager contract"""
@@ -107,12 +105,12 @@ class SubscriptionManagerPayment(ContractPayment):
     def pay(self, policy: "policies.Policy") -> TxReceipt:
         """Writes a new policy to the SubscriptionManager contract."""
         receipt = self.agent.create_policy(
-            value=policy.value,                   # wei
-            policy_id=bytes(policy.hrac),         # bytes16 _policyID
-            size=len(policy.kfrags),              # uint16
+            value=policy.value,  # wei
+            policy_id=bytes(policy.hrac),  # bytes16 _policyID
+            size=len(policy.kfrags),  # uint16
             start_timestamp=policy.commencement,  # uint16
-            end_timestamp=policy.expiration,      # uint16
-            wallet=policy.publisher.wallet
+            end_timestamp=policy.expiration,  # uint16
+            wallet=policy.publisher.wallet,
         )
         return receipt
 
@@ -121,15 +119,17 @@ class SubscriptionManagerPayment(ContractPayment):
         fixed_rate = self.agent.fee_rate()
         return Wei(fixed_rate)
 
-    def quote(self,
-              shares: int,
-              commencement: Optional[Timestamp] = None,
-              expiration: Optional[Timestamp] = None,
-              duration: Optional[int] = None,
-              value: Optional[Wei] = None,
-              rate: Optional[Wei] = None,
-              *args, **kwargs
-              ) -> PaymentMethod.Quote:
+    def quote(
+        self,
+        shares: int,
+        commencement: Optional[Timestamp] = None,
+        expiration: Optional[Timestamp] = None,
+        duration: Optional[int] = None,
+        value: Optional[Wei] = None,
+        rate: Optional[Wei] = None,
+        *args,
+        **kwargs,
+    ) -> PaymentMethod.Quote:
         """
         A quote for the SubscriptionManager is calculated as rate * duration seconds
         """
@@ -139,8 +139,17 @@ class SubscriptionManagerPayment(ContractPayment):
         if rate:
             raise ValueError(f"{self._AGENT.contract_name} uses a fixed rate.")
         if not any((duration, expiration, value)):
-            raise ValueError("Policy end time must be specified with 'expiration', 'duration' or 'value'.")
-        if sum(True for i in (commencement, expiration, duration, value, rate) if i is not None and i < 0) > 0:
+            raise ValueError(
+                "Policy end time must be specified with 'expiration', 'duration' or 'value'."
+            )
+        if (
+            sum(
+                True
+                for i in (commencement, expiration, duration, value, rate)
+                if i is not None and i < 0
+            )
+            > 0
+        ):
             raise ValueError("Negative policy parameters are not allowed. Be positive.")
 
         if not commencement:
@@ -159,14 +168,18 @@ class SubscriptionManagerPayment(ContractPayment):
             shares=shares,
             commencement=Timestamp(commencement),
             expiration=Timestamp(expiration),
-            duration=duration
+            duration=duration,
         )
         return q
 
-    def validate_price(self, value: Wei, duration: Wei, shares: int, *args, **kwargs) -> bool:
+    def validate_price(
+        self, value: Wei, duration: Wei, shares: int, *args, **kwargs
+    ) -> bool:
         expected_price = Wei(shares * duration * self.rate)
         if value != expected_price:
-            raise ValueError(f"Policy value ({value}) doesn't match expected value ({expected_price})")
+            raise ValueError(
+                f"Policy value ({value}) doesn't match expected value ({expected_price})"
+            )
         return True
 
 
@@ -174,33 +187,35 @@ class FreeReencryptions(PaymentMethod):
     """Useful for testing."""
 
     ONCHAIN = False
-    NAME = 'Free'
+    NAME = "Free"
 
     def verify(self, payee: ChecksumAddress, request: ReencryptionRequest) -> bool:
         return True
 
     def pay(self, policy: "policies.Policy") -> Dict:
-        receipt = f'Receipt for free policy {bytes(policy.hrac).hex()}.'
+        receipt = f"Receipt for free policy {bytes(policy.hrac).hex()}."
         return dict(receipt=receipt.encode())
 
     @property
     def rate(self) -> int:
         return 0
 
-    def quote(self,
-              shares: int,
-              commencement: Optional[Timestamp] = None,
-              expiration: Optional[Timestamp] = None,
-              duration: Optional[int] = None,
-              *args, **kwargs
-              ) -> PaymentMethod.Quote:
+    def quote(
+        self,
+        shares: int,
+        commencement: Optional[Timestamp] = None,
+        expiration: Optional[Timestamp] = None,
+        duration: Optional[int] = None,
+        *args,
+        **kwargs,
+    ) -> PaymentMethod.Quote:
         return self.Quote(
             value=0,
             rate=0,
             shares=shares,
             duration=duration,
             commencement=commencement,
-            expiration=expiration
+            expiration=expiration,
         )
 
     def validate_price(self, *args, **kwargs) -> bool:
@@ -209,5 +224,5 @@ class FreeReencryptions(PaymentMethod):
 
 PRE_PAYMENT_METHODS = {
     SubscriptionManagerPayment.NAME: SubscriptionManagerPayment,
-    FreeReencryptions.NAME: FreeReencryptions
+    FreeReencryptions.NAME: FreeReencryptions,
 }

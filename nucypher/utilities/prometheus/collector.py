@@ -5,7 +5,9 @@ try:
     from prometheus_client import Enum, Gauge, Info
     from prometheus_client.registry import CollectorRegistry
 except ImportError:
-    raise ImportError('"prometheus_client" must be installed - run "pip install nucypher[ursula]" and try again.')
+    raise ImportError(
+        '"prometheus_client" must be installed - run "pip install nucypher[ursula]" and try again.'
+    )
 
 from abc import ABC, abstractmethod
 from typing import Dict, Type
@@ -25,6 +27,7 @@ from nucypher.characters import lawful
 
 class MetricsCollector(ABC):
     """Metrics Collector Interface."""
+
     class CollectorError(Exception):
         pass
 
@@ -49,6 +52,7 @@ class BaseMetricsCollector(MetricsCollector):
     Subclasses should initialize the self.metrics member in their initialize() method since the
     self.metrics member is used to determine whether initialize was called, and if not an exception is raised.
     """
+
     def __init__(self):
         self.metrics: Dict = None
 
@@ -111,7 +115,9 @@ class UrsulaInfoMetricsCollector(BaseMetricsCollector):
             "operator_address": self.ursula.operator_address,
         }
 
-        self.metrics["peering_status"].state('running' if self.ursula._peering_task.running else 'stopped')
+        self.metrics["peering_status"].state(
+            "running" if self.ursula._peering_task.running else "stopped"
+        )
         self.metrics["peers_gauge"].set(len(self.ursula.peers))
         self.metrics["host_info"].info(payload)
 
@@ -245,7 +251,9 @@ class EventMetricsCollector(BaseMetricsCollector):
         self.contract_agent_class = contract_agent_class
         self.contract_registry = contract_registry
 
-        contract_agent = ContractAgency.get_agent(self.contract_agent_class, registry=self.contract_registry)
+        contract_agent = ContractAgency.get_agent(
+            self.contract_agent_class, registry=self.contract_registry
+        )
         # this way we don't have to deal with 'latest' at all
         self.filter_current_from_block = contract_agent.blockchain.client.block_number
         self.filter_arguments = argument_filters
@@ -256,10 +264,14 @@ class EventMetricsCollector(BaseMetricsCollector):
         for arg_name in self.event_args_config:
             metric_class, metric_name, metric_doc = self.event_args_config[arg_name]
             metric_key = self._get_arg_metric_key(arg_name)
-            self.metrics[metric_key] = metric_class(metric_name, metric_doc, registry=registry)
+            self.metrics[metric_key] = metric_class(
+                metric_name, metric_doc, registry=registry
+            )
 
     def _collect_internal(self) -> None:
-        contract_agent = ContractAgency.get_agent(self.contract_agent_class, registry=self.contract_registry)
+        contract_agent = ContractAgency.get_agent(
+            self.contract_agent_class, registry=self.contract_registry
+        )
         from_block = self.filter_current_from_block
         to_block = contract_agent.blockchain.client.block_number
         if from_block >= to_block:
@@ -271,11 +283,13 @@ class EventMetricsCollector(BaseMetricsCollector):
         # increment before potentially long-running execution to improve concurrency handling
         self.filter_current_from_block = to_block + 1
 
-        events_throttler = ContractEventsThrottler(agent=contract_agent,
-                                                   event_name=self.event_name,
-                                                   from_block=from_block,
-                                                   to_block=to_block,
-                                                   **self.filter_arguments)
+        events_throttler = ContractEventsThrottler(
+            agent=contract_agent,
+            event_name=self.event_name,
+            from_block=from_block,
+            to_block=to_block,
+            **self.filter_arguments,
+        )
         for event_record in events_throttler:
             self._event_occurred(event_record.raw_event)
 
@@ -285,7 +299,7 @@ class EventMetricsCollector(BaseMetricsCollector):
             if arg_name == "block_number":
                 self.metrics[metric_key].set(event["blockNumber"])
                 continue
-            self.metrics[metric_key].set(event['args'][arg_name])
+            self.metrics[metric_key].set(event["args"][arg_name])
 
     def _get_arg_metric_key(self, arg_name: str):
-        return f'{self.event_name}_{arg_name}'
+        return f"{self.event_name}_{arg_name}"

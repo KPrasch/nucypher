@@ -19,8 +19,7 @@ RegistryData = Dict[int, RegistryEntry]
 
 
 class RegistrySource(ABC):
-
-    logger = Logger('RegistrySource')
+    logger = Logger("RegistrySource")
 
     name = NotImplementedError
     is_primary = NotImplementedError
@@ -59,9 +58,8 @@ class RegistrySource(ABC):
 
 
 class GithubRegistrySource(RegistrySource):
-
     _PUBLICATION_REPO = "nucypher/nucypher"
-    _BASE_URL = f'https://raw.githubusercontent.com/{_PUBLICATION_REPO}'
+    _BASE_URL = f"https://raw.githubusercontent.com/{_PUBLICATION_REPO}"
 
     name = "GitHub Registry Source"
     is_primary = True
@@ -172,7 +170,7 @@ class EmbeddedRegistrySource(LocalRegistrySource):
 class RegistrySourceManager:
     """A chain of registry sources."""
 
-    logger = Logger('RegistrySource')
+    logger = Logger("RegistrySource")
 
     _FALLBACK_CHAIN: Tuple[Type[RegistrySource]] = (
         GithubRegistrySource,
@@ -250,7 +248,7 @@ class ContractRegistry:
         chain_id: int
         abi: ABI
 
-    logger = Logger('ContractRegistry')
+    logger = Logger("ContractRegistry")
 
     class RegistryError(Exception):
         """Base class for registry errors"""

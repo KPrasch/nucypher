@@ -23,17 +23,20 @@ def test_missing_configuration_file(click_runner):
         "ursula",
         "run",
         "--host",
-        '255.32.54.32',
+        "255.32.54.32",
         "--domain",
         TEMPORARY_DOMAIN_NAME,
     )
     result = click_runner.invoke(nucypher_cli, cmd_args, catch_exceptions=False)
     assert result.exit_code != 0
     configuration_type = UrsulaConfiguration.NAME
-    assert MISSING_CONFIGURATION_FILE.format(
-        name=configuration_type.capitalize(),
-        init_command=f'{configuration_type} init'
-    ) in result.output
+    assert (
+        MISSING_CONFIGURATION_FILE.format(
+            name=configuration_type.capitalize(),
+            init_command=f"{configuration_type} init",
+        )
+        in result.output
+    )
 
 
 @pt.inlineCallbacks
@@ -62,7 +65,9 @@ def test_ursula_run_with_prometheus_but_no_metrics_port(click_runner):
 
 
 @pt.inlineCallbacks
-def test_run_lone_default_development_ursula(click_runner, ursulas, testerchain, mocker):
+def test_run_lone_default_development_ursula(
+    click_runner, ursulas, testerchain, mocker
+):
     mocker.patch.object(Operator, "block_until_ready", return_value=True)
     deploy_port = select_test_port()
     args = (
@@ -85,7 +90,10 @@ def test_run_lone_default_development_ursula(click_runner, ursulas, testerchain,
         nucypher_cli,
         args,
         catch_exceptions=False,
-        input=INSECURE_DEVELOPMENT_PASSWORD + "\n" + INSECURE_DEVELOPMENT_PASSWORD + "\n",
+        input=INSECURE_DEVELOPMENT_PASSWORD
+        + "\n"
+        + INSECURE_DEVELOPMENT_PASSWORD
+        + "\n",
     )
 
     time.sleep(Learner._SHORT_LEARNING_DELAY)
@@ -93,7 +101,10 @@ def test_run_lone_default_development_ursula(click_runner, ursulas, testerchain,
     assert "Running" in result.output
     assert f"{LOOPBACK_ADDRESS}:{deploy_port}" in result.output
 
-    reserved_ports = (UrsulaConfiguration.DEFAULT_REST_PORT, UrsulaConfiguration.DEFAULT_DEVELOPMENT_REST_PORT)
+    reserved_ports = (
+        UrsulaConfiguration.DEFAULT_REST_PORT,
+        UrsulaConfiguration.DEFAULT_DEVELOPMENT_REST_PORT,
+    )
     assert deploy_port not in reserved_ports
 
 
@@ -122,7 +133,7 @@ def test_ursula_learns_via_cli(click_runner, ursulas, testerchain, mocker):
             TEST_ETH_PROVIDER_URI,
             "--polygon-endpoint",
             TEST_ETH_PROVIDER_URI,
-            '--peer',
+            "--peer",
             ursulas[0].seed_node_metadata(as_peer_uri=True),
         )
 
@@ -142,7 +153,10 @@ def test_ursula_learns_via_cli(click_runner, ursulas, testerchain, mocker):
     assert "Starting services" in result.output
     assert f"{LOOPBACK_ADDRESS}:{deploy_port}" in result.output
 
-    reserved_ports = (UrsulaConfiguration.DEFAULT_REST_PORT, UrsulaConfiguration.DEFAULT_DEVELOPMENT_REST_PORT)
+    reserved_ports = (
+        UrsulaConfiguration.DEFAULT_REST_PORT,
+        UrsulaConfiguration.DEFAULT_DEVELOPMENT_REST_PORT,
+    )
     assert deploy_port not in reserved_ports
 
     # Check that CLI Ursula reports that it remembers the peer and saves the TLS certificate

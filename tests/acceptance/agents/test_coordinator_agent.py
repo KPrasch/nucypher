@@ -7,12 +7,12 @@ from nucypher_core import SessionStaticSecret
 from nucypher.blockchain.eth.agents import CoordinatorAgent
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def agent(coordinator_agent) -> CoordinatorAgent:
     return coordinator_agent
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def transcripts():
     return [os.urandom(32), os.urandom(32)]
 
@@ -25,7 +25,7 @@ def cohort(accounts):
     return cohort_providers
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def cohort_ursulas(cohort, taco_application_agent):
     ursulas_for_cohort = []
     for provider in cohort:
@@ -51,7 +51,6 @@ def test_initiate_ritual(
     testerchain,
     initiator,
 ):
-
     number_of_rituals = agent.number_of_rituals()
     assert number_of_rituals == 0
 
@@ -75,7 +74,7 @@ def test_initiate_ritual(
         access_controller=global_allow_list.address,
         wallet=initiator.wallet,
     )
-    assert receipt['status'] == 1
+    assert receipt["status"] == 1
     start_ritual_event = agent.contract.events.StartRitual().process_receipt(receipt)
     assert start_ritual_event[0]["args"]["participants"] == cohort
 
@@ -100,7 +99,7 @@ def test_initiate_ritual(
 
 def test_post_transcript(agent, transcripts, cohort_ursulas, accounts):
     ritual_id = agent.number_of_rituals() - 1
-    for i, wallet in enumerate(accounts.ursula_wallets[:len(cohort_ursulas)]):
+    for i, wallet in enumerate(accounts.ursula_wallets[: len(cohort_ursulas)]):
         receipt = agent.post_transcript(
             ritual_id=ritual_id,
             transcript=transcripts[i],
@@ -132,7 +131,7 @@ def test_post_aggregation(
 ):
     ritual_id = agent.number_of_rituals() - 1
     participant_public_keys = {}
-    for i, wallet in enumerate(accounts.ursula_wallets[:len(cohort_ursulas)]):
+    for i, wallet in enumerate(accounts.ursula_wallets[: len(cohort_ursulas)]):
         participant_public_key = SessionStaticSecret.random().public_key()
         receipt = agent.post_aggregation(
             ritual_id=ritual_id,

@@ -1,4 +1,3 @@
-
 # Permitted blockchains for condition evaluation
 
 _CONDITION_CHAINS = {

@@ -48,7 +48,7 @@ def make_cli_character(
         unlock_nucypher_keystore(
             emitter,
             character_configuration=character_config,
-            password=get_nucypher_password(emitter=emitter, confirm=False)
+            password=get_nucypher_password(emitter=emitter, confirm=False),
         )
 
     # Handle ethereum wallet
@@ -83,7 +83,9 @@ def make_cli_character(
     # Post-Init
     #
 
-    emitter.message(f"Loaded {character.__class__.__name__} ({character.domain})", color='green')
+    emitter.message(
+        f"Loaded {character.__class__.__name__} ({character.domain})", color="green"
+    )
     return character
 
 
@@ -115,7 +117,7 @@ def parse_event_filters_into_argument_filters(event_filters: Tuple[str]) -> Dict
     """
     argument_filters = dict()
     for event_filter in event_filters:
-        event_filter_split = event_filter.split('=')
+        event_filter_split = event_filter.split("=")
         if len(event_filter_split) != 2:
             raise ValueError(f"Invalid filter format: {event_filter}")
         key = event_filter_split[0]
@@ -127,28 +129,39 @@ def parse_event_filters_into_argument_filters(event_filters: Tuple[str]) -> Dict
     return argument_filters
 
 
-def retrieve_events(emitter: StdoutEmitter,
-                    agent: EthereumContractAgent,
-                    event_name: str,
-                    from_block: BlockIdentifier,
-                    to_block: BlockIdentifier,
-                    argument_filters: Dict,
-                    csv_output_file: Optional[Path] = None) -> None:
+def retrieve_events(
+    emitter: StdoutEmitter,
+    agent: EthereumContractAgent,
+    event_name: str,
+    from_block: BlockIdentifier,
+    to_block: BlockIdentifier,
+    argument_filters: Dict,
+    csv_output_file: Optional[Path] = None,
+) -> None:
     if csv_output_file:
         if csv_output_file.exists():
-            click.confirm(CONFIRM_OVERWRITE_EVENTS_CSV_FILE.format(csv_file=csv_output_file), abort=True)
-        available_events = write_events_to_csv_file(csv_file=csv_output_file,
-                                                    agent=agent,
-                                                    event_name=event_name,
-                                                    from_block=from_block,
-                                                    to_block=to_block,
-                                                    argument_filters=argument_filters)
+            click.confirm(
+                CONFIRM_OVERWRITE_EVENTS_CSV_FILE.format(csv_file=csv_output_file),
+                abort=True,
+            )
+        available_events = write_events_to_csv_file(
+            csv_file=csv_output_file,
+            agent=agent,
+            event_name=event_name,
+            from_block=from_block,
+            to_block=to_block,
+            argument_filters=argument_filters,
+        )
         if available_events:
-            emitter.echo(f"{agent.contract_name}::{event_name} events written to {csv_output_file}",
-                         bold=True,
-                         color='green')
+            emitter.echo(
+                f"{agent.contract_name}::{event_name} events written to {csv_output_file}",
+                bold=True,
+                color="green",
+            )
         else:
-            emitter.echo(f'No {agent.contract_name}::{event_name} events found', color='yellow')
+            emitter.echo(
+                f"No {agent.contract_name}::{event_name} events found", color="yellow"
+            )
     else:
         event = agent.contract.events[event_name]
         emitter.echo(f"{event_name}:", bold=True, color="yellow")

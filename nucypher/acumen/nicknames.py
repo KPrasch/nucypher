@@ -1,13 +1,11 @@
-
-
 import json
 import random
 from pathlib import Path
 from typing import List
 
 _HERE = Path(__file__).parent
-with open(_HERE / 'web_colors.json') as f:
-    _COLORS = json.load(f)['colors']
+with open(_HERE / "web_colors.json") as f:
+    _COLORS = json.load(f)["colors"]
 
 _SYMBOLS = {
     "A": "Alfa",
@@ -50,7 +48,6 @@ _SYMBOLS = {
 
 
 class NicknameCharacter:
-
     def __init__(self, symbol: str, color_name: str, color_hex: str):
         self.symbol = symbol
         self.color_name = color_name
@@ -58,16 +55,15 @@ class NicknameCharacter:
         self._text = color_name + " " + _SYMBOLS[symbol]
 
     def to_json(self):
-        return dict(symbol=self.symbol,
-                    color_name=self.color_name,
-                    color_hex=self.color_hex)
+        return dict(
+            symbol=self.symbol, color_name=self.color_name, color_hex=self.color_hex
+        )
 
     def __str__(self):
         return self._text
 
 
 class Nickname:
-
     @classmethod
     def from_seed(cls, seed, length: int = 2):
         # TODO: #1823 - Workaround for new nickname every restart
@@ -77,8 +73,9 @@ class Nickname:
         nickname_symbols = rng.sample(list(_SYMBOLS), length)
         nickname_colors = rng.sample(_COLORS, length)
         characters = [
-            NicknameCharacter(symbol, color['color'], color['hex'])
-            for symbol, color in zip(nickname_symbols, nickname_colors)]
+            NicknameCharacter(symbol, color["color"], color["hex"])
+            for symbol, color in zip(nickname_symbols, nickname_colors)
+        ]
         return cls(characters)
 
     def __init__(self, characters: List[NicknameCharacter]):
@@ -87,9 +84,11 @@ class Nickname:
         self.characters = characters
 
     def to_json(self):
-        return dict(text=self._text,
-                    icon=self.icon,
-                    characters=[character.to_json() for character in self.characters])
+        return dict(
+            text=self._text,
+            icon=self.icon,
+            characters=[character.to_json() for character in self.characters],
+        )
 
     def __str__(self):
         return self._text

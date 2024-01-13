@@ -29,8 +29,8 @@ def test_ursula_and_wallet_integration(
     mock_wallet_path = config_root_path / "mock_wallet.json"
     mock_wallet_path.unlink(missing_ok=True)
 
-    wallet_password = 'thisisjustsilly2'
-    keystore_password = 'wellthis2isjustsilly'
+    wallet_password = "thisisjustsilly2"
+    keystore_password = "wellthis2isjustsilly"
 
     wallet = testerchain.accounts.ursula_wallet(0)
     wallet.to_keystore(mock_wallet_path.absolute(), password=wallet_password)
@@ -58,7 +58,7 @@ def test_ursula_and_wallet_integration(
         # The bit we are testing for here
         "--wallet-filepath",
         mock_wallet_path,
-        '--force'
+        "--force",
     )
 
     cli_env = {
@@ -74,8 +74,8 @@ def test_ursula_and_wallet_integration(
     with open(ursula_config_path, "r") as config_file:
         raw_config_data = config_file.read()
         config_data = json.loads(raw_config_data)
-        assert (
-            config_data["wallet_filepath"] == str(mock_wallet_path.absolute())
+        assert config_data["wallet_filepath"] == str(
+            mock_wallet_path.absolute()
         ), "Wallet filepath was not correctly included in configuration file"
 
     # Recreate a configuration with the signer URI preserved

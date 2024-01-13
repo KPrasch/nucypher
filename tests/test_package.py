@@ -1,5 +1,3 @@
-
-
 import builtins
 
 import pytest
@@ -8,12 +6,11 @@ from nucypher.exceptions import DevelopmentInstallationRequired
 
 
 class TestsImportMocker:
-
     REAL_IMPORT = builtins.__import__
     __active = False
 
     def mock_import(self, name, *args, **kwargs):
-        if 'tests' in name and self.__active:
+        if "tests" in name and self.__active:
             raise ImportError
         return self.REAL_IMPORT(name, *args, **kwargs)
 
@@ -32,7 +29,7 @@ class TestsImportMocker:
         self.stop()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def import_mocker():
     mock = TestsImportMocker()
     try:
@@ -42,30 +39,40 @@ def import_mocker():
 
 
 def test_use_vladimir_without_development_installation(import_mocker, mocker):
-
     # Expected error message (Related object)
     from tests.utils.middleware import EvilMiddleWare
-    import_path = f'{EvilMiddleWare.__module__}.{EvilMiddleWare.__name__}'
-    message = DevelopmentInstallationRequired.MESSAGE.format(importable_name=import_path)
+
+    import_path = f"{EvilMiddleWare.__module__}.{EvilMiddleWare.__name__}"
+    message = DevelopmentInstallationRequired.MESSAGE.format(
+        importable_name=import_path
+    )
     del EvilMiddleWare
 
     with import_mocker:
         from nucypher.characters.unlawful import Vladimir  # Import OK
-        with pytest.raises(DevelopmentInstallationRequired, match=message):  # Expect lazy failure
+
+        with pytest.raises(
+            DevelopmentInstallationRequired, match=message
+        ):  # Expect lazy failure
             Vladimir.from_target_ursula(target_ursula=mocker.Mock())
 
 
 def test_get_pyevm_backend_without_development_installation(import_mocker):
-
     # Expected error message (Related object)
     from tests import constants
-    import_path = f'{constants.__name__}'
-    message = DevelopmentInstallationRequired.MESSAGE.format(importable_name=import_path)
+
+    import_path = f"{constants.__name__}"
+    message = DevelopmentInstallationRequired.MESSAGE.format(
+        importable_name=import_path
+    )
     del constants
 
     with import_mocker:
         from nucypher.blockchain.eth.providers import (
             _get_pyevm_test_backend,  # Import OK
         )
-        with pytest.raises(DevelopmentInstallationRequired, match=message):     # Expect lazy failure
+
+        with pytest.raises(
+            DevelopmentInstallationRequired, match=message
+        ):  # Expect lazy failure
             _get_pyevm_test_backend()

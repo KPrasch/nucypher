@@ -1,6 +1,3 @@
-
-
-
 import glob
 import json
 from json.decoder import JSONDecodeError
@@ -38,31 +35,39 @@ def forget(emitter: StdoutEmitter, configuration: CharacterConfiguration) -> Non
     """Forget all known nodes via storage"""
     click.confirm(CONFIRM_FORGET_NODES, abort=True)
     configuration.forget_nodes()
-    emitter.message(SUCCESSFUL_FORGET_NODES, color='red')
+    emitter.message(SUCCESSFUL_FORGET_NODES, color="red")
 
 
-def get_config_filepaths(config_class: Type[CharacterConfiguration], config_root: Optional[Path] = None) -> List:
+def get_config_filepaths(
+    config_class: Type[CharacterConfiguration], config_root: Optional[Path] = None
+) -> List:
     #
     # Scrape disk for configuration files
     #
     config_root = config_root or DEFAULT_CONFIG_ROOT
-    default_config_file = glob.glob(str(config_class.default_filepath(config_root=config_root)))
+    default_config_file = glob.glob(
+        str(config_class.default_filepath(config_root=config_root))
+    )
 
     # updated glob pattern for secondary configuration files accommodates for:
     # 1. configuration files with "0x..." checksum address as suffix - including older ursula config files
     # 2. newer (ursula) configuration files which use signing_pub_key[:8] as hex as the suffix
-    glob_pattern = f'{config_root.absolute()}/{config_class.NAME}-[0-9a-fA-F]*.{config_class._CONFIG_FILE_EXTENSION}'
+    glob_pattern = f"{config_root.absolute()}/{config_class.NAME}-[0-9a-fA-F]*.{config_class._CONFIG_FILE_EXTENSION}"
 
-    secondary_config_files = sorted(glob.glob(glob_pattern))  # sort list to make order deterministic
+    secondary_config_files = sorted(
+        glob.glob(glob_pattern)
+    )  # sort list to make order deterministic
     config_files = [*default_config_file, *secondary_config_files]
     config_files = [Path(f) for f in config_files]
     return config_files
 
 
-def get_or_update_configuration(emitter: StdoutEmitter,
-                                filepath: Path,
-                                config_class: Type[CharacterConfiguration],
-                                updates: Optional[dict] = None) -> None:
+def get_or_update_configuration(
+    emitter: StdoutEmitter,
+    filepath: Path,
+    config_class: Type[CharacterConfiguration],
+    updates: Optional[dict] = None,
+) -> None:
     """
     Utility for writing updates to an existing configuration file then displaying the result.
     If the config file is invalid, try very hard to display the problem.  If there are no updates,
@@ -71,32 +76,45 @@ def get_or_update_configuration(emitter: StdoutEmitter,
     try:
         config = config_class.from_configuration_file(filepath=filepath)
     except FileNotFoundError:
-        return handle_missing_configuration_file(character_config_class=config_class, config_file=filepath)
+        return handle_missing_configuration_file(
+            character_config_class=config_class, config_file=filepath
+        )
     except config_class.ConfigurationError:
-        return handle_invalid_configuration_file(emitter=emitter, config_class=config_class, filepath=filepath)
+        return handle_invalid_configuration_file(
+            emitter=emitter, config_class=config_class, filepath=filepath
+        )
 
-    emitter.echo(f"{config_class.NAME.capitalize()} Configuration {filepath} \n {'='*55}")
+    emitter.echo(
+        f"{config_class.NAME.capitalize()} Configuration {filepath} \n {'='*55}"
+    )
     if updates:
-        pretty_fields = ', '.join(updates)
-        emitter.message(SUCCESSFUL_UPDATE_CONFIGURATION_VALUES.format(fields=pretty_fields), color='yellow')
+        pretty_fields = ", ".join(updates)
+        emitter.message(
+            SUCCESSFUL_UPDATE_CONFIGURATION_VALUES.format(fields=pretty_fields),
+            color="yellow",
+        )
         config.update(**updates)
     emitter.echo(config.serialize())
 
 
-def destroy_configuration(emitter: StdoutEmitter,
-                          character_config: CharacterConfiguration,
-                          force: bool = False) -> None:
+def destroy_configuration(
+    emitter: StdoutEmitter,
+    character_config: CharacterConfiguration,
+    force: bool = False,
+) -> None:
     """Destroy a character configuration and report rhe result with an emitter."""
     if not force:
         confirm_destroy_configuration(config=character_config)
     character_config.destroy()
-    emitter.message(SUCCESSFUL_DESTRUCTION, color='green')
+    emitter.message(SUCCESSFUL_DESTRUCTION, color="green")
     character_config.log.debug(SUCCESSFUL_DESTRUCTION)
 
 
-def handle_missing_configuration_file(character_config_class: Type[CharacterConfiguration],
-                                      init_command_hint: str = None,
-                                      config_file: Optional[Path] = None) -> None:
+def handle_missing_configuration_file(
+    character_config_class: Type[CharacterConfiguration],
+    init_command_hint: str = None,
+    config_file: Optional[Path] = None,
+) -> None:
     """Display a message explaining there is no configuration file to use and abort the current operation."""
     config_file_location = config_file or character_config_class.default_filepath()
     init_command = init_command_hint or f"{character_config_class.NAME} init"
@@ -105,9 +123,9 @@ def handle_missing_configuration_file(character_config_class: Type[CharacterConf
     raise click.FileError(filename=str(config_file_location.absolute()), hint=message)
 
 
-def handle_invalid_configuration_file(emitter: StdoutEmitter,
-                                      config_class: Type[CharacterConfiguration],
-                                      filepath: Path) -> None:
+def handle_invalid_configuration_file(
+    emitter: StdoutEmitter, config_class: Type[CharacterConfiguration], filepath: Path
+) -> None:
     """
     Attempt to deserialize a config file that is not a valid nucypher character configuration
     as a means of user-friendly debugging. :-)  I hope this helps!
@@ -136,7 +154,9 @@ def collect_operator_ip_address(
     except UnknownIPAddress:
         if force:
             raise
-        emitter.message('Cannot automatically determine external IP address - input required')
+        emitter.message(
+            "Cannot automatically determine external IP address - input required"
+        )
         ip = click.prompt(COLLECT_URSULA_IPV4_ADDRESS, type=OPERATOR_IP)
 
     # Confirmation
@@ -150,7 +170,9 @@ def collect_operator_ip_address(
     return ip
 
 
-def perform_startup_ip_check(emitter: StdoutEmitter, ursula: Ursula, force: bool = False) -> None:
+def perform_startup_ip_check(
+    emitter: StdoutEmitter, ursula: Ursula, force: bool = False
+) -> None:
     """
     Used on ursula startup to determine if the external
     IP address is consistent with the configuration's values.
@@ -162,16 +184,18 @@ def perform_startup_ip_check(emitter: StdoutEmitter, ursula: Ursula, force: bool
             eth_endpoint=ursula.eth_endpoint,
         )
     except UnknownIPAddress:
-        message = 'Cannot automatically determine external IP address'
+        message = "Cannot automatically determine external IP address"
         emitter.message(message)
         return  # TODO: crash, or not to crash... that is the question
     host = ursula.rest_interface.host
     try:
         validate_operator_ip(ip=host)
     except InvalidOperatorIP:
-        message = f'{host} is not a valid or permitted operator IP address.  Set the correct external IP then try again\n' \
-                  f'automatic configuration -> nucypher ursula config ip-address\n' \
-                  f'manual configuration    -> nucypher ursula config --host <IP ADDRESS>'
+        message = (
+            f"{host} is not a valid or permitted operator IP address.  Set the correct external IP then try again\n"
+            f"automatic configuration -> nucypher ursula config ip-address\n"
+            f"manual configuration    -> nucypher ursula config --host <IP ADDRESS>"
+        )
         emitter.message(message)
         return
 
@@ -186,4 +210,4 @@ def perform_startup_ip_check(emitter: StdoutEmitter, ursula: Ursula, force: bool
         emitter.message(hint, color="yellow")
         raise click.Abort()
     else:
-        emitter.message('✓ External IP matches configuration', 'green')
+        emitter.message("✓ External IP matches configuration", "green")

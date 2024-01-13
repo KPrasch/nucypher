@@ -30,20 +30,15 @@ from nucypher.utilities.logging import Logger
 HERE = BASE_DIR = Path(__file__).parent
 TEMPLATES_DIR = HERE / "templates"
 
-status_template = Template(filename=str(TEMPLATES_DIR / "basic_status.mako")).get_def('main')
+status_template = Template(filename=str(TEMPLATES_DIR / "basic_status.mako")).get_def(
+    "main"
+)
 
 
 class ProxyRESTServer:
-
     log = Logger("network-server")
 
-    def __init__(self,
-                 host: str,
-                 port: int,
-                 hosting_power=None,
-                 rest_app=None
-                 ) -> None:
-
+    def __init__(self, host: str, port: int, hosting_power=None, rest_app=None) -> None:
         self.rest_interface = InterfaceInfo(host=host, port=port)
         if rest_app:  # if is me
             self.rest_app = rest_app
@@ -56,10 +51,7 @@ class ProxyRESTServer:
         return "{}:{}".format(self.rest_interface.host, self.rest_interface.port)
 
 
-def make_rest_app(
-        this_node,
-        log: Logger = Logger("http-application-layer")
-        ) -> Flask:
+def make_rest_app(this_node, log: Logger = Logger("http-application-layer")) -> Flask:
     """Creates a REST application."""
 
     # A trampoline function for the real REST app,
@@ -71,7 +63,6 @@ def make_rest_app(
 
 
 def _make_rest_app(this_node, log: Logger) -> Flask:
-
     # TODO: Avoid circular imports :-(
     from nucypher.characters.lawful import Alice, Bob, Ursula
 
@@ -80,18 +71,23 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
     _node_class = Ursula
 
     rest_app = Flask("ursula-service")
-    rest_app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_CONTENT_LENGTH
+    rest_app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_CONTENT_LENGTH
 
     @rest_app.route("/public_information")
     def public_information():
         """REST endpoint for public keys and address."""
-        response = Response(response=bytes(this_node.metadata()), mimetype='application/octet-stream')
+        response = Response(
+            response=bytes(this_node.metadata()), mimetype="application/octet-stream"
+        )
         return response
 
-    @rest_app.route('/node_metadata', methods=["GET"])
+    @rest_app.route("/node_metadata", methods=["GET"])
     def all_peers():
-        headers = {'Content-Type': 'application/octet-stream'}
-        if this_node._peering_deferred is not RELAX and not this_node._peering_task.running:
+        headers = {"Content-Type": "application/octet-stream"}
+        if (
+            this_node._peering_deferred is not RELAX
+            and not this_node._peering_task.running
+        ):
             # Learn when learned about
             this_node.start_peering()
 
@@ -99,9 +95,8 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
         response_bytes = this_node.bytestring_of_peers()
         return Response(response_bytes, headers=headers)
 
-    @rest_app.route('/node_metadata', methods=["POST"])
+    @rest_app.route("/node_metadata", methods=["POST"])
     def node_metadata_exchange():
-
         try:
             metadata_request = MetadataRequest.from_bytes(request.data)
         except ValueError as e:
@@ -113,12 +108,14 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
 
         if metadata_request.fleet_state_checksum == this_node.peers.checksum:
             # log.debug("Learner already knew fleet state {}; doing nothing.".format(learner_fleet_state))  # 1712
-            headers = {'Content-Type': 'application/octet-stream'}
+            headers = {"Content-Type": "application/octet-stream"}
             # No nodes in the response: same fleet state
-            response_payload = MetadataResponsePayload(timestamp_epoch=this_node.peers.timestamp.epoch,
-                                                       announce_nodes=[])
-            response = MetadataResponse(this_node.stamp.as_umbral_signer(),
-                                        response_payload)
+            response_payload = MetadataResponsePayload(
+                timestamp_epoch=this_node.peers.timestamp.epoch, announce_nodes=[]
+            )
+            response = MetadataResponse(
+                this_node.stamp.as_umbral_signer(), response_payload
+            )
             return Response(bytes(response), headers=headers)
 
         if metadata_request.announce_nodes:
@@ -148,7 +145,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
         payload = {"version": 1.0, "evm": list(this_node.condition_providers)}
         return Response(json.dumps(payload), mimetype="application/json")
 
-    @rest_app.route('/decrypt', methods=["POST"])
+    @rest_app.route("/decrypt", methods=["POST"])
     def threshold_decrypt():
         try:
             encrypted_request = EncryptedThresholdDecryptionRequest.from_bytes(
@@ -174,7 +171,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
         except Exception as e:
             return Response(str(e), status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    @rest_app.route('/reencrypt', methods=["POST"])
+    @rest_app.route("/reencrypt", methods=["POST"])
     def reencrypt():
         # TODO: Cache & Optimize
         from nucypher.characters.lawful import Bob
@@ -203,7 +200,10 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
         # TODO: Can this be integrated into reencryption conditions?
         # Stateful revocation by HRAC storage below
         if hrac in this_node.revoked_policies:
-            return Response(response=f"Policy with {hrac} has been revoked.", status=HTTPStatus.UNAUTHORIZED)
+            return Response(
+                response=f"Policy with {hrac} has been revoked.",
+                status=HTTPStatus.UNAUTHORIZED,
+            )
 
         # Alice or Publisher
         publisher_verifying_key = reenc_request.publisher_verifying_key
@@ -215,9 +215,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
         # Verify & Decrypt KFrag Payload
         try:
             verified_kfrag = this_node._decrypt_kfrag(
-                reenc_request.encrypted_kfrag,
-                hrac,
-                publisher_verifying_key
+                reenc_request.encrypted_kfrag, hrac, publisher_verifying_key
             )
         except DecryptingKeypair.DecryptionFailed as e:
             # TODO: don't we want to record suspicious activities here too?
@@ -226,12 +224,14 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
                 status=HTTPStatus.FORBIDDEN,
             )
         except InvalidSignature as e:
-            message = f'{bob_identity_message} Invalid signature for KeyFrag: {e}.'
+            message = f"{bob_identity_message} Invalid signature for KeyFrag: {e}."
             log.info(message)
             # TODO (#567): bucket the node as suspicious
-            return Response(message, status=HTTPStatus.UNAUTHORIZED)  # 401 - Unauthorized
+            return Response(
+                message, status=HTTPStatus.UNAUTHORIZED
+            )  # 401 - Unauthorized
         except Exception as e:
-            message = f'{bob_identity_message} Invalid EncryptedKeyFrag: {e}.'
+            message = f"{bob_identity_message} Invalid EncryptedKeyFrag: {e}."
             log.info(message)
             # TODO (#567): bucket the node as suspicious.
             return Response(message, status=HTTPStatus.BAD_REQUEST)
@@ -262,26 +262,28 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
 
         # Re-encrypt
         # TODO: return a sensible response if it fails (currently results in 500)
-        response = this_node._reencrypt(kfrag=verified_kfrag, capsules=capsules_to_process)
+        response = this_node._reencrypt(
+            kfrag=verified_kfrag, capsules=capsules_to_process
+        )
 
-        headers = {'Content-Type': 'application/octet-stream'}
+        headers = {"Content-Type": "application/octet-stream"}
         return Response(headers=headers, response=bytes(response))
 
-    @rest_app.route('/revoke', methods=['POST'])
+    @rest_app.route("/revoke", methods=["POST"])
     def revoke():
         # TODO: Implement off-chain revocation.
         return Response(status=HTTPStatus.OK)
 
-    @rest_app.route("/ping", methods=['GET'])
+    @rest_app.route("/ping", methods=["GET"])
     def ping():
         """Asks this node: What is my IP address?"""
         requester_ip_address = request.remote_addr
         return Response(requester_ip_address, status=HTTPStatus.OK)
 
-    @rest_app.route('/status/', methods=['GET'])
+    @rest_app.route("/status/", methods=["GET"])
     def status():
-        return_json = request.args.get('json') == 'true'
-        omit_peers = request.args.get('omit_peers') == 'true'
+        return_json = request.args.get("json") == "true"
+        omit_peers = request.args.get("omit_peers") == "true"
         status_info = this_node.status_info(omit_peers=omit_peers)
         if return_json:
             return jsonify(status_info.to_json())
@@ -292,7 +294,11 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             text_error = mako_exceptions.text_error_template().render()
             html_error = mako_exceptions.html_error_template().render()
             log.debug("Template Rendering Exception:\n" + text_error)
-            return Response(response=html_error, headers=headers, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return Response(
+                response=html_error,
+                headers=headers,
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
         return Response(response=content, headers=headers)
 
     return rest_app

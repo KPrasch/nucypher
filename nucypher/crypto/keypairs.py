@@ -42,10 +42,9 @@ class Keypair(object):
     _private_key_source = SecretKey.random
     _public_key_method = "public_key"
 
-    def __init__(self,
-                 private_key=None,
-                 public_key=None,
-                 generate_keys_if_needed=True) -> None:
+    def __init__(
+        self, private_key=None, public_key=None, generate_keys_if_needed=True
+    ) -> None:
         """
         Initalizes a Keypair object with an Umbral key object.
         :param generate_keys_if_needed: Generate keys or not?
@@ -63,7 +62,8 @@ class Keypair(object):
             self.pubkey = getattr(self._privkey, self._public_key_method)()
         else:
             raise ValueError(
-                "Either pass a valid key or, if you want to generate keys, set generate_keys_if_needed to True.")
+                "Either pass a valid key or, if you want to generate keys, set generate_keys_if_needed to True."
+            )
 
     def fingerprint(self):
         """
@@ -96,10 +96,14 @@ class DecryptingKeypair(Keypair):
         except ValueError as e:
             raise self.DecryptionFailed() from e
 
-    def decrypt_kfrag(self, ekfrag: EncryptedKeyFrag, hrac: HRAC, publisher_verifying_key: PublicKey) -> VerifiedKeyFrag:
+    def decrypt_kfrag(
+        self, ekfrag: EncryptedKeyFrag, hrac: HRAC, publisher_verifying_key: PublicKey
+    ) -> VerifiedKeyFrag:
         return ekfrag.decrypt(self._privkey, hrac, publisher_verifying_key)
 
-    def decrypt_treasure_map(self, etmap: EncryptedTreasureMap, publisher_verifying_key: PublicKey) -> TreasureMap:
+    def decrypt_treasure_map(
+        self, etmap: EncryptedTreasureMap, publisher_verifying_key: PublicKey
+    ) -> TreasureMap:
         return etmap.decrypt(self._privkey, publisher_verifying_key)
 
 
@@ -110,7 +114,7 @@ class RitualisticKeypair(Keypair):
     _public_key_method = "public_key"
 
     @classmethod
-    def from_secure_randomness(cls, randomness: bytes) -> 'RitualisticKeypair':
+    def from_secure_randomness(cls, randomness: bytes) -> "RitualisticKeypair":
         """Create a keypair from a precomputed secure source of randomness"""
         size = FerveoKeypair.secure_randomness_size()
         if len(randomness) != size:
@@ -149,18 +153,19 @@ class HostingKeypair(Keypair):
     """
     A keypair for TLS'ing.
     """
+
     _private_key_source = ec.generate_private_key
     _public_key_method = "public_key"
 
-    def __init__(self,
-                 host: str,
-                 checksum_address: str = None,
-                 private_key: Union[SecretKey, PublicKey] = None,
-                 certificate=None,
-                 certificate_filepath: Optional[Path] = None,
-                 generate_certificate=False,
-                 ) -> None:
-
+    def __init__(
+        self,
+        host: str,
+        checksum_address: str = None,
+        private_key: Union[SecretKey, PublicKey] = None,
+        certificate=None,
+        certificate_filepath: Optional[Path] = None,
+        generate_certificate=False,
+    ) -> None:
         if private_key:
             if certificate_filepath:
                 certificate = _read_tls_certificate(filepath=certificate_filepath)
@@ -175,14 +180,18 @@ class HostingKeypair(Keypair):
 
         elif generate_certificate:
             if not host and checksum_address:
-                message = "If you don't supply a TLS certificate, one will be generated for you." \
-                          "But for that, you need to pass a host and checksum address."
+                message = (
+                    "If you don't supply a TLS certificate, one will be generated for you."
+                    "But for that, you need to pass a host and checksum address."
+                )
                 raise TypeError(message)
             certificate, private_key = generate_self_signed_certificate(host=host)
             super().__init__(private_key=private_key)
 
         else:
-            raise TypeError("You didn't provide a cert, but also told us not to generate keys.  Not sure what to do.")
+            raise TypeError(
+                "You didn't provide a cert, but also told us not to generate keys.  Not sure what to do."
+            )
 
         if not certificate_filepath:
             certificate_filepath = constants.CERTIFICATE_NOT_SAVED
@@ -191,14 +200,19 @@ class HostingKeypair(Keypair):
         self.certificate_filepath = certificate_filepath
 
     def get_deployer(self, rest_app, port):
-        return HendrixDeployTLS("start",
-                                key=self._privkey,
-                                cert=X509.from_cryptography(self.certificate),
-                                context_factory=ExistingKeyTLSContextFactory,
-                                context_factory_kwargs={"curve_name": _TLS_CURVE.name, "sslmethod": TLSv1_2_METHOD},
-                                options={
-                                    "wsgi": rest_app,
-                                    "https_port": port,
-                                    "max_upload_bytes": MAX_UPLOAD_CONTENT_LENGTH,
-                                    'resources': get_static_resources(),
-                                })
+        return HendrixDeployTLS(
+            "start",
+            key=self._privkey,
+            cert=X509.from_cryptography(self.certificate),
+            context_factory=ExistingKeyTLSContextFactory,
+            context_factory_kwargs={
+                "curve_name": _TLS_CURVE.name,
+                "sslmethod": TLSv1_2_METHOD,
+            },
+            options={
+                "wsgi": rest_app,
+                "https_port": port,
+                "max_upload_bytes": MAX_UPLOAD_CONTENT_LENGTH,
+                "resources": get_static_resources(),
+            },
+        )

@@ -37,7 +37,7 @@ PUBLIC_CHAINS = {
     1: "Mainnet",
     137: "Polygon/Mainnet",
     11155111: "Sepolia",
-    80001: "Polygon/Mumbai"
+    80001: "Polygon/Mumbai",
 }
 
 # This list is incomplete, but it suffices for the moment - See #1857
@@ -80,13 +80,17 @@ class EthereumClient:
     class ChainReorganizationDetected(TransactionBroadcastError):
         """Raised when block confirmations logic detects that a TX was lost due to a chain reorganization"""
 
-        error_message = ("Chain re-organization detected: Transaction {transaction_hash} was reported to be in "
-                         "block {block_hash}, but it's not there anymore")
+        error_message = (
+            "Chain re-organization detected: Transaction {transaction_hash} was reported to be in "
+            "block {block_hash}, but it's not there anymore"
+        )
 
         def __init__(self, receipt):
             self.receipt = receipt
-            self.message = self.error_message.format(transaction_hash=Web3.to_hex(receipt['transactionHash']),
-                                                     block_hash=Web3.to_hex(receipt['blockHash']))
+            self.message = self.error_message.format(
+                transaction_hash=Web3.to_hex(receipt["transactionHash"]),
+                block_hash=Web3.to_hex(receipt["blockHash"]),
+            )
             super().__init__(self.message)
 
     def __init__(self, w3):
@@ -164,23 +168,30 @@ class EthereumClient:
     def block_number(self) -> BlockNumber:
         return self.w3.eth.block_number
 
-    def wait_for_receipt(self,
-                         transaction_hash: str,
-                         timeout: float,
-                         confirmations: int = 0) -> TxReceipt:
+    def wait_for_receipt(
+        self, transaction_hash: str, timeout: float, confirmations: int = 0
+    ) -> TxReceipt:
         receipt: TxReceipt = None
         if confirmations:
             # If we're waiting for confirmations, we may as well let pass some time initially to make everything easier
             time.sleep(self.COOLING_TIME)
 
             # We'll keep trying to get receipts until there are enough confirmations or the timeout happens
-            with Timeout(seconds=timeout, exception=self.TransactionTimeout) as timeout_context:
+            with Timeout(
+                seconds=timeout, exception=self.TransactionTimeout
+            ) as timeout_context:
                 while not receipt:
                     try:
-                        receipt = self.block_until_enough_confirmations(transaction_hash=transaction_hash,
-                                                                        timeout=timeout,
-                                                                        confirmations=confirmations)
-                    except (self.ChainReorganizationDetected, self.NotEnoughConfirmations, TimeExhausted):
+                        receipt = self.block_until_enough_confirmations(
+                            transaction_hash=transaction_hash,
+                            timeout=timeout,
+                            confirmations=confirmations,
+                        )
+                    except (
+                        self.ChainReorganizationDetected,
+                        self.NotEnoughConfirmations,
+                        TimeExhausted,
+                    ):
                         timeout_context.sleep(self.BLOCK_CONFIRMATIONS_POLLING_TIME)
                         continue
 
@@ -190,35 +201,42 @@ class EthereumClient:
                 receipt = self.w3.eth.wait_for_transaction_receipt(
                     transaction_hash=transaction_hash,
                     timeout=timeout,
-                    poll_latency=self.TRANSACTION_POLLING_TIME
+                    poll_latency=self.TRANSACTION_POLLING_TIME,
                 )
             except TimeExhausted:
                 raise  # TODO: #1504 - Handle transaction timeout
 
         return receipt
 
-    def block_until_enough_confirmations(self, transaction_hash: str, timeout: float, confirmations: int) -> dict:
-
+    def block_until_enough_confirmations(
+        self, transaction_hash: str, timeout: float, confirmations: int
+    ) -> dict:
         receipt: TxReceipt = self.w3.eth.wait_for_transaction_receipt(
             transaction_hash=transaction_hash,
             timeout=timeout,
-            poll_latency=self.TRANSACTION_POLLING_TIME
+            poll_latency=self.TRANSACTION_POLLING_TIME,
         )
 
-        preliminary_block_hash = Web3.to_hex(receipt['blockHash'])
-        tx_block_number = Web3.to_int(receipt['blockNumber'])
-        self.log.info(f"Transaction {Web3.to_hex(transaction_hash)} is preliminarily included in "
-                      f"block {preliminary_block_hash}")
+        preliminary_block_hash = Web3.to_hex(receipt["blockHash"])
+        tx_block_number = Web3.to_int(receipt["blockNumber"])
+        self.log.info(
+            f"Transaction {Web3.to_hex(transaction_hash)} is preliminarily included in "
+            f"block {preliminary_block_hash}"
+        )
 
         confirmations_timeout = self._calculate_confirmations_timeout(confirmations)
         confirmations_so_far = 0
-        with Timeout(seconds=confirmations_timeout, exception=self.NotEnoughConfirmations) as timeout_context:
+        with Timeout(
+            seconds=confirmations_timeout, exception=self.NotEnoughConfirmations
+        ) as timeout_context:
             while confirmations_so_far < confirmations:
                 timeout_context.sleep(self.BLOCK_CONFIRMATIONS_POLLING_TIME)
                 self.check_transaction_is_on_chain(receipt=receipt)
                 confirmations_so_far = self.block_number - tx_block_number
-                self.log.info(f"We have {confirmations_so_far} confirmations. "
-                              f"Waiting for {confirmations - confirmations_so_far} more.")
+                self.log.info(
+                    f"We have {confirmations_so_far} confirmations. "
+                    f"Waiting for {confirmations - confirmations_so_far} more."
+                )
             return receipt
 
     @staticmethod
@@ -227,13 +245,13 @@ class EthereumClient:
         return confirmations_timeout
 
     def check_transaction_is_on_chain(self, receipt: TxReceipt) -> bool:
-        transaction_hash = Web3.to_hex(receipt['transactionHash'])
+        transaction_hash = Web3.to_hex(receipt["transactionHash"])
         try:
             new_receipt = self.w3.eth.get_transaction_receipt(transaction_hash)
         except TransactionNotFound:
             reorg_detected = True
         else:
-            reorg_detected = receipt['blockHash'] != new_receipt['blockHash']
+            reorg_detected = receipt["blockHash"] != new_receipt["blockHash"]
 
         if reorg_detected:
             exception = self.ChainReorganizationDetected(receipt=receipt)
@@ -249,7 +267,7 @@ class EthereumClient:
         return self.w3.eth.get_transaction_receipt(transaction_hash)
 
     def get_transaction_count(self, account: str, pending: bool) -> int:
-        block_identifier = 'pending' if pending else 'latest'
+        block_identifier = "pending" if pending else "latest"
         return self.w3.eth.get_transaction_count(account, block_identifier)
 
     def send_transaction(self, transaction_dict: dict) -> str:
@@ -259,8 +277,8 @@ class EthereumClient:
         return self.w3.eth.send_raw_transaction(transaction_bytes)
 
     def get_blocktime(self):
-        highest_block = self.w3.eth.get_block('latest')
-        now = highest_block['timestamp']
+        highest_block = self.w3.eth.get_block("latest")
+        now = highest_block["timestamp"]
         return now
 
     def get_block(self, block_identifier):

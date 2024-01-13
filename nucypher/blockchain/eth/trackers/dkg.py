@@ -60,14 +60,15 @@ class EventScannerTask(SimpleTask):
         self.scanner()
 
     def handle_errors(self, *args, **kwargs):
-        self.log.warn("Error during ritual event scanning: {}".format(args[0].getTraceback()))
+        self.log.warn(
+            "Error during ritual event scanning: {}".format(args[0].getTraceback())
+        )
         if not self._task.running:
             self.log.warn("Restarting event scanner task!")
             self.start(now=True)
 
 
 class ActiveRitualTracker:
-
     MAX_CHUNK_SIZE = 10000
 
     # how often to check/purge for expired cached values - 8hrs?
@@ -127,7 +128,7 @@ class ActiveRitualTracker:
             filters={"address": self.contract.address},
             # How many maximum blocks at the time we request from JSON-RPC,
             # and we are unlikely to exceed the response size limit of the JSON-RPC server
-            max_chunk_scan_size=self.MAX_CHUNK_SIZE
+            max_chunk_scan_size=self.MAX_CHUNK_SIZE,
         )
 
         self.task = EventScannerTask(scanner=self.scan)
@@ -163,7 +164,7 @@ class ActiveRitualTracker:
         w3 = self.web3
         timeout = self.coordinator_agent.get_timeout()
 
-        latest_block = w3.eth.get_block('latest')
+        latest_block = w3.eth.get_block("latest")
         if latest_block.number == 0:
             return 0
 
@@ -374,8 +375,10 @@ class ActiveRitualTracker:
             camel_case_to_snake(k): v for k, v in ritual_event.args.items()
         }
         event_type = getattr(self.contract.events, ritual_event.event)
+
         def task():
             self.actions[event_type](timestamp=timestamp, **formatted_kwargs)
+
         if defer:
             d = threads.deferToThread(task)
             d.addErrback(self.task.handle_errors)
@@ -401,14 +404,18 @@ class ActiveRitualTracker:
 
     def __scan(self, start_block, end_block, account):
         # Run the scan
-        self.log.debug(f"({account[:8]}) Scanning events in block range {start_block} - {end_block}")
+        self.log.debug(
+            f"({account[:8]}) Scanning events in block range {start_block} - {end_block}"
+        )
         start = time.time()
         result, total_chunks_scanned = self.scanner.scan(start_block, end_block)
         if self.persistent:
             self.state.save()
         duration = time.time() - start
-        self.log.debug(f"Scanned total of {len(result)} events, in {duration} seconds, "
-                       f"total {total_chunks_scanned} chunk scans performed")
+        self.log.debug(
+            f"Scanned total of {len(result)} events, in {duration} seconds, "
+            f"total {total_chunks_scanned} chunk scans performed"
+        )
 
     def scan(self):
         """
@@ -428,6 +435,4 @@ class ActiveRitualTracker:
             suggested_start_block = self.scanner.get_suggested_scan_start_block()
 
         end_block = self.scanner.get_suggested_scan_end_block()
-        self.__scan(
-            suggested_start_block, end_block, self.operator.wallet.address
-        )
+        self.__scan(suggested_start_block, end_block, self.operator.wallet.address)

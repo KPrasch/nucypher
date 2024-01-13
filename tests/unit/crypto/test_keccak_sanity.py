@@ -1,5 +1,3 @@
-
-
 import unittest
 
 from eth_utils import keccak
@@ -8,7 +6,6 @@ from nucypher.crypto.utils import keccak_digest, secure_random, secure_random_ra
 
 
 class TestCrypto(unittest.TestCase):
-
     def test_secure_random(self):
         rand1 = secure_random(10)
         rand2 = secure_random(10)
@@ -31,7 +28,7 @@ class TestCrypto(unittest.TestCase):
         self.assertIn(1, output)
 
     def test_keccak_digest(self):
-        data = b'this is a test'
+        data = b"this is a test"
 
         digest1 = keccak(data)
         digest2 = keccak_digest(data)
@@ -41,7 +38,7 @@ class TestCrypto(unittest.TestCase):
         # Test iterables
         data = data.split()
 
-        digest1 = keccak(b''.join(data))
+        digest1 = keccak(b"".join(data))
         digest2 = keccak_digest(*data)
 
         self.assertEqual(digest1, digest2)

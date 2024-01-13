@@ -13,17 +13,17 @@ from tests.utils.registry import MockRegistrySource, mock_registry_sources
 
 
 def pytest_addhooks(pluginmanager):
-    pluginmanager.set_blocked('ape_test')
+    pluginmanager.set_blocked("ape_test")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def test_registry(module_mocker):
     with mock_registry_sources(mocker=module_mocker):
         source = MockRegistrySource(domain=TEMPORARY_DOMAIN)
         yield ContractRegistry(source=source)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def mock_ethereum_client(mocker):
     web3_mock = mocker.Mock()
     web3_mock.provider = mocker.Mock()
@@ -32,7 +32,7 @@ def mock_ethereum_client(mocker):
     return mock_client
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def mock_contract_agency():
     from tests.mock.agents import MockContractAgency
 
@@ -40,7 +40,9 @@ def mock_contract_agency():
     get_agent = ContractAgency.get_agent
     get_agent_by_name = ContractAgency.get_agent_by_contract_name
     ContractAgency.get_agent = MockContractAgency.get_agent
-    ContractAgency.get_agent_by_contract_name = MockContractAgency.get_agent_by_contract_name
+    ContractAgency.get_agent_by_contract_name = (
+        MockContractAgency.get_agent_by_contract_name
+    )
 
     # Test
     yield MockContractAgency()
@@ -50,9 +52,9 @@ def mock_contract_agency():
     ContractAgency.get_agent_by_contract_name = get_agent_by_name
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def mock_operator_bonding(session_mocker):
-    session_mocker.patch.object(Teacher, '_operator_is_bonded', autospec=True)
+    session_mocker.patch.object(Teacher, "_operator_is_bonded", autospec=True)
 
 
 @pytest.fixture(scope="module")

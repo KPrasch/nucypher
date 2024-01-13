@@ -91,7 +91,7 @@ def condition(test_registry):
     return ConditionLingo(condition_to_use).to_dict()
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def cohort(ursulas):
     """Creates a cohort of Ursulas"""
     nodes = list(sorted(ursulas[:DKG_SIZE], key=lambda x: int(x.checksum_address, 16)))
@@ -150,7 +150,7 @@ def test_ursula_ritualist(
     def test_initialize(receipt):
         """Checks the initialization of the ritual"""
         print("==================== CHECKING INITIALIZATION ====================")
-        testerchain.wait_for_receipt(receipt['transactionHash'])
+        testerchain.wait_for_receipt(receipt["transactionHash"])
 
         # check that the ritual was created on-chain
         assert coordinator_agent.number_of_rituals() == RITUAL_ID + 1

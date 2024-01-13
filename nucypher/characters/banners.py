@@ -1,8 +1,6 @@
-
-
 import nucypher
 
-NU_BANNER = r'''
+NU_BANNER = r"""
         
 ███╗   ██╗██╗   ██╗
 ████╗  ██║██║   ██║
@@ -11,7 +9,7 @@ NU_BANNER = r'''
 ██║ ╚████║╚██████╔╝
 ╚═╝  ╚═══╝ ╚═════╝ 
         
-'''
+"""
 
 NUCYPHER_BANNER = r"""
 

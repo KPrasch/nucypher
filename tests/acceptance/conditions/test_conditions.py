@@ -58,7 +58,9 @@ def test_required_context_variable(
 
 
 @pytest.mark.parametrize("expected_entry", ["address", "signature", "typedData"])
-def test_user_address_context_missing_required_entries(expected_entry, valid_user_address_context):
+def test_user_address_context_missing_required_entries(
+    expected_entry, valid_user_address_context
+):
     context = copy.deepcopy(valid_user_address_context)
     del context[USER_ADDRESS_CONTEXT][expected_entry]
     with pytest.raises(InvalidContextVariableData):
@@ -75,7 +77,9 @@ def test_user_address_context_invalid_eip712_typed_data(valid_user_address_conte
         get_context_value(USER_ADDRESS_CONTEXT, **context)
 
 
-def test_user_address_context_variable_verification(testerchain, valid_user_address_context):
+def test_user_address_context_variable_verification(
+    testerchain, valid_user_address_context
+):
     # valid user address context - signature matches address
     address = get_context_value(USER_ADDRESS_CONTEXT, **valid_user_address_context)
     assert address == valid_user_address_context[USER_ADDRESS_CONTEXT]["address"]
@@ -117,7 +121,11 @@ def test_user_address_context_variable_verification(testerchain, valid_user_addr
 def test_rpc_condition_evaluation_no_providers(
     get_context_value_mock, testerchain, rpc_condition
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
     with pytest.raises(NoConnectionToChain):
         _ = rpc_condition.verify(providers={}, **context)
 
@@ -134,7 +142,11 @@ def test_rpc_condition_evaluation_no_providers(
 def test_rpc_condition_evaluation_invalid_provider_for_chain(
     get_context_value_mock, testerchain, rpc_condition
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
     new_chain = 23
     rpc_condition.chain = new_chain
     condition_providers = {new_chain: {testerchain.provider}}
@@ -148,13 +160,19 @@ def test_rpc_condition_evaluation_invalid_provider_for_chain(
     GET_CONTEXT_VALUE_IMPORT_PATH,
     side_effect=_dont_validate_user_address,
 )
-def test_rpc_condition_evaluation(get_context_value_mock, testerchain, rpc_condition, condition_providers):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+def test_rpc_condition_evaluation(
+    get_context_value_mock, testerchain, rpc_condition, condition_providers
+):
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
     condition_result, call_result = rpc_condition.verify(
         providers=condition_providers, **context
     )
     assert condition_result is True
-    assert call_result > 0 # same value used in rpc_condition fixture
+    assert call_result > 0  # same value used in rpc_condition fixture
 
 
 @mock.patch(
@@ -164,7 +182,11 @@ def test_rpc_condition_evaluation(get_context_value_mock, testerchain, rpc_condi
 def test_rpc_condition_evaluation_multiple_chain_providers(
     get_context_value_mock, testerchain, rpc_condition
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
 
     condition_providers = {
         "1": {"fake1a", "fake1b"},
@@ -190,7 +212,11 @@ def test_rpc_condition_evaluation_multiple_chain_providers(
 def test_rpc_condition_evaluation_multiple_providers_no_valid_fallback(
     get_context_value_mock, mocker, testerchain, rpc_condition
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
 
     def my_configure_w3(provider: BaseProvider):
         return Web3(provider)
@@ -219,7 +245,11 @@ def test_rpc_condition_evaluation_multiple_providers_no_valid_fallback(
 def test_rpc_condition_evaluation_multiple_providers_valid_fallback(
     get_context_value_mock, mocker, testerchain, rpc_condition
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
 
     def my_configure_w3(provider: BaseProvider):
         return Web3(provider)
@@ -256,7 +286,11 @@ def test_rpc_condition_evaluation_multiple_providers_valid_fallback(
 def test_rpc_condition_evaluation_no_connection_to_chain(
     get_context_value_mock, testerchain, rpc_condition
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
 
     # condition providers for other unrelated chains
     providers = {
@@ -312,15 +346,24 @@ def test_rpc_condition_evaluation_with_context_var_in_return_value_test(
     side_effect=_dont_validate_user_address,
 )
 def test_erc20_evm_condition_evaluation(
-    get_context_value_mock, testerchain, erc20_evm_condition_balanceof, condition_providers
+    get_context_value_mock,
+    testerchain,
+    erc20_evm_condition_balanceof,
+    condition_providers,
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.unassigned_wallets[0].address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {
+            "address": testerchain.accounts.unassigned_wallets[0].address
+        }
+    }
     condition_result, call_result = erc20_evm_condition_balanceof.verify(
         providers=condition_providers, **context
     )
     assert condition_result is True
 
-    context[USER_ADDRESS_CONTEXT]["address"] = testerchain.accounts.etherbase_wallet.address
+    context[USER_ADDRESS_CONTEXT][
+        "address"
+    ] = testerchain.accounts.etherbase_wallet.address
     condition_result, call_result = erc20_evm_condition_balanceof.verify(
         providers=condition_providers, **context
     )
@@ -348,7 +391,11 @@ def test_erc20_evm_condition_evaluation_with_custom_context_variable(
     side_effect=_dont_validate_user_address,
 )
 def test_erc721_evm_condition_owner_evaluation(
-    get_context_value_mock, testerchain, test_registry, erc721_evm_condition_owner, condition_providers
+    get_context_value_mock,
+    testerchain,
+    test_registry,
+    erc721_evm_condition_owner,
+    condition_providers,
 ):
     account, *other_accounts = testerchain.client.accounts
     # valid owner of nft
@@ -387,7 +434,11 @@ def test_erc721_evm_condition_owner_evaluation(
     side_effect=_dont_validate_user_address,
 )
 def test_erc721_evm_condition_balanceof_evaluation(
-    get_context_value_mock, testerchain, test_registry, erc721_evm_condition_balanceof, condition_providers
+    get_context_value_mock,
+    testerchain,
+    test_registry,
+    erc721_evm_condition_balanceof,
+    condition_providers,
 ):
     account, *other_accounts = testerchain.accounts
     context = {USER_ADDRESS_CONTEXT: {"address": account.address}}  # owner of NFT
@@ -409,7 +460,7 @@ def test_subscription_manager_is_active_policy_condition_evaluation(
     testerchain,
     enacted_policy,
     subscription_manager_is_active_policy_condition,
-    condition_providers
+    condition_providers,
 ):
     context = {
         ":hrac": HexBytes(bytes(enacted_policy.hrac)).hex()
@@ -425,7 +476,10 @@ def test_subscription_manager_is_active_policy_condition_evaluation(
 
     # non-active policy hrac
     context[":hrac"] = HexBytes(os.urandom(16)).hex()
-    condition_result, call_result = subscription_manager_is_active_policy_condition.verify(
+    (
+        condition_result,
+        call_result,
+    ) = subscription_manager_is_active_policy_condition.verify(
         providers=condition_providers, **context
     )
     assert not call_result
@@ -480,17 +534,24 @@ def test_subscription_manager_get_policy_policy_struct_condition_evaluation_cont
     testerchain,
     enacted_policy,
     subscription_manager_get_policy_zeroized_policy_struct_condition,
-    condition_providers
+    condition_providers,
 ):
     # zeroized policy struct
     zeroized_policy_struct = (
-        NULL_ADDRESS, 0, 0, 0, NULL_ADDRESS,
+        NULL_ADDRESS,
+        0,
+        0,
+        0,
+        NULL_ADDRESS,
     )
     context = {
         ":hrac": HexBytes(bytes(enacted_policy.hrac)).hex(),
         ":expectedPolicyStruct": zeroized_policy_struct,
     }  # user-defined context vars
-    condition_result, call_result = subscription_manager_get_policy_zeroized_policy_struct_condition.verify(
+    (
+        condition_result,
+        call_result,
+    ) = subscription_manager_get_policy_zeroized_policy_struct_condition.verify(
         providers=condition_providers, **context
     )
     assert call_result != zeroized_policy_struct
@@ -498,7 +559,10 @@ def test_subscription_manager_get_policy_policy_struct_condition_evaluation_cont
 
     # unknown policy hrac
     context[":hrac"] = HexBytes(os.urandom(16)).hex()
-    condition_result, call_result = subscription_manager_get_policy_zeroized_policy_struct_condition.verify(
+    (
+        condition_result,
+        call_result,
+    ) = subscription_manager_get_policy_zeroized_policy_struct_condition.verify(
         providers=condition_providers, **context
     )
     assert call_result == zeroized_policy_struct
@@ -721,7 +785,9 @@ def test_onchain_conditions_lingo_evaluation(
     compound_lingo,
     condition_providers,
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.etherbase_wallet.address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.etherbase_wallet.address}
+    }
     result = compound_lingo.eval(providers=condition_providers, **context)
     assert result is True
 
@@ -736,7 +802,9 @@ def test_not_of_onchain_conditions_lingo_evaluation(
     compound_lingo,
     condition_providers,
 ):
-    context = {USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.etherbase_wallet.address}}
+    context = {
+        USER_ADDRESS_CONTEXT: {"address": testerchain.accounts.etherbase_wallet.address}
+    }
     result = compound_lingo.eval(providers=condition_providers, **context)
     assert result is True
 

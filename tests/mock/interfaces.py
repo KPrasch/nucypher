@@ -8,7 +8,6 @@ from tests.utils.blockchain import TesterBlockchain
 
 
 class MockBlockchain(TesterBlockchain):
-
     ETH_PROVIDER_URI = MOCK_ETH_PROVIDER_URI
 
     FAKE_TX_HASH = HexBytes(b"FAKE29890FAKE8349804")
@@ -33,7 +32,6 @@ class MockBlockchain(TesterBlockchain):
 
 
 class MockEthereumClient(EthereumClient):
-
     def add_middleware(self, middleware):
         pass
 

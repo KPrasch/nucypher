@@ -1,5 +1,3 @@
-
-
 import io
 import sys
 import traceback
@@ -28,7 +26,6 @@ class Cancelled(Exception):
 
 
 class FutureResult:
-
     def __init__(self, value=None, exc_info=None):
         self.value = value
         self.exc_info = exc_info
@@ -77,6 +74,7 @@ class Future:
 
 class WorkerPoolException(Exception):
     """Generalized exception class for WorkerPool failures."""
+
     def __init__(self, message_prefix: str, failures: Dict):
         self.failures = failures
 
@@ -108,25 +106,32 @@ class WorkerPool:
 
     class TimedOut(WorkerPoolException):
         """Raised if waiting for the target number of successes timed out."""
+
         def __init__(self, timeout: float, *args, **kwargs):
             self.timeout = timeout
-            super().__init__(message_prefix=f"Execution timed out after {timeout}s",
-                             *args, **kwargs)
+            super().__init__(
+                message_prefix=f"Execution timed out after {timeout}s", *args, **kwargs
+            )
 
     class OutOfValues(WorkerPoolException):
         """Raised if the value factory is out of values, but the target number was not reached."""
+
         def __init__(self, *args, **kwargs):
-            super().__init__(message_prefix="Execution stopped before completion - not enough available values",
-                             *args, **kwargs)
+            super().__init__(
+                message_prefix="Execution stopped before completion - not enough available values",
+                *args,
+                **kwargs,
+            )
 
-    def __init__(self,
-                 worker: Callable[[Any], Any],
-                 value_factory: Callable[[int], Optional[List[Any]]],
-                 target_successes,
-                 timeout: float,
-                 stagger_timeout: float = 0,
-                 threadpool_size: int = None):
-
+    def __init__(
+        self,
+        worker: Callable[[Any], Any],
+        value_factory: Callable[[int], Optional[List[Any]]],
+        target_successes,
+        timeout: float,
+        stagger_timeout: float = 0,
+        threadpool_size: int = None,
+    ):
         # TODO: make stagger_timeout a part of the value factory?
 
         self._worker = worker
@@ -137,8 +142,8 @@ class WorkerPool:
 
         thread_pool_kwargs = {}
         if threadpool_size is not None:
-            thread_pool_kwargs['minthreads'] = threadpool_size
-            thread_pool_kwargs['maxthreads'] = threadpool_size
+            thread_pool_kwargs["minthreads"] = threadpool_size
+            thread_pool_kwargs["maxthreads"] = threadpool_size
         self._threadpool = ThreadPool(**thread_pool_kwargs)
 
         # These three tasks must be run in separate threads
@@ -282,7 +287,10 @@ class WorkerPool:
                     with self._results_lock:
                         self._successes[result.value] = result.result
                         len_successes = len(self._successes)
-                    if not success_event_reached and len_successes == self._target_successes:
+                    if (
+                        not success_event_reached
+                        and len_successes == self._target_successes
+                    ):
                         # A protection for the case of repeating values.
                         # Only trigger the target value once.
                         success_event_reached = True

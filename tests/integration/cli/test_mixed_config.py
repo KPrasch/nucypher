@@ -21,7 +21,7 @@ from tests.constants import (
 )
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def custom_filepath():
     _path = MOCK_CUSTOM_INSTALLATION_PATH
     shutil.rmtree(_path, ignore_errors=True)
@@ -33,8 +33,13 @@ def custom_filepath():
 def test_destroy_with_no_configurations(click_runner, custom_filepath):
     """Provide useful error messages when attempting to destroy when there is nothing to destroy"""
     assert not custom_filepath.exists()
-    ursula_file_location = custom_filepath / 'ursula.json'
-    destruction_args = ('ursula', 'destroy', '--config-file', str(ursula_file_location.absolute()))
+    ursula_file_location = custom_filepath / "ursula.json"
+    destruction_args = (
+        "ursula",
+        "destroy",
+        "--config-file",
+        str(ursula_file_location.absolute()),
+    )
     result = click_runner.invoke(nucypher_cli, destruction_args, catch_exceptions=False)
     assert result.exit_code == 2
     assert "Error: Invalid value for '--config-file':" in result.output
@@ -54,7 +59,13 @@ def test_corrupted_configuration(
         shutil.rmtree(custom_filepath, ignore_errors=True)
     assert not custom_filepath.exists()
 
-    alice, ursula, another_ursula, staking_provider, *all_yall = accounts.unassigned_wallets
+    (
+        alice,
+        ursula,
+        another_ursula,
+        staking_provider,
+        *all_yall,
+    ) = accounts.unassigned_wallets
 
     #
     # Chaos
@@ -76,21 +87,26 @@ def test_corrupted_configuration(
     )
 
     # Fails because password is too short and the command uses incomplete args (needs either -F or blockchain details)
-    envvars = {NUCYPHER_ENVVAR_KEYSTORE_PASSWORD: '', NUCYPHER_ENVVAR_OPERATOR_ETH_PASSWORD: ''}
+    envvars = {
+        NUCYPHER_ENVVAR_KEYSTORE_PASSWORD: "",
+        NUCYPHER_ENVVAR_OPERATOR_ETH_PASSWORD: "",
+    }
 
     with pytest.raises(InvalidPassword):
-        result = click_runner.invoke(nucypher_cli, init_args, catch_exceptions=False, env=envvars)
+        result = click_runner.invoke(
+            nucypher_cli, init_args, catch_exceptions=False, env=envvars
+        )
         assert result.exit_code != 0
 
     # Ensure there is no unintentional file creation (keys, config, etc.)
     top_level_config_root = [f.name for f in custom_filepath.iterdir()]
-    assert 'ursula.config' not in top_level_config_root                         # no config file was created
+    assert "ursula.config" not in top_level_config_root  # no config file was created
 
     assert Path(custom_filepath).exists()
-    keystore = custom_filepath / 'keystore'
+    keystore = custom_filepath / "keystore"
     assert not keystore.exists()
 
-    peers = 'peers'
+    peers = "peers"
     path = custom_filepath / peers
     assert not path.exists()
 
@@ -120,19 +136,20 @@ def test_corrupted_configuration(
         NUCYPHER_ENVVAR_KEYSTORE_PASSWORD: INSECURE_DEVELOPMENT_PASSWORD,
         NUCYPHER_ENVVAR_OPERATOR_ETH_PASSWORD: INSECURE_DEVELOPMENT_PASSWORD,
     }
-    result = click_runner.invoke(nucypher_cli, init_args, catch_exceptions=False, env=envvars)
+    result = click_runner.invoke(
+        nucypher_cli, init_args, catch_exceptions=False, env=envvars
+    )
     assert result.exit_code == 0, result.output
 
     default_filename = UrsulaConfiguration.generate_filename()
 
     # Ensure configuration creation
     top_level_config_root = [f.name for f in custom_filepath.iterdir()]
-    assert default_filename in top_level_config_root, "JSON configuration file was not created"
+    assert (
+        default_filename in top_level_config_root
+    ), "JSON configuration file was not created"
 
-    expected_fields = [
-        'keystore',
-        default_filename
-    ]
+    expected_fields = ["keystore", default_filename]
     for field in expected_fields:
         assert field in top_level_config_root
 
@@ -141,8 +158,16 @@ def test_corrupted_configuration(
 
     # Attempt destruction with invalid configuration (missing registry)
     ursula_file_location = custom_filepath / default_filename
-    destruction_args = ('ursula', 'destroy', '--debug', '--config-file', str(ursula_file_location.absolute()))
-    result = click_runner.invoke(nucypher_cli, destruction_args, input='Y\n', catch_exceptions=False, env=envvars)
+    destruction_args = (
+        "ursula",
+        "destroy",
+        "--debug",
+        "--config-file",
+        str(ursula_file_location.absolute()),
+    )
+    result = click_runner.invoke(
+        nucypher_cli, destruction_args, input="Y\n", catch_exceptions=False, env=envvars
+    )
     assert result.exit_code == 0
 
     # Ensure character destruction

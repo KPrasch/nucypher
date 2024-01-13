@@ -20,7 +20,9 @@ def parse_node_uri(uri: str, delimiter: str = "@") -> Tuple[str, int, Address]:
         if checksum_address is None:
             raise ValueError(f"{uri} is not a valid Teacher URI - no checksum address.")
         if not is_checksum_address(checksum_address):
-            raise ValueError("{} is not a valid checksum address.".format(checksum_address))
+            raise ValueError(
+                "{} is not a valid checksum address.".format(checksum_address)
+            )
 
     #############################################
     # Strange logic here to ensure https:// - possibly pursuant to https://bugs.python.org/msg179670
@@ -34,12 +36,14 @@ def parse_node_uri(uri: str, delimiter: str = "@") -> Tuple[str, int, Address]:
 
     if not parsed_uri.scheme:
         try:
-            parsed_uri = urlparse('https://'+uri)
+            parsed_uri = urlparse("https://" + uri)
         except Exception:
             raise  # TODO: Do we need even deeper handling/validation here?
 
     if not parsed_uri.scheme == "https":
-        raise ValueError("Invalid peer scheme or protocol. Is the hostname prefixed with 'https://' ?")
+        raise ValueError(
+            "Invalid peer scheme or protocol. Is the hostname prefixed with 'https://' ?"
+        )
 
     hostname = parsed_uri.hostname
     port = parsed_uri.port or UrsulaConfiguration.DEFAULT_REST_PORT
@@ -47,9 +51,8 @@ def parse_node_uri(uri: str, delimiter: str = "@") -> Tuple[str, int, Address]:
 
 
 class InterfaceInfo:
-
     def __init__(self, host, port) -> None:
-        loopback, localhost = LOOPBACK_ADDRESS, 'localhost'
+        loopback, localhost = LOOPBACK_ADDRESS, "localhost"
         self.host = loopback if host == localhost else host
         self.port = int(port)
 
@@ -59,11 +62,11 @@ class InterfaceInfo:
 
     @property
     def uri(self):
-        return u"{}:{}".format(self.host, self.port)
+        return "{}:{}".format(self.host, self.port)
 
     @property
     def formal_uri(self):
-        return u"{}://{}".format('https', self.uri)
+        return "{}://{}".format("https", self.uri)
 
     def __repr__(self):
         return self.uri

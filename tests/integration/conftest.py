@@ -39,7 +39,7 @@ from tests.utils.ursula import (
 
 
 def pytest_addhooks(pluginmanager):
-    pluginmanager.set_blocked('ape_test')
+    pluginmanager.set_blocked("ape_test")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -82,19 +82,21 @@ def mock_coordinator_agent(testerchain, mock_contract_agency):
     mock_agent.reset()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def mock_stdin(mocker):
     mock = MockStdinWrapper()
 
-    mocker.patch('sys.stdin', new=mock.mock_stdin)
-    mocker.patch('getpass.getpass', new=mock.mock_getpass)
+    mocker.patch("sys.stdin", new=mock.mock_stdin)
+    mocker.patch("getpass.getpass", new=mock.mock_getpass)
 
     yield mock
 
     # Sanity check.
     # The user is encouraged to `assert mock_stdin.empty()` explicitly in the test
     # right after the input-consuming function call.
-    assert mock.empty(), "Stdin mock was not empty on teardown - some unclaimed input remained"
+    assert (
+        mock.empty()
+    ), "Stdin mock was not empty on teardown - some unclaimed input remained"
 
 
 @pytest.fixture(scope="module")
@@ -108,15 +110,17 @@ def testerchain(mock_testerchain, module_mocker) -> MockBlockchain:
     return mock_testerchain
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def mock_interface(module_mocker):
     # Generic Interface
-    mock_transaction_sender = module_mocker.patch.object(BlockchainInterface, 'sign_and_broadcast_transaction')
+    mock_transaction_sender = module_mocker.patch.object(
+        BlockchainInterface, "sign_and_broadcast_transaction"
+    )
     mock_transaction_sender.return_value = MockBlockchain.FAKE_RECEIPT
     return mock_transaction_sender
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def test_registry(module_mocker):
     with mock_registry_sources(mocker=module_mocker):
         mock_source = MockRegistrySource(domain=TEMPORARY_DOMAIN)
@@ -124,7 +128,7 @@ def test_registry(module_mocker):
         yield registry
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def mock_contract_agency():
     # Patch
     from tests.mock.agents import MockContractAgency
@@ -133,7 +137,9 @@ def mock_contract_agency():
     get_agent = ContractAgency.get_agent
     get_agent_by_name = ContractAgency.get_agent_by_contract_name
     ContractAgency.get_agent = MockContractAgency.get_agent
-    ContractAgency.get_agent_by_contract_name = MockContractAgency.get_agent_by_contract_name
+    ContractAgency.get_agent_by_contract_name = (
+        MockContractAgency.get_agent_by_contract_name
+    )
 
     # Test
     yield MockContractAgency()
@@ -143,7 +149,7 @@ def mock_contract_agency():
     ContractAgency.get_agent_by_contract_name = get_agent_by_name
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def agency(mock_contract_agency):
     yield mock_contract_agency
 
@@ -175,24 +181,24 @@ def mock_accounts():
     return accounts
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def mock_account(mock_accounts):
     return list(mock_accounts.items())[0][1]
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def operator_account(mock_accounts, testerchain):
     account = list(mock_accounts.values())[0]
     return account
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def operator_address(operator_account):
     address = operator_account.address
     return address
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def custom_config_filepath(custom_filepath: Path):
     filepath = custom_filepath / UrsulaConfiguration.generate_filename()
     return filepath
@@ -200,7 +206,7 @@ def custom_config_filepath(custom_filepath: Path):
 
 @pytest.fixture(scope="module", autouse=True)
 def mock_substantiate_stamp(module_mocker, monkeymodule):
-    fake_signature = b'\xb1W5?\x9b\xbaix>\'\xfe`\x1b\x9f\xeb*9l\xc0\xa7\xb9V\x9a\x83\x84\x04\x97\x0c\xad\x99\x86\x81W\x93l\xc3\xbde\x03\xcd"Y\xce\xcb\xf7\x02z\xf6\x9c\xac\x84\x05R\x9a\x9f\x97\xf7\xa02\xb2\xda\xa1Gv\x01'
+    fake_signature = b"\xb1W5?\x9b\xbaix>'\xfe`\x1b\x9f\xeb*9l\xc0\xa7\xb9V\x9a\x83\x84\x04\x97\x0c\xad\x99\x86\x81W\x93l\xc3\xbde\x03\xcd\"Y\xce\xcb\xf7\x02z\xf6\x9c\xac\x84\x05R\x9a\x9f\x97\xf7\xa02\xb2\xda\xa1Gv\x01"
     module_mocker.patch.object(Ursula, "_substantiate_stamp", autospec=True)
     module_mocker.patch.object(Ursula, "operator_signature", fake_signature)
     module_mocker.patch.object(Teacher, "validate_operator")

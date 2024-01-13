@@ -28,11 +28,10 @@ from tests.utils.blockchain import TestAccount
 
 
 def test_generate_alice_keystore(temp_dir_path):
-
     keystore = Keystore.from_mnemonic(
-        mnemonic=Mnemonic('english').generate(24),
+        mnemonic=Mnemonic("english").generate(24),
         password=INSECURE_DEVELOPMENT_PASSWORD,
-        keystore_dir=temp_dir_path
+        keystore_dir=temp_dir_path,
     )
 
     with pytest.raises(Keystore.Locked):
@@ -41,7 +40,7 @@ def test_generate_alice_keystore(temp_dir_path):
     keystore.unlock(password=INSECURE_DEVELOPMENT_PASSWORD)
     assert keystore.derive_crypto_power(DecryptingPower).keypair
 
-    label = b'test'
+    label = b"test"
 
     delegating_power = keystore.derive_crypto_power(DelegatingPower)
     delegating_pubkey = delegating_power.get_pubkey_from_label(label)
@@ -63,9 +62,9 @@ def test_generate_alice_keystore(temp_dir_path):
 @pytest.mark.usefixtures("mock_registry_sources")
 def test_characters_use_keystore(temp_dir_path, testerchain):
     keystore = Keystore.from_mnemonic(
-        mnemonic=Mnemonic('english').generate(24),
+        mnemonic=Mnemonic("english").generate(24),
         password=INSECURE_DEVELOPMENT_PASSWORD,
-        keystore_dir=temp_dir_path / 'keystore'
+        keystore_dir=temp_dir_path / "keystore",
     )
     keystore.unlock(password=INSECURE_DEVELOPMENT_PASSWORD)
 
@@ -103,9 +102,9 @@ def test_characters_use_keystore(temp_dir_path, testerchain):
 
 def test_ritualist(temp_dir_path, testerchain, dkg_public_key):
     keystore = Keystore.from_mnemonic(
-        mnemonic=Mnemonic('english').generate(24),
+        mnemonic=Mnemonic("english").generate(24),
         password=INSECURE_DEVELOPMENT_PASSWORD,
-        keystore_dir=temp_dir_path / 'llamas'
+        keystore_dir=temp_dir_path / "llamas",
     )
     keystore.unlock(password=INSECURE_DEVELOPMENT_PASSWORD)
 

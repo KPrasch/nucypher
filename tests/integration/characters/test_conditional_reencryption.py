@@ -30,7 +30,7 @@ def _policy_info_kwargs(enacted_policy):
 def test_single_retrieve_with_truthy_conditions(enacted_policy, bob, ursulas, mocker):
     from nucypher_core import MessageKit
 
-    reencrypt_spy = mocker.spy(Ursula, '_reencrypt')
+    reencrypt_spy = mocker.spy(Ursula, "_reencrypt")
 
     bob.remember_peer(ursulas[0])
     bob.start_peering()
@@ -65,16 +65,16 @@ def test_single_retrieve_with_truthy_conditions(enacted_policy, bob, ursulas, mo
         **_policy_info_kwargs(enacted_policy),
     )
 
-    assert b'lab' in cleartexts
+    assert b"lab" in cleartexts
     assert reencrypt_spy.call_count == enacted_policy.threshold
 
 
 def test_single_retrieve_with_falsy_conditions(enacted_policy, bob, ursulas, mocker):
     from nucypher_core import MessageKit
 
-    reencrypt_spy = mocker.spy(Ursula, '_reencrypt')
-    mocker.patch.object(ConditionLingo, 'eval', return_value=False)
-    reencrypt_http_spy = mocker.spy(MockRestMiddleware, 'reencrypt')
+    reencrypt_spy = mocker.spy(Ursula, "_reencrypt")
+    mocker.patch.object(ConditionLingo, "eval", return_value=False)
+    reencrypt_http_spy = mocker.spy(MockRestMiddleware, "reencrypt")
 
     # not actually used for eval, but satisfies serializers
     conditions = Conditions(

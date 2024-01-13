@@ -36,16 +36,11 @@ ALLOWED_EXTENSIONS = {
     ".dev.rst",
 }
 
-ALLOWED_FILES = {
-    'validate_files.py',
-    'README.md',
-    '.gitignore'
-}
+ALLOWED_FILES = {"validate_files.py", "README.md", ".gitignore"}
 
 THIS_DIR = pathlib.Path(__file__).parent
 
 for fragment_file in THIS_DIR.iterdir():
-
     if fragment_file.name in ALLOWED_FILES:
         continue
 

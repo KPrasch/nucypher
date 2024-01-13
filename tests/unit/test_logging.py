@@ -1,5 +1,3 @@
-
-
 from io import StringIO
 from json.encoder import py_encode_basestring_ascii
 
@@ -18,6 +16,7 @@ def get_json_observer_for_file(logfile):
     def json_observer(event):
         observer = jsonFileLogObserver(outFile=logfile)
         return observer(event)
+
     return json_observer
 
 
@@ -32,14 +31,17 @@ ordinary_strings = (
     "Because there's nothing worse in life than being ordinary.",
     "🍌 🍌 🍌 terracotta 🍌 🍌 🍌 terracotta terracotta 🥧",
     '"You can quote me on this"',
-    f"Some bytes: {b''.join(chr(i).encode() for i in range(1024) if chr(i) not in '{}')}"
+    f"Some bytes: {b''.join(chr(i).encode() for i in range(1024) if chr(i) not in '{}')}",
 )
 
 # Strings that have curly braces but that appear in groups of even length are considered safe too,
 # as curly braces are escaped this way, according to PEP 3101. Twisted will eat these just fine,
 # but since they have curly braces, we will have to process them in our Logger.
 quirky_strings = (
-    "{{}}", "{{hola}}", "{{{{}}}}", "foo{{}}",
+    "{{}}",
+    "{{hola}}",
+    "{{{{}}}}",
+    "foo{{}}",
 )
 
 # These are strings that are definitely going to cause trouble for Twisted Logger
@@ -59,8 +61,8 @@ freaky_format_strings = (  # Including the expected exception and error message
     ("{{{}}}", KeyError, ""),
     ("{{{{{}}}}}", KeyError, ""),
     ("{bananas}", KeyError, "bananas"),
-    (str({'bananas': '🍌🍌🍌'}), KeyError, "bananas"),
-    (f"Some bytes: {b''.join(chr(i).encode() for i in range(1024))}", KeyError, "|")
+    (str({"bananas": "🍌🍌🍌"}), KeyError, "bananas"),
+    (f"Some bytes: {b''.join(chr(i).encode() for i in range(1024))}", KeyError, "|"),
 )
 
 # Embrace the quirky!
@@ -68,7 +70,7 @@ acceptable_strings = (*ordinary_strings, *quirky_strings)
 
 
 def test_twisted_logger_doesnt_like_curly_braces(capsys):
-    twisted_logger = TwistedLogger('twisted', observer=naive_print_observer)
+    twisted_logger = TwistedLogger("twisted", observer=naive_print_observer)
 
     # Normal strings are logged normally
     for string in acceptable_strings:
@@ -87,7 +89,7 @@ def test_twisted_logger_doesnt_like_curly_braces(capsys):
 
 
 def test_twisted_json_logger_doesnt_like_curly_braces_either():
-    twisted_logger = TwistedLogger('twisted-json')
+    twisted_logger = TwistedLogger("twisted-json")
 
     # Normal strings are logged normally
     for string in acceptable_strings:
@@ -107,7 +109,7 @@ def test_twisted_json_logger_doesnt_like_curly_braces_either():
 
 
 def test_but_nucypher_logger_is_cool_with_that(capsys):
-    nucypher_logger = Logger('nucypher-logger', observer=naive_print_observer)
+    nucypher_logger = Logger("nucypher-logger", observer=naive_print_observer)
 
     # Normal strings are logged normally
     for string in acceptable_strings:
@@ -126,8 +128,7 @@ def test_but_nucypher_logger_is_cool_with_that(capsys):
 
 
 def test_even_nucypher_json_logger_is_cool():
-
-    nucypher_logger = Logger('nucypher-logger-json')
+    nucypher_logger = Logger("nucypher-logger-json")
 
     # Normal strings are logged normally
     for string in acceptable_strings:

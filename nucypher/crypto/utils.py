@@ -13,7 +13,9 @@ from nucypher.crypto.signing import SignatureStamp
 __SYSTEM_RAND = SystemRandom()
 
 
-def canonical_address_from_umbral_key(public_key: Union[PublicKey, SignatureStamp]) -> bytes:
+def canonical_address_from_umbral_key(
+    public_key: Union[PublicKey, SignatureStamp]
+) -> bytes:
     if isinstance(public_key, SignatureStamp):
         public_key = public_key.as_umbral_pubkey()
     pubkey_compressed_bytes = public_key.to_compressed_bytes()
@@ -34,7 +36,7 @@ def secure_random(num_bytes: int) -> bytes:
     :return: bytes
     """
     # TODO: Should we just use os.urandom or avoid the import w/ this?
-    return __SYSTEM_RAND.getrandbits(num_bytes * 8).to_bytes(num_bytes, byteorder='big')
+    return __SYSTEM_RAND.getrandbits(num_bytes * 8).to_bytes(num_bytes, byteorder="big")
 
 
 def secure_random_range(min: int, max: int) -> int:
@@ -77,7 +79,9 @@ def recover_address_eip_191(message: bytes, signature: bytes) -> str:
     Recover checksum address from EIP-191 signature
     """
     signable_message = encode_defunct(primitive=message)
-    recovery = Account.recover_message(signable_message=signable_message, signature=signature)
+    recovery = Account.recover_message(
+        signable_message=signable_message, signature=signature
+    )
     recovered_address = to_checksum_address(recovery)
     return recovered_address
 

@@ -1,7 +1,6 @@
 # noinspection Mypy
 
 
-
 import os
 
 import click
@@ -15,7 +14,7 @@ from nucypher.utilities.logging import GlobalLoggerSettings, Logger
 
 
 class GroupGeneralConfig:
-    __option_name__ = 'general_config'
+    __option_name__ = "general_config"
 
     verbosity = 0
 
@@ -25,17 +24,18 @@ class GroupGeneralConfig:
     log_to_sentry = get_env_bool("NUCYPHER_SENTRY_LOGS", False)
     log_to_file = get_env_bool("NUCYPHER_FILE_LOGS", True)
 
-    def __init__(self,
-                 json_ipc: bool,
-                 verbose: bool,
-                 quiet: bool,
-                 no_logs: bool,
-                 console_logs: bool,
-                 file_logs: bool,
-                 sentry_logs: bool,
-                 log_level: bool,
-                 debug: bool):
-
+    def __init__(
+        self,
+        json_ipc: bool,
+        verbose: bool,
+        quiet: bool,
+        no_logs: bool,
+        console_logs: bool,
+        file_logs: bool,
+        sentry_logs: bool,
+        log_level: bool,
+        debug: bool,
+    ):
         self.log = Logger(self.__class__.__name__)
 
         # Session Emitter for pre and post character control engagement.
@@ -43,7 +43,8 @@ class GroupGeneralConfig:
             raise click.BadOptionUsage(
                 option_name="quiet",
                 message="--verbose and --quiet are mutually exclusive "
-                        "and cannot be used at the same time.")
+                "and cannot be used at the same time.",
+            )
 
         if verbose:
             GroupGeneralConfig.verbosity = 2
@@ -57,7 +58,7 @@ class GroupGeneralConfig:
         self.emitter = emitter
 
         if verbose:
-            self.emitter.message("Verbose mode is enabled", color='blue')
+            self.emitter.message("Verbose mode is enabled", color="blue")
 
         # Logging
         if debug and no_logs:
@@ -74,7 +75,7 @@ class GroupGeneralConfig:
             console_logs = True
             file_logs = True
             sentry_logs = False
-            log_level = 'debug'
+            log_level = "debug"
 
         if no_logs:
             console_logs = False
@@ -101,39 +102,46 @@ class GroupGeneralConfig:
 
 group_general_config = group_options(
     GroupGeneralConfig,
-
-    verbose=click.option('-v', '--verbose', help="Verbose console messages", is_flag=True),
-    quiet=click.option('-Q', '--quiet', help="Disable console messages", is_flag=True),
-    no_logs=click.option('-L', '--no-logs', help="Disable all logging output", is_flag=True),
-
-    json_ipc=click.option('-J', '--json-ipc',
-                          help="Send all IPC output to stdout as JSON, and turn off the rest",
-                          is_flag=True),
-
+    verbose=click.option(
+        "-v", "--verbose", help="Verbose console messages", is_flag=True
+    ),
+    quiet=click.option("-Q", "--quiet", help="Disable console messages", is_flag=True),
+    no_logs=click.option(
+        "-L", "--no-logs", help="Disable all logging output", is_flag=True
+    ),
+    json_ipc=click.option(
+        "-J",
+        "--json-ipc",
+        help="Send all IPC output to stdout as JSON, and turn off the rest",
+        is_flag=True,
+    ),
     console_logs=click.option(
-        '--console-logs/--no-console-logs',
+        "--console-logs/--no-console-logs",
         help="Enable/disable logging to console. Defaults to `--no-console-logs`.",
-        default=False),
-
+        default=False,
+    ),
     file_logs=click.option(
-        '--file-logs/--no-file-logs',
+        "--file-logs/--no-file-logs",
         help="Enable/disable logging to file. Defaults to NUCYPHER_FILE_LOGS, or to `--file-logs` if it is not set.",
-        default=None),
-
+        default=None,
+    ),
     sentry_logs=click.option(
-        '--sentry-logs/--no-sentry-logs',
+        "--sentry-logs/--no-sentry-logs",
         help="Enable/disable logging to Sentry. Defaults to NUCYPHER_SENTRY_LOGS, or to `--sentry-logs` if it is not set.",
-        default=None),
-
+        default=None,
+    ),
     log_level=click.option(
-        '--log-level', help="The log level for this process.  Is overridden by --debug.",
-        type=click.Choice(['critical', 'error', 'warn', 'info', 'debug']),
-        default='info'),
-
+        "--log-level",
+        help="The log level for this process.  Is overridden by --debug.",
+        type=click.Choice(["critical", "error", "warn", "info", "debug"]),
+        default="info",
+    ),
     debug=click.option(
-        '-D', '--debug',
+        "-D",
+        "--debug",
         help="Enable debugging mode, crashing on more exceptions instead of trying to recover. "
-             "Also sets log level to \"debug\", turns on console and file logging "
-             "and turns off Sentry logging.",
-        is_flag=True),
+        'Also sets log level to "debug", turns on console and file logging '
+        "and turns off Sentry logging.",
+        is_flag=True,
+    ),
 )

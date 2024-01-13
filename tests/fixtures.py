@@ -82,13 +82,14 @@ test_logger = Logger("test-logger")
 # defer.setDebugging(True)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def monkeysession():
     from _pytest.monkeypatch import MonkeyPatch
 
     mpatch = MonkeyPatch()
     yield mpatch
     mpatch.undo()
+
 
 #
 # Temporary
@@ -106,26 +107,26 @@ def tempfile_path():
 
 @pytest.fixture(scope="module")
 def temp_dir_path():
-    temp_dir = tempfile.TemporaryDirectory(prefix='nucypher-test-')
+    temp_dir = tempfile.TemporaryDirectory(prefix="nucypher-test-")
     yield Path(temp_dir.name)
     temp_dir.cleanup()
 
 
-
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def mock_default_config_root(monkeysession, session_mocker):
-
     # This is the target default config root for all tests.
-    path = Path('/tmp/nucypher-test-config-root')
+    path = Path("/tmp/nucypher-test-config-root")
 
     # Constants
-    session_mocker.patch('nucypher.config.constants.DEFAULT_CONFIG_ROOT', path)
-    monkeysession.setenv('NUCYPHER_CONFIG_ROOT', str(path.absolute()))
+    session_mocker.patch("nucypher.config.constants.DEFAULT_CONFIG_ROOT", path)
+    monkeysession.setenv("NUCYPHER_CONFIG_ROOT", str(path.absolute()))
 
     # CLI
-    session_mocker.patch.object(GroupGeneralConfig, 'config_root', path)
-    session_mocker.patch('nucypher.cli.commands.ursula.DEFAULT_CONFIG_ROOT', path)
-    session_mocker.patch('nucypher.cli.commands.ursula.DEFAULT_CONFIG_FILEPATH', path / 'ursula.json')
+    session_mocker.patch.object(GroupGeneralConfig, "config_root", path)
+    session_mocker.patch("nucypher.cli.commands.ursula.DEFAULT_CONFIG_ROOT", path)
+    session_mocker.patch(
+        "nucypher.cli.commands.ursula.DEFAULT_CONFIG_FILEPATH", path / "ursula.json"
+    )
 
     # Config
     monkeysession.setattr(BaseConfiguration, "DEFAULT_CONFIG_ROOT", path)
@@ -142,26 +143,28 @@ def accounts():
     return ReservedTestAccountManager()
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def capture_wallets():
     return dict()
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def mock_write_wallet_to_file(monkeymodule, capture_wallets):
     def write(filepath, data):
         capture_wallets[filepath] = data
-    monkeymodule.setattr(LocalAccount, '_write', write)
+
+    monkeymodule.setattr(LocalAccount, "_write", write)
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def mock_read_wallet_keystore(monkeymodule, capture_wallets):
     def read(filepath):
         try:
             return capture_wallets[filepath]
         except KeyError:
             raise FileNotFoundError
-    monkeymodule.setattr(LocalAccount, '_read', read)
+
+    monkeymodule.setattr(LocalAccount, "_read", read)
 
 
 @pytest.fixture(scope="module")
@@ -174,6 +177,7 @@ def random_account():
 @pytest.fixture(scope="module")
 def random_address(random_account):
     return random_account.address
+
 
 #
 # Character Configurations
@@ -280,7 +284,9 @@ def capsule_side_channel(enacted_policy):
             self.plaintext_passthrough = False
 
         def __call__(self):
-            message = "Welcome to flippering number {}.".format(len(self.messages)).encode()
+            message = "Welcome to flippering number {}.".format(
+                len(self.messages)
+            ).encode()
             message_kit = self.enrico.encrypt_for_pre(message)
             self.messages.append((message_kit, self.enrico))
             if self.plaintext_passthrough:
@@ -306,22 +312,17 @@ def random_policy_label():
 # Alice, Bob, and Ursula
 #
 
+
 @pytest.fixture(scope="module")
 def alice(alice_test_config, ursulas, accounts):
-    alice = alice_test_config.produce(
-        wallet=accounts.alice_wallet,
-        seed_nodes=ursulas
-    )
+    alice = alice_test_config.produce(wallet=accounts.alice_wallet, seed_nodes=ursulas)
     yield alice
     alice.disenchant()
 
 
 @pytest.fixture(scope="module")
 def bob(bob_test_config, accounts, ursulas):
-    bob = bob_test_config.produce(
-        wallet=accounts.bob_wallet,
-        seed_nodes=ursulas
-    )
+    bob = bob_test_config.produce(wallet=accounts.bob_wallet, seed_nodes=ursulas)
     yield bob
     bob.disenchant()
 
@@ -350,6 +351,7 @@ def lonely_ursula_maker(ursula_test_config):
                 del MOCK_KNOWN_URSULAS_CACHE[ursula.rest_interface.port]
             for ursula in self._made:
                 ursula._finalize()
+
     _maker = _PartialUrsulaMaker()
     yield _maker
     _maker.clean()
@@ -364,7 +366,7 @@ def mock_registry_sources(module_mocker):
         yield
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def mock_testerchain() -> MockBlockchain:
     BlockchainInterfaceFactory._interfaces = dict()
     testerchain = MockBlockchain()
@@ -394,13 +396,13 @@ def light_ursula(temp_dir_path, random_account, accounts):
     return ursula
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def policy_rate():
-    rate = Web3.to_wei(21, 'gwei')
+    rate = Web3.to_wei(21, "gwei")
     return rate
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def policy_value(policy_rate):
     value = policy_rate * MIN_OPERATOR_SECONDS
     return value
@@ -411,7 +413,7 @@ def policy_value(policy_rate):
 #
 
 
-@pytest.fixture(autouse=True, scope='function')
+@pytest.fixture(autouse=True, scope="function")
 def log_in_and_out_of_test(request):
     test_name = request.node.name
     module_name = request.module.__name__
@@ -439,7 +441,7 @@ def fleet_of_highperf_mocked_ursulas(ursula_test_config, request, accounts):
         mock_cert_generation,
         mock_remember_peer,
         mock_message_verification,
-        )
+    )
 
     try:
         quantity = request.param
@@ -448,7 +450,6 @@ def fleet_of_highperf_mocked_ursulas(ursula_test_config, request, accounts):
 
     with GlobalLoggerSettings.pause_all_logging_while():
         with contextlib.ExitStack() as stack:
-
             for mock in mocks:
                 stack.enter_context(mock)
 
@@ -465,7 +466,9 @@ def fleet_of_highperf_mocked_ursulas(ursula_test_config, request, accounts):
                 # It only needs to see whatever public info we can normally get via REST.
                 # Also sharing mutable Ursulas like that can lead to unpredictable results.
                 ursula.peers.current_state._nodes = all_ursulas
-                ursula.peers.current_state.checksum = b"This is a fleet state checksum..".hex()
+                ursula.peers.current_state.checksum = (
+                    b"This is a fleet state checksum..".hex()
+                )
 
     yield _ursulas
 
@@ -527,7 +530,8 @@ def highperf_mocked_bob(fleet_of_highperf_mocked_ursulas):
 # CLI
 #
 
-@pytest.fixture(scope='function')
+
+@pytest.fixture(scope="function")
 def test_emitter(mocker):
     # Note that this fixture does not capture console output.
     # Whether the output is captured or not is controlled by
@@ -535,13 +539,13 @@ def test_emitter(mocker):
     return StdoutEmitter()
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def click_runner():
     runner = CliRunner()
     yield runner
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def nominal_configuration_fields():
     config = UrsulaConfiguration(
         dev_mode=True,
@@ -553,7 +557,7 @@ def nominal_configuration_fields():
     del config
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def custom_filepath():
     _custom_filepath = MOCK_CUSTOM_INSTALLATION_PATH
     with contextlib.suppress(FileNotFoundError):
@@ -563,7 +567,7 @@ def custom_filepath():
         shutil.rmtree(_custom_filepath, ignore_errors=True)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def custom_filepath_2():
     _custom_filepath = MOCK_CUSTOM_INSTALLATION_PATH_2
     with contextlib.suppress(FileNotFoundError):
@@ -575,9 +579,11 @@ def custom_filepath_2():
             shutil.rmtree(_custom_filepath, ignore_errors=True)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def worker_configuration_file_location(custom_filepath) -> Path:
-    _configuration_file_location = MOCK_CUSTOM_INSTALLATION_PATH / UrsulaConfiguration.generate_filename()
+    _configuration_file_location = (
+        MOCK_CUSTOM_INSTALLATION_PATH / UrsulaConfiguration.generate_filename()
+    )
     return _configuration_file_location
 
 
@@ -590,15 +596,15 @@ def mock_peers(mocker):
 @pytest.fixture(autouse=True)
 def disable_interactive_keystore_generation(mocker):
     # Do not notify or confirm mnemonic seed words during tests normally
-    mocker.patch('nucypher.crypto.mnemonic._confirm')
+    mocker.patch("nucypher.crypto.mnemonic._confirm")
 
 
 #
 # Web Auth
 #
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def basic_auth_file(temp_dir_path):
-    basic_auth = Path(temp_dir_path) / 'htpasswd'
+    basic_auth = Path(temp_dir_path) / "htpasswd"
     with basic_auth.open("w") as f:
         # username: "admin", password: "admin"
         f.write("admin:$apr1$hlEpWVoI$0qjykXrvdZ0yO2TnBggQO0\n")
@@ -606,7 +612,7 @@ def basic_auth_file(temp_dir_path):
     basic_auth.unlink()
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def mock_rest_middleware():
     return MockRestMiddleware(eth_endpoint=TEST_ETH_PROVIDER_URI)
 
@@ -616,14 +622,14 @@ def mock_rest_middleware():
 #
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def conditions_test_data():
     test_conditions = Path(tests.__file__).parent / "data" / "test_conditions.json"
-    with open(test_conditions, 'r') as file:
+    with open(test_conditions, "r") as file:
         data = json.loads(file.read())
     for name, condition in data.items():
-        if condition.get('chain'):
-            condition['chain'] = TESTERCHAIN_CHAIN_ID
+        if condition.get("chain"):
+            condition["chain"] = TESTERCHAIN_CHAIN_ID
     return data
 
 
@@ -680,7 +686,7 @@ def rpc_condition():
     return condition
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def valid_user_address_context():
     return {
         USER_ADDRESS_CONTEXT: {
@@ -719,16 +725,18 @@ def valid_user_address_context():
     }
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def control_time():
     clock = Clock()
     EventScannerTask.CLOCK = clock
-    EventScannerTask.INTERVAL = .1
+    EventScannerTask.INTERVAL = 0.1
     clock.llamas = 0
     return clock
 
 
-@pytest.mark.usefixtures("bond_operators", )
+@pytest.mark.usefixtures(
+    "bond_operators",
+)
 @pytest.fixture(scope="module")
 def ursulas(ursula_test_config, accounts, bond_operators):
     if MOCK_KNOWN_URSULAS_CACHE:
@@ -742,7 +750,7 @@ def ursulas(ursula_test_config, accounts, bond_operators):
     )
     for u in _ursulas:
         # We expect to never have to wait for content that is actually on-chain during tests.
-        u.synchronous_query_timeout = .01
+        u.synchronous_query_timeout = 0.01
 
     _ports_to_remove = [ursula.rest_interface.port for ursula in _ursulas]
     yield _ursulas

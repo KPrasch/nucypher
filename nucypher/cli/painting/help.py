@@ -52,22 +52,28 @@ Keystore Directory: {new_configuration.keystore_dir}
     default_config_filepath = True
     if new_configuration.default_filepath() != filepath:
         default_config_filepath = False
-    emitter.message(f'Generated configuration file at {"default" if default_config_filepath else "non-default"} '
-                    f'filepath {filepath}', color='green')
+    emitter.message(
+        f'Generated configuration file at {"default" if default_config_filepath else "non-default"} '
+        f"filepath {filepath}",
+        color="green",
+    )
 
     # add hint about --config-file
     if not default_config_filepath:
-        emitter.message(f'* NOTE: for a non-default configuration filepath use `--config-file "{filepath}"` '
-                        f'with subsequent `{character_name}` CLI commands', color='yellow')
+        emitter.message(
+            f'* NOTE: for a non-default configuration filepath use `--config-file "{filepath}"` '
+            f"with subsequent `{character_name}` CLI commands",
+            color="yellow",
+        )
 
     # Ursula
-    if character_name == 'ursula':
-        hint = '''
+    if character_name == "ursula":
+        hint = """
 * Review configuration  -> nucypher ursula config
 * Launch node           -> nucypher ursula run
-'''
+"""
 
     else:
         raise ValueError(f'Unknown character type "{character_name}"')
 
-    emitter.echo(hint, color='green')
+    emitter.echo(hint, color="green")

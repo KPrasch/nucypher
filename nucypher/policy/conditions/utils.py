@@ -23,6 +23,7 @@ __LOGGER = Logger("condition-eval")
 
 class ConditionEvalError(Exception):
     """Exception when execution condition evaluation."""
+
     def __init__(self, message: str, status_code: int):
         self.message = message
         self.status_code = status_code

@@ -32,7 +32,7 @@ def test_new_ursula_announces_herself(lonely_ursula_maker, accounts):
 def test_node_deployer(ursulas):
     for ursula in ursulas:
         deployer = ursula.get_deployer()
-        assert deployer.options['https_port'] == ursula.rest_information()[0].port
+        assert deployer.options["https_port"] == ursula.rest_information()[0].port
         assert deployer.application == ursula.rest_app
 
 
@@ -46,6 +46,6 @@ def test_no_corresponding_condition_blockchain_provider(lonely_ursula_maker, acc
             domain=TEMPORARY_DOMAIN_NAME,
             condition_blockchain_endpoints={
                 TESTERCHAIN_CHAIN_ID: "this is a provider URI.",
-                INVALID_CHAIN_ID: "this is a provider URI, but it doesn't matter what we pass here because the chain_id is invalid."
+                INVALID_CHAIN_ID: "this is a provider URI, but it doesn't matter what we pass here because the chain_id is invalid.",
             },
         )

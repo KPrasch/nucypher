@@ -21,7 +21,7 @@ class _Serializable:
         return data
 
     @classmethod
-    def from_json(cls, data) -> '_Serializable':
+    def from_json(cls, data) -> "_Serializable":
         data = json.loads(data)
         schema = cls.Schema()
         instance = schema.load(data)
@@ -33,7 +33,7 @@ class _Serializable:
         return data
 
     @classmethod
-    def from_dict(cls, data) -> '_Serializable':
+    def from_dict(cls, data) -> "_Serializable":
         schema = cls.Schema()
         instance = schema.load(data)
         return instance
@@ -44,14 +44,13 @@ class _Serializable:
         return b64_json_payload
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> '_Serializable':
+    def from_bytes(cls, data: bytes) -> "_Serializable":
         json_payload = b64decode(data).decode()
         instance = cls.from_json(json_payload)
         return instance
 
 
 class AccessControlCondition(_Serializable, ABC):
-
     class Schema(Schema):
         name = NotImplemented
 

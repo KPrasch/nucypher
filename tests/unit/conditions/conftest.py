@@ -32,7 +32,7 @@ def compound_lingo(
 
 @pytest.fixture()
 def erc1155_balance_condition_data(conditions_test_data):
-    data = json.dumps(conditions_test_data['ERC1155_balance'])
+    data = json.dumps(conditions_test_data["ERC1155_balance"])
     return data
 
 
@@ -45,7 +45,7 @@ def erc1155_balance_condition(erc1155_balance_condition_data):
 
 @pytest.fixture()
 def erc20_balance_condition_data(conditions_test_data):
-    data = json.dumps(conditions_test_data['ERC20_balance'])
+    data = json.dumps(conditions_test_data["ERC20_balance"])
     return data
 
 
@@ -91,6 +91,6 @@ def erc721_evm_condition(test_registry):
         return_value_test=ReturnValueTest("==", ":userAddress"),
         parameters=[
             5954,
-        ]
+        ],
     )
     return condition

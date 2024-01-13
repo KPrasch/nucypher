@@ -15,17 +15,18 @@ from nucypher.utilities.logging import Logger
 
 
 class ArchivedFleetState(NamedTuple):
-
     checksum: str
     nickname: Nickname
     timestamp: maya.MayaDT
     population: int
 
     def to_json(self):
-        return dict(checksum=bytes(self.checksum).hex(),
-                    nickname=self.nickname.to_json(),
-                    timestamp=self.timestamp.rfc2822(),
-                    population=self.population)
+        return dict(
+            checksum=bytes(self.checksum).hex(),
+            nickname=self.nickname.to_json(),
+            timestamp=self.timestamp.rfc2822(),
+            population=self.population,
+        )
 
 
 class StateDiff(NamedTuple):
@@ -34,7 +35,11 @@ class StateDiff(NamedTuple):
     nodes_removed: List[ChecksumAddress]
 
     def empty(self):
-        return not self.this_node_updated and not self.nodes_updated and not self.nodes_removed
+        return (
+            not self.this_node_updated
+            and not self.nodes_updated
+            and not self.nodes_removed
+        )
 
 
 class FleetState:
@@ -62,9 +67,9 @@ class FleetState:
         # `this_node` might not have its metadata available yet.
         this_node_metadata = None
 
-        return cls(nodes={},
-                   this_node_ref=this_node_ref,
-                   this_node_metadata=this_node_metadata)
+        return cls(
+            nodes={}, this_node_ref=this_node_ref, this_node_metadata=this_node_metadata
+        )
 
     def __init__(
         self,
@@ -83,10 +88,12 @@ class FleetState:
         self._this_node_metadata = this_node_metadata
 
     def archived(self) -> ArchivedFleetState:
-        return ArchivedFleetState(checksum=self.checksum,
-                                  nickname=self.nickname,
-                                  timestamp=self.timestamp,
-                                  population=self.population)
+        return ArchivedFleetState(
+            checksum=self.checksum,
+            nickname=self.nickname,
+            timestamp=self.timestamp,
+            population=self.population,
+        )
 
     def _calculate_diff(
         self,
@@ -99,7 +106,9 @@ class FleetState:
             if node.checksum_address in nodes_to_remove:
                 continue
             unknown = node.checksum_address not in self._nodes
-            if unknown or bytes(self._nodes[node.checksum_address].metadata()) != bytes(node.metadata()):
+            if unknown or bytes(self._nodes[node.checksum_address].metadata()) != bytes(
+                node.metadata()
+            ):
                 nodes_updated.append(node.checksum_address)
 
         nodes_removed = []
@@ -107,9 +116,11 @@ class FleetState:
             if checksum_address in self._nodes:
                 nodes_removed.append(checksum_address)
 
-        return StateDiff(this_node_updated=this_node_updated,
-                         nodes_updated=nodes_updated,
-                         nodes_removed=nodes_removed)
+        return StateDiff(
+            this_node_updated=this_node_updated,
+            nodes_updated=nodes_updated,
+            nodes_removed=nodes_removed,
+        )
 
     def with_updated_nodes(
         self,
@@ -141,9 +152,11 @@ class FleetState:
         else:
             nodes = self._nodes
 
-        new_state = FleetState(nodes=nodes,
-                               this_node_ref=self._this_node_ref,
-                               this_node_metadata=this_node_metadata)
+        new_state = FleetState(
+            nodes=nodes,
+            this_node_ref=self._this_node_ref,
+            this_node_metadata=this_node_metadata,
+        )
 
         return new_state, diff
 
@@ -179,8 +192,7 @@ class FleetState:
         return nodes_we_know_about
 
     def to_json(self) -> Dict:
-        return dict(nickname=self.nickname.to_json(),
-                    updated=self.timestamp.rfc2822())
+        return dict(nickname=self.nickname.to_json(), updated=self.timestamp.rfc2822())
 
     @property
     def icon(self) -> str:
@@ -193,9 +205,11 @@ class FleetState:
         return self._nodes.values()
 
     def __str__(self):
-        return '{checksum} ⇀{nickname}↽ {icon} '.format(icon=self.nickname.icon,
-                                                        nickname=self.nickname,
-                                                        checksum=bytes(self.checksum).hex()[:7])
+        return "{checksum} ⇀{nickname}↽ {icon} ".format(
+            icon=self.nickname.icon,
+            nickname=self.nickname,
+            checksum=bytes(self.checksum).hex()[:7],
+        )
 
     def __repr__(self):
         return f"FleetState({self.checksum}, {self._nodes}, {self._this_node_ref}, {self._this_node_metadata})"
@@ -208,6 +222,7 @@ class FleetSensor:
     If `this_node` is provided, it will be included in the state checksum
     (but not returned during iteration/lookups).
     """
+
     log = Logger("Learning")
 
     def __init__(
@@ -227,7 +242,6 @@ class FleetSensor:
         self._auto_update_state = False
 
     def record_node(self, node: "characters.lawful.Ursula"):
-
         if str(node.domain) == str(self._domain):
             # Replace the existing object with a newer object, even if they're equal
             # (this object can be mutated externally).
@@ -307,15 +321,17 @@ class FleetSensor:
         """
         # `_archived_states` is never empty, one state is created in the constructor
         previous_states_num = min(len(self._archived_states) - 1, quantity)
-        return list(self._archived_states)[-previous_states_num-1:-1]
+        return list(self._archived_states)[-previous_states_num - 1 : -1]
 
     def addresses(self):
         return self._current_state.addresses()
 
     def record_fleet_state(self, skip_this_node: bool = False) -> StateDiff:
-        new_state, diff = self._current_state.with_updated_nodes(nodes_to_add=self._nodes_to_add,
-                                                                 nodes_to_remove=self._nodes_to_remove,
-                                                                 skip_this_node=skip_this_node)
+        new_state, diff = self._current_state.with_updated_nodes(
+            nodes_to_add=self._nodes_to_add,
+            nodes_to_remove=self._nodes_to_remove,
+            skip_this_node=skip_this_node,
+        )
 
         self._nodes_to_add = set()
         self._nodes_to_remove = set()
@@ -339,20 +355,25 @@ class FleetSensor:
         # TODO: for now we're not using `label` in any way, so we're just ignoring it
         self._nodes_to_remove.add(node.checksum_address)
 
-    def record_remote_fleet_state(self,
-                                  checksum_address: ChecksumAddress,
-                                  state_checksum: FleetStateChecksum,
-                                  timestamp: maya.MayaDT,
-                                  population: int):
-
+    def record_remote_fleet_state(
+        self,
+        checksum_address: ChecksumAddress,
+        state_checksum: FleetStateChecksum,
+        timestamp: maya.MayaDT,
+        population: int,
+    ):
         if checksum_address not in self._current_state:
-            raise KeyError(f"A node {checksum_address} is not present in the current fleet state")
+            raise KeyError(
+                f"A node {checksum_address} is not present in the current fleet state"
+            )
 
         nickname = Nickname.from_seed(bytes(state_checksum), length=1)
-        state = ArchivedFleetState(checksum=state_checksum,
-                                   nickname=nickname,
-                                   timestamp=timestamp,
-                                   population=population)
+        state = ArchivedFleetState(
+            checksum=state_checksum,
+            nickname=nickname,
+            timestamp=timestamp,
+            population=population,
+        )
 
         self._remote_last_seen[checksum_address] = maya.now()
         self._remote_states[checksum_address] = state
@@ -370,15 +391,16 @@ class FleetSensor:
         last_learned_from = self._remote_last_seen.get(node.checksum_address, None)
         operator_address = node.operator_address if node.verified_node else None
 
-        return RemoteUrsulaStatus(verified=node.verified_node,
-                                  nickname=node.nickname,
-                                  staker_address=node.checksum_address,
-                                  operator_address=operator_address,
-                                  rest_url=node.rest_url(),
-                                  timestamp=node.timestamp,
-                                  last_learned_from=last_learned_from,
-                                  recorded_fleet_state=recorded_fleet_state,
-                                  )
+        return RemoteUrsulaStatus(
+            verified=node.verified_node,
+            nickname=node.nickname,
+            staker_address=node.checksum_address,
+            operator_address=operator_address,
+            rest_url=node.rest_url(),
+            timestamp=node.timestamp,
+            last_learned_from=last_learned_from,
+            recorded_fleet_state=recorded_fleet_state,
+        )
 
 
 class RemoteUrsulaStatus(NamedTuple):
@@ -400,11 +422,13 @@ class RemoteUrsulaStatus(NamedTuple):
             last_learned_from_json = None
         else:
             last_learned_from_json = self.last_learned_from.iso8601()
-        return dict(verified=self.verified,
-                    nickname=self.nickname.to_json(),
-                    staker_address=self.staker_address,
-                    operator_address=self.operator_address,
-                    rest_url=self.rest_url,
-                    timestamp=self.timestamp.iso8601(),
-                    recorded_fleet_state=recorded_fleet_state_json,
-                    last_learned_from=last_learned_from_json)
+        return dict(
+            verified=self.verified,
+            nickname=self.nickname.to_json(),
+            staker_address=self.staker_address,
+            operator_address=self.operator_address,
+            rest_url=self.rest_url,
+            timestamp=self.timestamp.iso8601(),
+            recorded_fleet_state=recorded_fleet_state_json,
+            last_learned_from=last_learned_from_json,
+        )

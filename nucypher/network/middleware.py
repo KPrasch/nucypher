@@ -266,15 +266,13 @@ class RestMiddleware:
         return response
 
     def get_peers_via_rest(
-            self,
-            node,
-            fleet_state_checksum: FleetStateChecksum,
-            announce_nodes: Sequence[NodeMetadata]
+        self,
+        node,
+        fleet_state_checksum: FleetStateChecksum,
+        announce_nodes: Sequence[NodeMetadata],
     ):
-
         request = MetadataRequest(
-            fleet_state_checksum=fleet_state_checksum,
-            announce_nodes=announce_nodes
+            fleet_state_checksum=fleet_state_checksum, announce_nodes=announce_nodes
         )
         response = self.client.post(
             node_or_sprout=node,

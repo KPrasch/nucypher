@@ -52,10 +52,7 @@ def test_ursula_operator_confirmation(
     )
 
     # make an ursula.
-    ursula = ursula_test_config.produce(
-        wallet=operator_wallet,
-        port=select_test_port()
-    )
+    ursula = ursula_test_config.produce(wallet=operator_wallet, port=select_test_port())
 
     # now the worker has a staking provider
     assert ursula.get_staking_provider_address() == staking_provider_wallet.address

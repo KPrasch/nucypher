@@ -1,5 +1,3 @@
-
-
 import pytest
 
 from nucypher.blockchain.eth.decorators import (
@@ -9,7 +7,6 @@ from nucypher.blockchain.eth.decorators import (
 
 
 def test_validate_checksum_address(get_random_checksum_address):
-
     # Simple case: just one parameter, called "checksum_address"
     @validate_checksum_address
     def just_one_address(checksum_address):
@@ -36,7 +33,9 @@ def test_validate_checksum_address(get_random_checksum_address):
 
     assert optional_checksum_address(123)
 
-    assert optional_checksum_address(None, staking_address=get_random_checksum_address())
+    assert optional_checksum_address(
+        None, staking_address=get_random_checksum_address()
+    )
 
     # Even more complex: there are multiple checksum addresses
     @validate_checksum_address
@@ -58,6 +57,8 @@ def test_validate_checksum_address(get_random_checksum_address):
     assert multiple_checksum_addresses(123, get_random_checksum_address(), None)
     assert multiple_checksum_addresses(123, get_random_checksum_address())
 
-    assert multiple_checksum_addresses(42,
-                                       operator_address=get_random_checksum_address(),
-                                       staking_address=get_random_checksum_address())
+    assert multiple_checksum_addresses(
+        42,
+        operator_address=get_random_checksum_address(),
+        staking_address=get_random_checksum_address(),
+    )

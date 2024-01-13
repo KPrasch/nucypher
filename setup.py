@@ -33,7 +33,7 @@ from setuptools.command.install import install
 # Metadata
 #
 
-PACKAGE_NAME = 'nucypher'
+PACKAGE_NAME = "nucypher"
 BASE_DIR = Path(__file__).parent
 PYPI_CLASSIFIERS = [
     "Development Status :: 3 - Alpha",
@@ -61,22 +61,24 @@ with open(str(SOURCE_METADATA_PATH.resolve())) as f:
 # Utilities
 #
 
+
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
-    description = 'verify that the git tag matches our version'
+
+    description = "verify that the git tag matches our version"
 
     def run(self):
-        tag = os.getenv('CIRCLE_TAG')
-        if tag.startswith('v'):
+        tag = os.getenv("CIRCLE_TAG")
+        if tag.startswith("v"):
             tag = tag[1:]
 
-        version = ABOUT['__version__']
-        if version.startswith('v'):
+        version = ABOUT["__version__"]
+        if version.startswith("v"):
             version = version[1:]
 
         if tag != version:
             info = "Git tag: {0} does not match the version of this app: {1}".format(
-                os.getenv('CIRCLE_TAG'), ABOUT['__version__']
+                os.getenv("CIRCLE_TAG"), ABOUT["__version__"]
             )
             sys.exit(info)
 
@@ -97,16 +99,21 @@ class PostDevelopCommand(develop):
 #  Requirements
 #
 
+
 def read_requirements(path):
     with open(BASE_DIR / path) as f:
-        _pipenv_flags, *lines = f.read().split('\n')
+        _pipenv_flags, *lines = f.read().split("\n")
 
     # TODO remove when will be no more git dependencies in requirements.txt
     # Transforms VCS requirements to PEP 508
     requirements = []
     for line in lines:
-        if line.startswith('-e git:') or line.startswith('-e git+') or \
-                line.startswith('git:') or line.startswith('git+'):
+        if (
+            line.startswith("-e git:")
+            or line.startswith("-e git+")
+            or line.startswith("git:")
+            or line.startswith("git+")
+        ):
             # parse out egg=... fragment from VCS URL
             parsed = urlparse(line)
             egg_name = parsed.fragment.partition("egg=")[-1]
@@ -121,21 +128,16 @@ def read_requirements(path):
 INSTALL_REQUIRES = read_requirements("requirements.txt")
 DEV_REQUIRES = read_requirements("dev-requirements.txt")
 
-BENCHMARK_REQUIRES = [
-    'pytest-benchmark'
-]
+BENCHMARK_REQUIRES = ["pytest-benchmark"]
 
-DEPLOY_REQUIRES = [
-    'bumpversion',
-    'ansible',
-    'twine',
-    'wheel'
-]
+DEPLOY_REQUIRES = ["bumpversion", "ansible", "twine", "wheel"]
 
-URSULA_REQUIRES = ['prometheus_client', 'sentry-sdk']  # TODO: Consider renaming to 'monitor', etc.
+URSULA_REQUIRES = [
+    "prometheus_client",
+    "sentry-sdk",
+]  # TODO: Consider renaming to 'monitor', etc.
 
 EXTRAS = {
-
     # Admin
     "dev": DEV_REQUIRES + URSULA_REQUIRES,
     "benchmark": DEV_REQUIRES + BENCHMARK_REQUIRES,
@@ -144,43 +146,33 @@ EXTRAS = {
 }
 
 setup(
-
     # Requirements
-    python_requires='>=3',
+    python_requires=">=3",
     install_requires=INSTALL_REQUIRES,
     extras_require=EXTRAS,
-
     # Package Data
     packages=find_packages(exclude=["scripts"]),
     include_package_data=True,
     zip_safe=False,
-
     # Entry Points
     entry_points={
-        'console_scripts': [
-            'nucypher = nucypher.cli.main:nucypher_cli',
+        "console_scripts": [
+            "nucypher = nucypher.cli.main:nucypher_cli",
         ],
-        'pytest11': [
-            "pytest-nucypher = tests.fixtures"
-        ]
+        "pytest11": ["pytest-nucypher = tests.fixtures"],
     },
-
     # setup.py commands
-    cmdclass={
-        'verify': VerifyVersionCommand,
-        'develop': PostDevelopCommand
-    },
-
+    cmdclass={"verify": VerifyVersionCommand, "develop": PostDevelopCommand},
     # Metadata
-    name=ABOUT['__title__'],
-    url=ABOUT['__url__'],
-    version=ABOUT['__version__'],
-    author=ABOUT['__author__'],
-    author_email=ABOUT['__email__'],
-    description=ABOUT['__summary__'],
-    license=ABOUT['__license__'],
+    name=ABOUT["__title__"],
+    url=ABOUT["__url__"],
+    version=ABOUT["__version__"],
+    author=ABOUT["__author__"],
+    author_email=ABOUT["__email__"],
+    description=ABOUT["__summary__"],
+    license=ABOUT["__license__"],
     long_description_content_type="text/markdown",
-    long_description_markdown_filename='README.md',
+    long_description_markdown_filename="README.md",
     keywords="nucypher, proxy re-encryption",
-    classifiers=PYPI_CLASSIFIERS
+    classifiers=PYPI_CLASSIFIERS,
 )

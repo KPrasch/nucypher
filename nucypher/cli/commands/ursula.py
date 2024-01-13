@@ -60,7 +60,6 @@ DEFAULT_CONFIG_FILEPATH = DEFAULT_CONFIG_ROOT / "ursula.json"
 
 
 class UrsulaConfigOptions:
-
     __option_name__ = "config_options"
 
     def __init__(
@@ -78,7 +77,6 @@ class UrsulaConfigOptions:
         polygon_endpoint: str,
         pre_payment_method: str,
     ):
-
         self.eth_endpoint = eth_endpoint
         self.wallet_filepath = wallet_filepath
         self.host = host
@@ -127,7 +125,9 @@ class UrsulaConfigOptions:
                     polygon_endpoint=self.polygon_endpoint,
                 )
             except FileNotFoundError:
-                return handle_missing_configuration_file(character_config_class=UrsulaConfiguration, config_file=config_file)
+                return handle_missing_configuration_file(
+                    character_config_class=UrsulaConfiguration, config_file=config_file
+                )
             except Keystore.AuthenticationFailed as e:
                 emitter.error(str(e))
                 # TODO: Exit codes (not only for this, but for other exceptions)
@@ -142,12 +142,11 @@ class UrsulaConfigOptions:
             raise click.FileError(
                 str(config_root),
                 hint="There is an existing configuration at the default location. "
-                     "Use --config-root to specify a custom location or use --force to "
-                     "overwrite existing configuration.",
+                "Use --config-root to specify a custom location or use --force to "
+                "overwrite existing configuration.",
             )
 
     def generate_config(self, emitter, config_root, force, key_material):
-
         self._check_for_existing_config(self, config_root, force)
         if self.dev:
             raise RuntimeError(
@@ -166,7 +165,9 @@ class UrsulaConfigOptions:
         return UrsulaConfiguration.generate(
             key_material=bytes.fromhex(key_material) if key_material else None,
             keystore_password=get_nucypher_password(emitter=emitter, confirm=True),
-            wallet_password=get_wallet_password(envvar=NUCYPHER_ENVVAR_OPERATOR_ETH_PASSWORD, confirm=True),
+            wallet_password=get_wallet_password(
+                envvar=NUCYPHER_ENVVAR_OPERATOR_ETH_PASSWORD, confirm=True
+            ),
             wallet_filepath=self.wallet_filepath,
             config_root=config_root,
             host=self.host,
@@ -202,7 +203,8 @@ group_config_options = group_options(
     UrsulaConfigOptions,
     eth_endpoint=option_eth_endpoint(),
     wallet_filepath=click.option(
-        "--wallet-filepath", "-w",
+        "--wallet-filepath",
+        "-w",
         help="The filepath to an encrypted ethereum software wallet in web3 secret storage format.",
         type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True),
     ),
@@ -228,8 +230,7 @@ group_config_options = group_options(
 
 
 class UrsulaCharacterOptions:
-
-    __option_name__ = 'character_options'
+    __option_name__ = "character_options"
 
     def __init__(self, config_options: UrsulaConfigOptions, peer_uri):
         self.config_options = config_options
@@ -264,7 +265,7 @@ group_character_options = group_options(
 
 @click.group()
 def ursula():
-    """"Ursula the Untrusted" PRE Re-encryption node management commands."""
+    """ "Ursula the Untrusted" PRE Re-encryption node management commands."""
 
 
 @ursula.command()
@@ -314,7 +315,9 @@ def init(general_config, config_options, force, config_root, key_material):
 def recover(general_config, config_options):
     # TODO: Combine with work in PR #2682
     # TODO: Integrate regeneration of configuration files
-    emitter = setup_emitter(general_config, )
+    emitter = setup_emitter(
+        general_config,
+    )
     recover_keystore(emitter=emitter)
 
 
@@ -325,7 +328,9 @@ def recover(general_config, config_options):
 @group_general_config
 def destroy(general_config, config_options, config_file, force):
     """Delete Ursula node configuration."""
-    emitter = setup_emitter(general_config, )
+    emitter = setup_emitter(
+        general_config,
+    )
     _pre_launch_warnings(emitter, dev=config_options.dev, force=force)
     ursula_config = config_options.create_config(emitter, config_file)
     destroy_configuration(emitter, character_config=ursula_config, force=force)
@@ -337,14 +342,51 @@ def destroy(general_config, config_options, config_file, force):
 @option_dry_run
 @option_force
 @group_general_config
-@click.option('--prometheus', help="Run the ursula prometheus exporter", is_flag=True, default=False)
-@click.option('--metrics-port', help="Run a Prometheus metrics exporter on specified HTTP port", type=NETWORK_PORT)
-@click.option("--metrics-listen-address", help="Run a prometheus metrics exporter on specified IP address", default='')
-@click.option("--metrics-prefix", help="Create metrics params with specified prefix", default="ursula")
-@click.option("--metrics-interval", help="The frequency of metrics collection", type=click.INT, default=90)
-@click.option("--ip-checkup/--no-ip-checkup", help="Verify external IP matches configuration", default=True)
-def run(general_config, character_options, config_file, dry_run, prometheus, metrics_port,
-        metrics_listen_address, metrics_prefix, metrics_interval, force, ip_checkup):
+@click.option(
+    "--prometheus",
+    help="Run the ursula prometheus exporter",
+    is_flag=True,
+    default=False,
+)
+@click.option(
+    "--metrics-port",
+    help="Run a Prometheus metrics exporter on specified HTTP port",
+    type=NETWORK_PORT,
+)
+@click.option(
+    "--metrics-listen-address",
+    help="Run a prometheus metrics exporter on specified IP address",
+    default="",
+)
+@click.option(
+    "--metrics-prefix",
+    help="Create metrics params with specified prefix",
+    default="ursula",
+)
+@click.option(
+    "--metrics-interval",
+    help="The frequency of metrics collection",
+    type=click.INT,
+    default=90,
+)
+@click.option(
+    "--ip-checkup/--no-ip-checkup",
+    help="Verify external IP matches configuration",
+    default=True,
+)
+def run(
+    general_config,
+    character_options,
+    config_file,
+    dry_run,
+    prometheus,
+    metrics_port,
+    metrics_listen_address,
+    metrics_prefix,
+    metrics_interval,
+    force,
+    ip_checkup,
+):
     """Run an "Ursula" node."""
 
     emitter = setup_emitter(general_config)
@@ -353,8 +395,12 @@ def run(general_config, character_options, config_file, dry_run, prometheus, met
 
     if prometheus and not metrics_port:
         # Require metrics port when using prometheus
-        raise click.BadOptionUsage(option_name='metrics-port',
-                                   message=click.style('--metrics-port is required when using --prometheus', fg="red"))
+        raise click.BadOptionUsage(
+            option_name="metrics-port",
+            message=click.style(
+                "--metrics-port is required when using --prometheus", fg="red"
+            ),
+        )
 
     _pre_launch_warnings(emitter, dev=dev_mode, force=None)
 
@@ -371,7 +417,8 @@ def run(general_config, character_options, config_file, dry_run, prometheus, met
         )
 
     ursula_config, URSULA = character_options.create_character(
-        emitter=emitter, config_file=config_file,
+        emitter=emitter,
+        config_file=config_file,
     )
 
     if ip_checkup and not (dev_mode or lonely):
@@ -379,17 +426,19 @@ def run(general_config, character_options, config_file, dry_run, prometheus, met
         perform_startup_ip_check(emitter=emitter, ursula=URSULA, force=force)
 
     try:
-        URSULA.run(emitter=emitter,
-                   start_reactor=not dry_run,
-                   prometheus_config=prometheus_config,
-                   preflight=not dev_mode)
+        URSULA.run(
+            emitter=emitter,
+            start_reactor=not dry_run,
+            prometheus_config=prometheus_config,
+            preflight=not dev_mode,
+        )
     finally:
         if dry_run:
             URSULA.stop()
 
 
 @ursula.command()
-@click.argument('action', required=False)
+@click.argument("action", required=False)
 @group_config_options
 @option_config_file
 @group_general_config
@@ -403,7 +452,9 @@ def config(general_config, config_options, config_file, force, action):
     ~~~~~~~~~~~~~
     ip-address - automatically detect and configure the external IP address.
     """
-    emitter = setup_emitter(general_config, )
+    emitter = setup_emitter(
+        general_config,
+    )
     if action == "ip-address":
         host = collect_operator_ip_address(
             emitter=emitter,
@@ -413,10 +464,12 @@ def config(general_config, config_options, config_file, force, action):
         )
         config_options.host = host
     updates = config_options.get_updates()
-    get_or_update_configuration(emitter=emitter,
-                                config_class=UrsulaConfiguration,
-                                filepath=config_file,
-                                updates=updates)
+    get_or_update_configuration(
+        emitter=emitter,
+        config_class=UrsulaConfiguration,
+        filepath=config_file,
+        updates=updates,
+    )
 
 
 @ursula.command()
@@ -424,7 +477,9 @@ def config(general_config, config_options, config_file, force, action):
 @option_config_file
 @group_general_config
 def migrate(general_config, config_options, config_file):
-    emitter = setup_emitter(general_config, )
+    emitter = setup_emitter(
+        general_config,
+    )
 
     for jump, migration in MIGRATIONS.items():
         old, new = jump
@@ -459,6 +514,6 @@ def migrate(general_config, config_options, config_file):
 
 def _pre_launch_warnings(emitter, dev, force):
     if dev:
-        emitter.echo(DEVELOPMENT_MODE_WARNING, color='yellow', verbosity=1)
+        emitter.echo(DEVELOPMENT_MODE_WARNING, color="yellow", verbosity=1)
     if force:
-        emitter.echo(FORCE_MODE_WARNING, color='yellow', verbosity=1)
+        emitter.echo(FORCE_MODE_WARNING, color="yellow", verbosity=1)

@@ -1,5 +1,3 @@
-
-
 from pathlib import Path
 from typing import Optional, get_type_hints
 
@@ -15,7 +13,8 @@ def cast_paths_from(cls, payload):
     for ancestor in cls.__mro__:
         constructor_args.update(get_type_hints(ancestor.__init__))
     paths_only = [
-        arg for (arg, type_) in constructor_args.items()
+        arg
+        for (arg, type_) in constructor_args.items()
         if type_ == Path or type_ == Optional[Path]
     ]
     for key in paths_only:

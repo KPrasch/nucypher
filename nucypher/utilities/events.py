@@ -33,33 +33,39 @@ from nucypher.blockchain.eth.events import EventRecord
 
 
 def generate_events_csv_filepath(contract_name: str, event_name: str) -> Path:
-    return Path(f'{contract_name}_{event_name}_{maya.now().datetime().strftime("%Y-%m-%d_%H-%M-%S")}.csv')
+    return Path(
+        f'{contract_name}_{event_name}_{maya.now().datetime().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+    )
 
 
-def write_events_to_csv_file(csv_file: Path,
-                             agent: EthereumContractAgent,
-                             event_name: str,
-                             argument_filters: Dict = None,
-                             from_block: Optional[BlockIdentifier] = 0,
-                             to_block: Optional[BlockIdentifier] = 'latest') -> bool:
+def write_events_to_csv_file(
+    csv_file: Path,
+    agent: EthereumContractAgent,
+    event_name: str,
+    argument_filters: Dict = None,
+    from_block: Optional[BlockIdentifier] = 0,
+    to_block: Optional[BlockIdentifier] = "latest",
+) -> bool:
     """
     Write events to csv file.
     :return: True if data written to file, False if there was no event data to write
     """
     event_type = agent.contract.events[event_name]
-    entries = event_type.get_logs(fromBlock=from_block, toBlock=to_block, argument_filters=argument_filters)
+    entries = event_type.get_logs(
+        fromBlock=from_block, toBlock=to_block, argument_filters=argument_filters
+    )
     if not entries:
         return False
 
-    with open(csv_file, mode='w') as events_file:
+    with open(csv_file, mode="w") as events_file:
         events_writer = None
         for event_record in entries:
             event_record = EventRecord(event_record)
             event_row = OrderedDict()
-            event_row['event_name'] = event_name
-            event_row['block_number'] = event_record.block_number
-            event_row['unix_timestamp'] = event_record.timestamp
-            event_row['date'] = maya.MayaDT(event_record.timestamp).iso8601()
+            event_row["event_name"] = event_name
+            event_row["block_number"] = event_record.block_number
+            event_row["unix_timestamp"] = event_record.timestamp
+            event_row["date"] = maya.MayaDT(event_record.timestamp).iso8601()
             event_row.update(dict(event_record.args.items()))
             if events_writer is None:
                 events_writer = csv.DictWriter(events_file, fieldnames=event_row.keys())
@@ -256,7 +262,9 @@ class EventScanner:
         self, event: AttributeDict, get_block_when: Callable[[int], datetime.datetime]
     ):
         """Process events and update internal state"""
-        idx = event["logIndex"]  # Integer of the log index position in the block, null when its pending
+        idx = event[
+            "logIndex"
+        ]  # Integer of the log index position in the block, null when its pending
 
         # We cannot avoid minor chain reorganisations, but
         # at least we must avoid blocks that are not mined yet
@@ -268,7 +276,11 @@ class EventScanner:
         # from our in-memory cache
         block_when = get_block_when(block_number)
 
-        logger.debug("Processing event %s, block:%d count:%d", event["event"], event["blockNumber"])
+        logger.debug(
+            "Processing event %s, block:%d count:%d",
+            event["event"],
+            event["blockNumber"],
+        )
         processed = self.state.process_event(block_when, event)
         return processed
 
@@ -329,7 +341,6 @@ class EventScanner:
         all_processed = []
 
         while current_block <= end_block:
-
             self.state.start_chunk(current_block)
 
             estimated_end_block = min(
@@ -337,10 +348,17 @@ class EventScanner:
             )  # either entire full chunk, or we are at the last chunk
             logger.debug(
                 "Scanning for blocks: %d - %d, chunk size %d, last chunk scan took %f, last logs found %d",
-                current_block, estimated_end_block, chunk_size, last_scan_duration, last_logs_found)
+                current_block,
+                estimated_end_block,
+                chunk_size,
+                last_scan_duration,
+                last_logs_found,
+            )
 
             start = time.time()
-            actual_end_block, end_block_timestamp, new_entries = self.scan_chunk(current_block, estimated_end_block)
+            actual_end_block, end_block_timestamp, new_entries = self.scan_chunk(
+                current_block, estimated_end_block
+            )
 
             # Where does our current chunk scan ends - are we out of chain yet?
             current_end = actual_end_block
@@ -360,11 +378,8 @@ class EventScanner:
 
 
 def _fetch_events_for_all_contracts(
-        web3,
-        event,
-        argument_filters: dict,
-        from_block: int,
-        to_block: int) -> Iterable:
+    web3, event, argument_filters: dict, from_block: int, to_block: int
+) -> Iterable:
     """Get events using eth_get_logs API.
 
     This method is detached from any contract instance.
@@ -399,10 +414,12 @@ def _fetch_events_for_all_contracts(
         address=argument_filters.get("address"),
         argument_filters=argument_filters,
         fromBlock=from_block,
-        toBlock=to_block
+        toBlock=to_block,
     )
 
-    logger.debug("Querying eth_get_logs with the following parameters: %s", event_filter_params)
+    logger.debug(
+        "Querying eth_get_logs with the following parameters: %s", event_filter_params
+    )
 
     # Call JSON-RPC API on your Ethereum node.
     # get_logs() returns raw AttributedDict entries
@@ -448,7 +465,9 @@ class JSONifiedState(EventScannerState):
         """Restore the last scan state from a file."""
         try:
             self.state = json.load(open(self.fname, "rt"))
-            print(f"Restored the state, previously {self.state['last_scanned_block']} blocks have been scanned.")
+            print(
+                f"Restored the state, previously {self.state['last_scanned_block']} blocks have been scanned."
+            )
         except (IOError, json.decoder.JSONDecodeError):
             print("Started event scanner.")
             self.reset()
@@ -491,7 +510,7 @@ class JSONifiedState(EventScannerState):
         # One transaction may contain multiple events
         # and each one of those gets their own log index
 
-        event_name = event.event # "Transfer"
+        event_name = event.event  # "Transfer"
         log_index = event.logIndex  # Log index within the block
         transaction_index = event.transactionIndex  # Transaction index within the block
         txhash = event.transactionHash.hex()  # Transaction hash

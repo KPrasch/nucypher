@@ -10,11 +10,11 @@ from tests.mock.interfaces import MockEthereumClient
 @pytest.fixture()
 def receipt():
     block_number_of_my_tx = 42
-    my_tx_hash = HexBytes('0xFabadaAcabada')
+    my_tx_hash = HexBytes("0xFabadaAcabada")
     receipt = {
-        'transactionHash': my_tx_hash,
-        'blockNumber': block_number_of_my_tx,
-        'blockHash': HexBytes('0xBebeCafe')
+        "transactionHash": my_tx_hash,
+        "blockNumber": block_number_of_my_tx,
+        "blockHash": HexBytes("0xBebeCafe"),
     }
     return receipt
 
@@ -33,7 +33,7 @@ def test_check_transaction_is_on_chain(mocker, mock_ethereum_client, receipt):
 
     # Let's assume that our TX ends up mined in a different block, and we receive a new receipt
     new_receipt = dict(receipt)
-    new_receipt.update({'blockHash': HexBytes('0xBebeCebada')})
+    new_receipt.update({"blockHash": HexBytes("0xBebeCebada")})
 
     web3_mock.eth.get_transaction_receipt = mocker.Mock(return_value=new_receipt)
 
@@ -49,38 +49,50 @@ def test_check_transaction_is_on_chain(mocker, mock_ethereum_client, receipt):
 
 
 def test_wait_for_receipt_no_confirmations(mocker, mock_ethereum_client, receipt):
-    my_tx_hash = receipt['transactionHash']
+    my_tx_hash = receipt["transactionHash"]
 
     # Test that web3's TimeExhausted is propagated:
     web3_mock = mock_ethereum_client.w3
     web3_mock.eth.wait_for_transaction_receipt = mocker.Mock(side_effect=TimeExhausted)
     with pytest.raises(TimeExhausted):
-        _ = mock_ethereum_client.wait_for_receipt(transaction_hash=my_tx_hash, timeout=1, confirmations=0)
-    web3_mock.eth.wait_for_transaction_receipt.assert_called_once_with(transaction_hash=my_tx_hash,
-                                                                       timeout=1,
-                                                                       poll_latency=MockEthereumClient.TRANSACTION_POLLING_TIME)
+        _ = mock_ethereum_client.wait_for_receipt(
+            transaction_hash=my_tx_hash, timeout=1, confirmations=0
+        )
+    web3_mock.eth.wait_for_transaction_receipt.assert_called_once_with(
+        transaction_hash=my_tx_hash,
+        timeout=1,
+        poll_latency=MockEthereumClient.TRANSACTION_POLLING_TIME,
+    )
 
     # Test that when web3's layer returns the receipt, we get that receipt
     web3_mock.eth.wait_for_transaction_receipt = mocker.Mock(return_value=receipt)
-    returned_receipt = mock_ethereum_client.wait_for_receipt(transaction_hash=my_tx_hash, timeout=1, confirmations=0)
+    returned_receipt = mock_ethereum_client.wait_for_receipt(
+        transaction_hash=my_tx_hash, timeout=1, confirmations=0
+    )
     assert receipt == returned_receipt
-    web3_mock.eth.wait_for_transaction_receipt.assert_called_once_with(transaction_hash=my_tx_hash,
-                                                                       timeout=1,
-                                                                       poll_latency=MockEthereumClient.TRANSACTION_POLLING_TIME)
+    web3_mock.eth.wait_for_transaction_receipt.assert_called_once_with(
+        transaction_hash=my_tx_hash,
+        timeout=1,
+        poll_latency=MockEthereumClient.TRANSACTION_POLLING_TIME,
+    )
 
 
 def test_wait_for_receipt_with_confirmations(mocker, mock_ethereum_client, receipt):
-    my_tx_hash = receipt['transactionHash']
+    my_tx_hash = receipt["transactionHash"]
 
     mock_ethereum_client.COOLING_TIME = 0  # Don't make test unnecessarily slow
 
-    time_spy = mocker.spy(time, 'sleep')
+    time_spy = mocker.spy(time, "sleep")
 
     # First, let's make a simple, successful call to check that:
     #   - The same receipt goes through
     #   - The cooling time is respected
-    mock_ethereum_client.block_until_enough_confirmations = mocker.Mock(return_value=receipt)
-    returned_receipt = mock_ethereum_client.wait_for_receipt(transaction_hash=my_tx_hash, timeout=1, confirmations=1)
+    mock_ethereum_client.block_until_enough_confirmations = mocker.Mock(
+        return_value=receipt
+    )
+    returned_receipt = mock_ethereum_client.wait_for_receipt(
+        transaction_hash=my_tx_hash, timeout=1, confirmations=1
+    )
     assert receipt == returned_receipt
     time_spy.assert_called_once_with(mock_ethereum_client.COOLING_TIME)
 
@@ -89,22 +101,28 @@ def test_wait_for_receipt_with_confirmations(mocker, mock_ethereum_client, recei
         TimeExhausted,
         mock_ethereum_client.ChainReorganizationDetected(receipt),
         mock_ethereum_client.NotEnoughConfirmations,
-        receipt
+        receipt,
     )
     timeout = None
 
     mock_ethereum_client.BLOCK_CONFIRMATIONS_POLLING_TIME = 0
-    mock_ethereum_client.block_until_enough_confirmations = mocker.Mock(side_effect=sequence_of_events)
+    mock_ethereum_client.block_until_enough_confirmations = mocker.Mock(
+        side_effect=sequence_of_events
+    )
 
-    returned_receipt = mock_ethereum_client.wait_for_receipt(transaction_hash=my_tx_hash, timeout=timeout, confirmations=1)
+    returned_receipt = mock_ethereum_client.wait_for_receipt(
+        transaction_hash=my_tx_hash, timeout=timeout, confirmations=1
+    )
     assert receipt == returned_receipt
 
     # Test that a TransactionTimeout is thrown when no receipt is found during the given time
     timeout = 0.1
     sequence_of_events = [TimeExhausted] * 10
     mock_ethereum_client.BLOCK_CONFIRMATIONS_POLLING_TIME = 0.015
-    mock_ethereum_client.block_until_enough_confirmations = mocker.Mock(side_effect=sequence_of_events)
+    mock_ethereum_client.block_until_enough_confirmations = mocker.Mock(
+        side_effect=sequence_of_events
+    )
     with pytest.raises(mock_ethereum_client.TransactionTimeout):
-        _ = mock_ethereum_client.wait_for_receipt(transaction_hash=my_tx_hash,
-                                                  timeout=timeout,
-                                                  confirmations=1)
+        _ = mock_ethereum_client.wait_for_receipt(
+            transaction_hash=my_tx_hash, timeout=timeout, confirmations=1
+        )

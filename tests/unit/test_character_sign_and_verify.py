@@ -75,7 +75,6 @@ def test_anybody_can_verify(test_registry):
         registry=test_registry,
         wallet=TestAccount.random(),
         lonely=True,
-
     )
 
     # So, our story is fairly simple: an everyman meets Alice.

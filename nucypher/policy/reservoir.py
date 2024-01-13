@@ -21,7 +21,9 @@ def make_staking_provider_reservoir(
     include_addresses = include_addresses or ()
     without_set = set(include_addresses) | set(exclude_addresses or ())
     try:
-        reservoir = application_agent.get_staking_provider_reservoir(without=without_set, pagination_size=pagination_size)
+        reservoir = application_agent.get_staking_provider_reservoir(
+            without=without_set, pagination_size=pagination_size
+        )
     except StakerSamplingApplicationAgent.NotEnoughStakingProviders:
         # TODO: do that in `get_staking_provider_reservoir()`?
         reservoir = StakingProvidersReservoir({})

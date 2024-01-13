@@ -14,8 +14,8 @@ from nucypher.utilities.networking import LOOPBACK_ADDRESS
 
 
 class UrsulaConfiguration(CharacterConfiguration):
-
     from nucypher.characters.lawful import Ursula
+
     CHARACTER_CLASS = Ursula
     NAME = CHARACTER_CLASS.__name__.lower()
 
@@ -27,7 +27,7 @@ class UrsulaConfiguration(CharacterConfiguration):
     # Wallet
     MNEMONIC_KEYSTORE = True
     WALLET_FILEPATH_ENVVAR = NUCYPHER_ENVVAR_OPERATOR_ETH_PASSWORD
-    DEFAULT_WALLET_FILEPATH_STEM = 'keystore/operator.json'
+    DEFAULT_WALLET_FILEPATH_STEM = "keystore/operator.json"
 
     def __init__(
         self,
@@ -36,9 +36,9 @@ class UrsulaConfiguration(CharacterConfiguration):
         port: Optional[int] = None,
         certificate: Optional[Certificate] = None,
         condition_blockchain_endpoints: Optional[Dict[str, List[str]]] = None,
-        *args, **kwargs,
+        *args,
+        **kwargs,
     ):
-
         if dev_mode:
             host = host or self.DEFAULT_DEVELOPMENT_REST_HOST
             port = port or self.DEFAULT_DEVELOPMENT_REST_PORT
@@ -117,7 +117,9 @@ class UrsulaConfiguration(CharacterConfiguration):
         return ursula
 
     @classmethod
-    def deserialize(cls, payload: str, deserializer=json.loads, payload_label: Optional[str] = None) -> dict:
+    def deserialize(
+        cls, payload: str, deserializer=json.loads, payload_label: Optional[str] = None
+    ) -> dict:
         deserialized_payload = super().deserialize(payload, deserializer, payload_label)
         return deserialized_payload
 
@@ -139,13 +141,15 @@ class AliceConfiguration(CharacterConfiguration):
     WALLET_FILEPATH_ENVVAR = NUCYPHER_ENVVAR_ALICE_ETH_PASSWORD
     _CONFIG_FIELDS = (*CharacterConfiguration._CONFIG_FIELDS,)
 
-    def __init__(self,
-                 threshold: int = None,
-                 shares: int = None,
-                 rate: int = None,
-                 duration: int = None,
-                 *args, **kwargs):
-
+    def __init__(
+        self,
+        threshold: int = None,
+        shares: int = None,
+        rate: int = None,
+        duration: int = None,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
         # Policy Value Defaults

@@ -25,13 +25,12 @@ from nucypher.utilities.emitters import StdoutEmitter
 from tests.constants import INSECURE_DEVELOPMENT_PASSWORD
 
 
-@pytest.mark.parametrize('confirm', (True, False))
+@pytest.mark.parametrize("confirm", (True, False))
 def test_get_password_from_prompt_cli_action(mocker, mock_stdin, confirm, capsys):
-
     # Setup
     mock_stdin.password(INSECURE_DEVELOPMENT_PASSWORD, confirm=confirm)
-    test_envvar = 'NUCYPHER_TEST_ENVVAR'
-    another_password = 'th1s-iS-n0t-secur3'
+    test_envvar = "NUCYPHER_TEST_ENVVAR"
+    another_password = "th1s-iS-n0t-secur3"
 
     mocker.patch.dict(os.environ, {test_envvar: another_password})
     result = get_password_from_prompt(confirm=confirm)
@@ -54,7 +53,7 @@ def test_get_password_from_prompt_cli_action(mocker, mock_stdin, confirm, capsys
     assert not captured.err
 
 
-@pytest.mark.parametrize('confirm', (True, False))
+@pytest.mark.parametrize("confirm", (True, False))
 def test_get_wallet_password(mock_stdin, mock_account, confirm, capsys):
     mock_stdin.password(INSECURE_DEVELOPMENT_PASSWORD, confirm=confirm)
     result = get_wallet_password(confirm=confirm)
@@ -67,7 +66,7 @@ def test_get_wallet_password(mock_stdin, mock_account, confirm, capsys):
         assert REPEAT_FOR_CONFIRMATION in captured.out
 
 
-@pytest.mark.parametrize('confirm', (True, False))
+@pytest.mark.parametrize("confirm", (True, False))
 def test_get_nucypher_password(mock_stdin, mock_account, confirm, capsys):
     mock_stdin.password(INSECURE_DEVELOPMENT_PASSWORD, confirm=confirm)
     result = get_nucypher_password(emitter=StdoutEmitter(), confirm=confirm)
@@ -76,7 +75,10 @@ def test_get_nucypher_password(mock_stdin, mock_account, confirm, capsys):
     captured = capsys.readouterr()
     assert COLLECT_NUCYPHER_PASSWORD in captured.out
     if confirm:
-        prompt = COLLECT_NUCYPHER_PASSWORD + f" ({Keystore._MINIMUM_PASSWORD_LENGTH} character minimum)"
+        prompt = (
+            COLLECT_NUCYPHER_PASSWORD
+            + f" ({Keystore._MINIMUM_PASSWORD_LENGTH} character minimum)"
+        )
         assert prompt in captured.out
 
 
@@ -87,17 +89,20 @@ def test_unlock_nucypher_keystore_invalid_password(
     capsys,
     tmpdir,
 ):
-
     # Setup
-    mocker.patch.object(passwords, 'secret_box_decrypt', side_effect=SecretBoxAuthenticationError)
-    mocker.patch.object(CharacterConfiguration,
-                        'dev_mode',
-                        return_value=False,
-                        new_callable=mocker.PropertyMock)
+    mocker.patch.object(
+        passwords, "secret_box_decrypt", side_effect=SecretBoxAuthenticationError
+    )
+    mocker.patch.object(
+        CharacterConfiguration,
+        "dev_mode",
+        return_value=False,
+        new_callable=mocker.PropertyMock,
+    )
     keystore = Keystore.from_mnemonic(
-        mnemonic=Mnemonic('english').generate(24),
+        mnemonic=Mnemonic("english").generate(24),
         password=INSECURE_DEVELOPMENT_PASSWORD,
-        keystore_dir=tmpdir
+        keystore_dir=tmpdir,
     )
     alice_test_config.attach_keystore(keystore)
 
@@ -119,17 +124,18 @@ def test_unlock_nucypher_keystore_invalid_password(
 def test_unlock_nucypher_keystore_dev_mode(
     mocker, test_emitter, capsys, alice_test_config, tmpdir
 ):
-
     # Setup
-    unlock_spy = mocker.spy(Keystore, 'unlock')
-    mocker.patch.object(CharacterConfiguration,
-                        'dev_mode',
-                        return_value=True,
-                        new_callable=mocker.PropertyMock)
+    unlock_spy = mocker.spy(Keystore, "unlock")
+    mocker.patch.object(
+        CharacterConfiguration,
+        "dev_mode",
+        return_value=True,
+        new_callable=mocker.PropertyMock,
+    )
     keystore = Keystore.from_mnemonic(
-        mnemonic=Mnemonic('english').generate(24),
+        mnemonic=Mnemonic("english").generate(24),
         password=INSECURE_DEVELOPMENT_PASSWORD,
-        keystore_dir=tmpdir
+        keystore_dir=tmpdir,
     )
     alice_test_config.attach_keystore(keystore)
 
@@ -152,19 +158,20 @@ def test_unlock_nucypher_keystore_dev_mode(
 def test_unlock_nucypher_keystore(
     mocker, test_emitter, capsys, alice_test_config, tmpdir
 ):
-
     # Setup
     # Do not test "real" unlocking here, just the plumbing
-    unlock_spy = mocker.patch.object(Keystore, 'unlock', return_value=True)
-    mocker.patch.object(CharacterConfiguration,
-                        'dev_mode',
-                        return_value=False,
-                        new_callable=mocker.PropertyMock)
-    mocker.patch.object(Mnemonic, 'detect_language', return_value='english')
+    unlock_spy = mocker.patch.object(Keystore, "unlock", return_value=True)
+    mocker.patch.object(
+        CharacterConfiguration,
+        "dev_mode",
+        return_value=False,
+        new_callable=mocker.PropertyMock,
+    )
+    mocker.patch.object(Mnemonic, "detect_language", return_value="english")
     keystore = Keystore.from_mnemonic(
-        mnemonic=Mnemonic('english').generate(24),
+        mnemonic=Mnemonic("english").generate(24),
         password=INSECURE_DEVELOPMENT_PASSWORD,
-        keystore_dir=tmpdir
+        keystore_dir=tmpdir,
     )
     alice_test_config.attach_keystore(keystore)
 

@@ -67,10 +67,7 @@ class BaseActor:
 
     @validate_checksum_address
     def __init__(
-        self,
-        domain: TACoDomain,
-        registry: ContractRegistry,
-        wallet: LocalAccount
+        self, domain: TACoDomain, registry: ContractRegistry, wallet: LocalAccount
     ):
         self.wallet = wallet
         self.registry = registry
@@ -79,9 +76,11 @@ class BaseActor:
     @property
     def eth_balance(self) -> Decimal:
         """Return this actor's current ETH balance"""
-        blockchain = BlockchainInterfaceFactory.get_interface()  # TODO: EthAgent?  #1509
+        blockchain = (
+            BlockchainInterfaceFactory.get_interface()
+        )  # TODO: EthAgent?  #1509
         balance = blockchain.client.get_balance(self.wallet_address)
-        return Web3.from_wei(balance, 'ether')
+        return Web3.from_wei(balance, "ether")
 
     @property
     def wallet_address(self):
@@ -240,18 +239,13 @@ class Operator(BaseActor):
         return ritual
 
     def _resolve_validators(
-            self,
-            ritual: CoordinatorAgent.Ritual,
-            timeout: int = 60
+        self, ritual: CoordinatorAgent.Ritual, timeout: int = 60
     ) -> List[Tuple[Validator, Transcript]]:
-
         validators = [n[0] for n in ritual.transcripts]
         if timeout > 0:
             nodes_to_discover = list(set(validators) - {self.checksum_address})
             self.block_until_specific_nodes_are_known(
-                addresses=nodes_to_discover,
-                timeout=timeout,
-                allow_missing=0
+                addresses=nodes_to_discover, timeout=timeout, allow_missing=0
             )
 
         result = list()
@@ -260,7 +254,7 @@ class Operator(BaseActor):
                 # Local
                 external_validator = Validator(
                     address=self.checksum_address,
-                    public_key=self.ritual_power.public_key()
+                    public_key=self.ritual_power.public_key(),
                 )
             else:
                 # Remote
@@ -277,7 +271,9 @@ class Operator(BaseActor):
                     address=staking_provider_address, public_key=public_key
                 )
 
-            transcript = Transcript.from_bytes(transcript_bytes) if transcript_bytes else None
+            transcript = (
+                Transcript.from_bytes(transcript_bytes) if transcript_bytes else None
+            )
             result.append((external_validator, transcript))
 
         result = sorted(result, key=lambda x: x[0].address)
@@ -381,11 +377,13 @@ class Operator(BaseActor):
                 threshold=ritual.threshold,
                 shares=ritual.shares,
                 checksum_address=self.staking_provider_address,
-                ritual_id=ritual_id
+                ritual_id=ritual_id,
             )
         except Exception as e:
             # TODO: Handle this better #3096
-            self.log.debug(f"Failed to generate a transcript for ritual #{ritual_id}: {str(e)}")
+            self.log.debug(
+                f"Failed to generate a transcript for ritual #{ritual_id}: {str(e)}"
+            )
             raise e
 
         # store the transcript in the local cache
@@ -455,17 +453,23 @@ class Operator(BaseActor):
                 shares=ritual.shares,
                 checksum_address=self.checksum_address,
                 ritual_id=ritual_id,
-                transcripts=transcripts
+                transcripts=transcripts,
             )
         except Exception as e:
-            self.log.debug(f"Failed to aggregate transcripts for ritual #{ritual_id}: {str(e)}")
+            self.log.debug(
+                f"Failed to aggregate transcripts for ritual #{ritual_id}: {str(e)}"
+            )
             raise e
         else:
             aggregated_transcript, dkg_public_key = result
 
         # Store the DKG artifacts for later us
-        self.dkg_storage.store_aggregated_transcript(ritual_id=ritual_id, aggregated_transcript=aggregated_transcript)
-        self.dkg_storage.store_public_key(ritual_id=ritual_id, public_key=dkg_public_key)
+        self.dkg_storage.store_aggregated_transcript(
+            ritual_id=ritual_id, aggregated_transcript=aggregated_transcript
+        )
+        self.dkg_storage.store_public_key(
+            ritual_id=ritual_id, public_key=dkg_public_key
+        )
 
         # publish the transcript and store the receipt
         total = ritual.total_aggregations + 1
@@ -505,7 +509,9 @@ class Operator(BaseActor):
 
         # TODO: consider the usage of local DKG artifact storage here #3052
         # aggregated_transcript_bytes = self.dkg_storage.get_aggregated_transcript(ritual_id)
-        aggregated_transcript = AggregatedTranscript.from_bytes(bytes(ritual.aggregated_transcript))
+        aggregated_transcript = AggregatedTranscript.from_bytes(
+            bytes(ritual.aggregated_transcript)
+        )
         decryption_share = self.ritual_power.derive_decryption_share(
             nodes=nodes,
             threshold=ritual.threshold,
@@ -515,7 +521,7 @@ class Operator(BaseActor):
             aggregated_transcript=aggregated_transcript,
             ciphertext_header=ciphertext_header,
             aad=aad,
-            variant=variant
+            variant=variant,
         )
 
         return decryption_share
