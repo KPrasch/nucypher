@@ -22,7 +22,7 @@ from constant_sorrow.constants import (
     NOT_SIGNED,
     PUBLIC_ONLY,
     READY,
-    STRANGER_ALICE
+    STRANGER_ALICE,
 )
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import Certificate
