@@ -204,7 +204,7 @@ class BlockchainInterface:
 
         """
 
-        self.log = Logger('Blockchain')
+        self.log = Logger('operator')
         self.poa = poa
         self.endpoint = endpoint
         self._provider = provider

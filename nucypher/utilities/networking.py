@@ -41,7 +41,7 @@ RESERVED_IP_ADDRESSES = (
     '1.2.3.4'
 )
 
-IP_DETECTION_LOGGER = Logger('external-ip-detection')
+IP_DETECTION_LOGGER = Logger('network')
 
 
 def validate_operator_ip(ip: str) -> None:

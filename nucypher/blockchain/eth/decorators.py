@@ -51,7 +51,7 @@ def validate_checksum_address(func: Callable) -> Callable:
 
     parameter_name_suffix = '_address'
     aliases = ('account', 'address')
-    log = Logger('EIP-55-validator')
+    log = Logger('operator')
 
     @functools.wraps(func)
     def wrapped(*args, **kwargs):

@@ -23,7 +23,7 @@ class RetryRequestMiddleware:
         self.make_request = make_request
         self.retries = retries
         self.exponential_backoff = exponential_backoff
-        self.logger = Logger(self.__class__.__name__)
+        self.logger = Logger('rpc')
 
     def is_request_result_retry(self, result: Union[RPCResponse, Exception]) -> bool:
         # default retry functionality - look for 429 codes

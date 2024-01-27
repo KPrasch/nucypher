@@ -1,6 +1,3 @@
-
-
-
 import pathlib
 from contextlib import contextmanager
 
@@ -171,11 +168,35 @@ def get_text_file_observer(name=DEFAULT_LOG_FILENAME, path=USER_LOG_DIR):
     return observer
 
 
+def module_filter_predicate(namespace):
+    def _filter(event):
+        # Extract the module name from the event, if available
+        log_namespace = event.get('log_namespace', None)
+        # Check if the module name matches the target module
+        return log_namespace == namespace
+    return _filter
+
+
+def create_namespace_observer(log_dir, namespace):
+    _ensure_dir_exists(log_dir)
+    path = log_dir / f'{namespace.lower()}.log'
+    logfile = LogFile.fromFullPath(path, rotateLength=MAXIMUM_LOG_SIZE, maxRotatedFiles=2)
+    observer = FileLogObserver(
+        logfile,
+        lambda event: module_filter_predicate(namespace)(event) and formatEventAsClassicLogText(event))
+    globalLogPublisher.addObserver(observer)
+    return observer
+
+
 class Logger(TwistedLogger):
     """Drop-in replacement of Twisted's Logger, patching the emit() method to tolerate inputs with curly braces,
     i.e., not compliant with PEP 3101.
 
     See Issue #724 and, particularly, https://github.com/nucypher/nucypher/issues/724#issuecomment-600190455"""
+    _NAMESPACES = set()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @classmethod
     def escape_format_string(cls, string):
@@ -186,5 +207,8 @@ class Logger(TwistedLogger):
         return escaped_string
 
     def emit(self, level, format=None, **kwargs):
+        if self.namespace not in self._NAMESPACES:
+            create_namespace_observer(USER_LOG_DIR, self.namespace)
+            Logger._NAMESPACES.add(self.namespace)
         clean_format = self.escape_format_string(str(format))
         super().emit(level=level, format=clean_format, **kwargs)

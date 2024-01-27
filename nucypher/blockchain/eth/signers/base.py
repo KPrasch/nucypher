@@ -14,7 +14,7 @@ class Signer(ABC):
 
     _SIGNERS = NotImplemented  # set dynamically in __init__.py
 
-    log = Logger(__qualname__)
+    log = Logger('operator')
 
     class SignerError(Exception):
         """Base exception class for signer errors"""

@@ -18,7 +18,7 @@ from nucypher.policy.conditions.exceptions import (
 from nucypher.policy.conditions.types import ContextDict, Lingo
 from nucypher.utilities.logging import Logger
 
-__LOGGER = Logger("condition-eval")
+__LOGGER = Logger("operator")
 
 
 class ConditionEvalError(Exception):

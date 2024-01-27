@@ -2,14 +2,12 @@
 from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.blockchain.eth.signers.software import Web3Signer
 from nucypher.crypto.powers import TransactingPower
-from nucypher.utilities.logging import Logger
+from tests.constants import TEST_LOGGER
 from tests.utils.ursula import select_test_port
-
-logger = Logger("test-operator")
 
 
 def log(message):
-    logger.debug(message)
+    TEST_LOGGER.debug(message)
     print(message)
 
 

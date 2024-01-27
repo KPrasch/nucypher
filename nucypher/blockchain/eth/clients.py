@@ -136,7 +136,7 @@ class EthereumClient:
         self.node_version = version
         self.platform = platform
         self.backend = backend
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger('rpc')
 
         self._add_default_middleware()
 

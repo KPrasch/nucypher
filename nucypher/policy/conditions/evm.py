@@ -109,7 +109,7 @@ class RPCCondition(AccessControlCondition):
         # RPC
         "eth_getBalance": int,
     }  # TODO other allowed methods (tDEC #64)
-    LOG = logging.Logger(__name__)
+    LOG = logging.Logger('rpc')
     CONDITION_TYPE = ConditionType.RPC.value
 
     class Schema(CamelCaseSchema):

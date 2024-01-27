@@ -35,7 +35,7 @@ class GroupGeneralConfig:
                  log_level: bool,
                  debug: bool):
 
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger('config')
 
         # Session Emitter for pre and post character control engagement.
         if verbose and quiet:

@@ -208,7 +208,7 @@ class FleetSensor:
     If `this_node` is provided, it will be included in the state checksum
     (but not returned during iteration/lookups).
     """
-    log = Logger("Learning")
+    log = Logger("p2p")
 
     def __init__(
         self, domain: TACoDomain, this_node: Optional["characters.lawful.Ursula"] = None

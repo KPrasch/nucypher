@@ -21,7 +21,7 @@ class Policy:
     An edict by Alice, arranged with n Ursulas, to perform re-encryption for a specific Bob.
     """
 
-    log = Logger("Policy")
+    log = Logger("alice")
 
     class PolicyException(Exception):
         """Base exception for policy exceptions"""

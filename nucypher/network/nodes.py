@@ -267,7 +267,7 @@ class Learner:
         verify_node_bonding: bool = True,
         include_self_in_the_state: bool = False,
     ) -> None:
-        self.log = Logger("learning-loop")  # type: Logger
+        self.log = Logger("p2p")
         self.domain = domain
 
         self.learning_deferred = Deferred()
@@ -969,7 +969,6 @@ class Learner:
 
 class Teacher:
 
-    log = Logger("teacher")
     synchronous_query_timeout = 20  # How long to wait during REST endpoints for blockchain queries to resolve
     __DEFAULT_MIN_SEED_STAKE = 0
 

@@ -28,7 +28,7 @@ class EventActuator(EventScanner):
         *args,
         **kwargs,
     ):
-        self.log = Logger("EventActuator")
+        self.log = Logger("scanner")
         if clear and os.path.exists(JSONifiedState.STATE_FILENAME):
             os.remove(JSONifiedState.STATE_FILENAME)
         self.hooks = hooks
@@ -99,7 +99,7 @@ class ActiveRitualTracker:
         operator: "actors.Operator",
         persistent: bool = False,  # TODO: use persistent storage?
     ):
-        self.log = Logger("RitualTracker")
+        self.log = Logger("scanner")
 
         self.operator = operator
         self.coordinator_agent = operator.coordinator_agent

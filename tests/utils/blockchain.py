@@ -13,14 +13,13 @@ from nucypher.blockchain.eth.signers.software import Web3Signer
 from nucypher.blockchain.eth.token import NU
 from nucypher.crypto.powers import TransactingPower
 from nucypher.utilities.gas_strategies import EXPECTED_CONFIRMATION_TIME_IN_SECONDS
-from nucypher.utilities.logging import Logger
 from tests.constants import (
     DEVELOPMENT_ETH_AIRDROP_AMOUNT,
     INSECURE_DEVELOPMENT_PASSWORD,
     NUMBER_OF_ETH_TEST_ACCOUNTS,
     NUMBER_OF_STAKING_PROVIDERS_IN_BLOCKCHAIN_TESTS,
     NUMBER_OF_URSULAS_IN_BLOCKCHAIN_TESTS,
-    TEST_ETH_PROVIDER_URI,
+    TEST_ETH_PROVIDER_URI, TEST_LOGGER,
 )
 
 
@@ -90,7 +89,7 @@ class TesterBlockchain(BlockchainInterface):
             *args,
             **kwargs,
         )
-        self.log = Logger("test-blockchain")
+        self.log = TEST_LOGGER
         self.connect()
 
         # Generate additional ethereum accounts for testing

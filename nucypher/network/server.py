@@ -56,7 +56,7 @@ status_template = Template(filename=str(TEMPLATES_DIR / "basic_status.mako")).ge
 
 class ProxyRESTServer:
 
-    log = Logger("network-server")
+    log = Logger("network")
 
     def __init__(self,
                  rest_host: str,
@@ -79,7 +79,7 @@ class ProxyRESTServer:
 
 def make_rest_app(
         this_node,
-        log: Logger = Logger("http-application-layer")
+        log: Logger = Logger("network")
         ) -> Flask:
     """Creates a REST application."""
 

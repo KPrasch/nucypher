@@ -107,7 +107,7 @@ def test_twisted_json_logger_doesnt_like_curly_braces_either():
 
 
 def test_but_nucypher_logger_is_cool_with_that(capsys):
-    nucypher_logger = Logger('nucypher-logger', observer=naive_print_observer)
+    nucypher_logger = Logger('test-logger', observer=naive_print_observer)
 
     # Normal strings are logged normally
     for string in acceptable_strings:
@@ -127,7 +127,7 @@ def test_but_nucypher_logger_is_cool_with_that(capsys):
 
 def test_even_nucypher_json_logger_is_cool():
 
-    nucypher_logger = Logger('nucypher-logger-json')
+    nucypher_logger = Logger('test-logger')
 
     # Normal strings are logged normally
     for string in acceptable_strings:

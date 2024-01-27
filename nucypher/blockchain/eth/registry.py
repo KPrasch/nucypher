@@ -20,8 +20,6 @@ RegistryData = Dict[int, RegistryEntry]
 
 class RegistrySource(ABC):
 
-    logger = Logger('RegistrySource')
-
     name = NotImplementedError
     is_primary = NotImplementedError
 
@@ -35,6 +33,7 @@ class RegistrySource(ABC):
         """Raised when there are no available registry sources"""
 
     def __init__(self, domain: TACoDomain, *args, **kwargs):
+        self.logger = Logger('registry')
         if str(domain) not in domains.SUPPORTED_DOMAINS:
             raise ValueError(
                 f"{self.__class__.__name__} not available for domain '{domain}'. "
@@ -172,8 +171,6 @@ class EmbeddedRegistrySource(LocalRegistrySource):
 class RegistrySourceManager:
     """A chain of registry sources."""
 
-    logger = Logger('RegistrySource')
-
     _FALLBACK_CHAIN: Tuple[Type[RegistrySource]] = (
         GithubRegistrySource,
         # ...,
@@ -189,6 +186,7 @@ class RegistrySourceManager:
         sources: Optional[List[RegistrySource]] = None,
         only_primary: bool = False,
     ):
+        self.logger = Logger('registry')
         if only_primary and sources:
             raise ValueError("Either use 'only_primary' or 'sources', but not both.")
         elif only_primary:
@@ -254,7 +252,7 @@ class ContractRegistry:
         chain_id: int
         abi: ABI
 
-    logger = Logger('ContractRegistry')
+    logger = Logger('operator')
 
     class RegistryError(Exception):
         """Base class for registry errors"""
@@ -269,7 +267,7 @@ class ContractRegistry:
         """Raised when there are multiple results for a given registry search"""
 
     def __init__(self, source: RegistrySource):
-        self.log = Logger("registry")
+        self.log = Logger("operator")
         if not source.data:
             data = source.get()
         else:

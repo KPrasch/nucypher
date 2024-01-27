@@ -198,7 +198,7 @@ class Alice(Character, actors.PolicyAuthor):
                 eth_endpoint=eth_endpoint,
             )
 
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger("alice")
         if is_me:
             # Policy Payment
             if not pre_payment_method:
@@ -490,7 +490,7 @@ class Bob(Character):
         # Cache of decrypted treasure maps
         self._treasure_maps: Dict[int, TreasureMap] = {}
 
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger("alice")
         if is_me:
             self.log.info(self.banner)
 
@@ -809,6 +809,7 @@ class Ursula(Teacher, Character, Operator):
         known_nodes: Iterable[Teacher] = None,
         **character_kwargs,
     ):
+        self.log = Logger("operator")
         Character.__init__(
             self,
             is_me=is_me,
@@ -1190,7 +1191,7 @@ class Ursula(Teacher, Character, Operator):
                 )
 
             except NodeSeemsToBeDown:
-                log = Logger(cls.__name__)
+                log = Logger('p2p')
                 log.warn(
                     "Can't connect to peer (attempt {}).  Will retry in {} seconds.".format(
                         attempt, interval
@@ -1414,7 +1415,7 @@ class Enrico:
     ):
         self.signer = signer
         self._encrypting_key = encrypting_key
-        self.log = Logger(f"{self.__class__.__name__}-{encrypting_key}")
+        self.log = Logger(f"enrico")
         self.log.info(self.banner.format(encrypting_key))
 
     def encrypt_for_pre(

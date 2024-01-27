@@ -19,7 +19,7 @@ from nucypher.config.storages import ForgetfulNodeStorage, NodeStorage
 from nucypher.network.exceptions import NodeSeemsToBeDown
 from nucypher.utilities.logging import Logger
 
-SSL_LOGGER = Logger('ssl-middleware')
+SSL_LOGGER = Logger('network')
 EXEMPT_FROM_VERIFICATION.bool_value(False)
 
 # It’s a good practice to set connect timeouts to slightly larger
@@ -253,7 +253,7 @@ class NucypherMiddlewareClient:
 
 
 class RestMiddleware:
-    log = Logger()
+    log = Logger('network')
 
     _client_class = NucypherMiddlewareClient
 

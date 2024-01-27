@@ -14,7 +14,7 @@ class SimpleTask(ABC):
 
     def __init__(self, interval: float = INTERVAL):
         self.interval = interval
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger("trackers")
         self._task = LoopingCall(self.run)
         # self.__task.clock = self.CLOCK
 

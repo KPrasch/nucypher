@@ -43,7 +43,7 @@ from nucypher.policy.conditions.lingo import (
 from nucypher.policy.conditions.time import TimeCondition
 from nucypher.policy.payment import SubscriptionManagerPayment
 from nucypher.utilities.emitters import StdoutEmitter
-from nucypher.utilities.logging import GlobalLoggerSettings, Logger
+from nucypher.utilities.logging import GlobalLoggerSettings
 from nucypher.utilities.networking import LOOPBACK_ADDRESS
 from tests.constants import (
     MIN_OPERATOR_SECONDS,
@@ -52,7 +52,7 @@ from tests.constants import (
     MOCK_ETH_PROVIDER_URI,
     TEMPORARY_DOMAIN,
     TEST_ETH_PROVIDER_URI,
-    TESTERCHAIN_CHAIN_ID,
+    TESTERCHAIN_CHAIN_ID, TEST_LOGGER,
 )
 from tests.mock.interfaces import MockBlockchain
 from tests.mock.performance_mocks import (
@@ -78,7 +78,6 @@ from tests.utils.middleware import (
 from tests.utils.policy import generate_random_label
 from tests.utils.ursula import MOCK_KNOWN_URSULAS_CACHE, make_ursulas, select_test_port
 
-test_logger = Logger("test-logger")
 
 # defer.setDebugging(True)
 
@@ -371,9 +370,9 @@ def log_in_and_out_of_test(request):
     test_name = request.node.name
     module_name = request.module.__name__
 
-    test_logger.info(f"Starting {module_name}.py::{test_name}")
+    TEST_LOGGER.info(f"Starting {module_name}.py::{test_name}")
     yield
-    test_logger.info(f"Finalized {module_name}.py::{test_name}")
+    TEST_LOGGER.info(f"Finalized {module_name}.py::{test_name}")
 
 
 @pytest.fixture(scope="session")

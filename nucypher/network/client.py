@@ -13,7 +13,7 @@ class ThresholdAccessControlClient:
 
     def __init__(self, learner: Learner):
         self._learner = learner
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger('p2p')
 
     def _ensure_ursula_availability(
         self, ursulas: List[ChecksumAddress], threshold: int, timeout: int

@@ -12,7 +12,7 @@ from nucypher.blockchain.eth.registry import (
     RegistrySourceManager,
 )
 from nucypher.config.constants import TEMPORARY_DOMAIN_NAME
-from tests.constants import TEMPORARY_DOMAIN
+from tests.constants import TEMPORARY_DOMAIN, TEST_LOGGER
 
 
 @contextmanager
@@ -41,6 +41,7 @@ class MockRegistrySource(RegistrySource):
                 f"Somehow, MockRegistrySource is trying to get a registry for '{self.domain}'. "
                 f"Only '{','.join(self.ALLOWED_DOMAINS)}' are supported.'"
             )
+        self.logger = TEST_LOGGER
 
     @property
     def registry_name(self) -> str:

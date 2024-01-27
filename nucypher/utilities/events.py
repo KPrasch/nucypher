@@ -68,7 +68,7 @@ def write_events_to_csv_file(csv_file: Path,
     return True
 
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger('scanner')
 
 
 class EventScannerState(ABC):

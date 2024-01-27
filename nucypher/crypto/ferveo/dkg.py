@@ -16,7 +16,7 @@ from nucypher_core.ferveo import (
 
 from nucypher.utilities.logging import Logger
 
-LOGGER = Logger('ferveo-dkg')
+LOGGER = Logger('dkg')
 
 
 _VARIANTS = {

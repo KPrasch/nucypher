@@ -14,6 +14,7 @@ from nucypher.config.constants import (
     NUCYPHER_ENVVAR_OPERATOR_ETH_PASSWORD,
     TEMPORARY_DOMAIN_NAME,
 )
+from nucypher.utilities.logging import Logger
 
 #
 #  Contracts
@@ -190,3 +191,4 @@ RPC_SUCCESSFUL_RESPONSE = {
     "id": 1,
     "result": "Geth/v1.9.20-stable-979fc968/linux-amd64/go1.15"
 }
+TEST_LOGGER = Logger("test-logger")

@@ -37,7 +37,7 @@ class NodeStorage(ABC):
 
         from nucypher.characters.lawful import Ursula
 
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger('storage')
         self.registry = registry
         self.character_class = character_class or Ursula
 
@@ -241,7 +241,7 @@ class LocalFileBasedNodeStorage(NodeStorage):
                  ) -> None:
 
         super().__init__(*args, **kwargs)
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger('storage')
 
         self.root_dir = storage_root
         self.metadata_dir = metadata_dir

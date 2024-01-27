@@ -33,9 +33,6 @@ from tests.utils.ursula import (
     setup_multichain_ursulas,
 )
 
-test_logger = Logger("acceptance-test-logger")
-
-
 # ERC-20
 TOTAL_SUPPLY = Web3.to_wei(11_000_000_000, "ether")
 NU_TOTAL_SUPPLY = Web3.to_wei(

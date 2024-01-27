@@ -87,7 +87,7 @@ class EthereumContractAgent:
         transaction_gas: Optional[Wei] = None,
     ):
 
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger('operator')
         self.registry = registry
 
         self.blockchain = BlockchainInterfaceFactory.get_or_create_interface(

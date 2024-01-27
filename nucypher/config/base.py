@@ -379,7 +379,7 @@ class CharacterConfiguration(BaseConfiguration):
     ):
         self.emitter = emitter
 
-        self.log = Logger(self.__class__.__name__)
+        self.log = Logger('config')
 
         # This constant is used to signal that a path can be generated if one is not provided.
         UNINITIALIZED_CONFIGURATION.bool_value(False)
