@@ -30,7 +30,7 @@ def ritual_id():
 
 @pytest.fixture(scope="module")
 def dkg_size():
-    return 4
+    return 30
 
 
 @pytest.fixture(scope="module")
@@ -148,12 +148,12 @@ def test_dkg_initiation(
     cohort_staking_provider_addresses = list(u.checksum_address for u in cohort)
 
     # Approve the ritual token for the coordinator agent to spend
-    amount = fee_model.getRitualCost(len(cohort_staking_provider_addresses), duration)
-    ritual_token.approve(
-        fee_model.address,
-        amount,
-        sender=accounts[initiator.transacting_power.account],
-    )
+    # amount = fee_model.getRitualCost(len(cohort_staking_provider_addresses), duration)
+    # ritual_token.approve(
+    #     fee_model.address,
+    #     amount,
+    #     sender=accounts[initiator.transacting_power.account],
+    # )
 
     receipt = coordinator_agent.initiate_ritual(
         fee_model=fee_model.address,

@@ -31,4 +31,4 @@ test:
   provider:
     chain_id: 131277322940537  # ensure ape doesn't change chain id to 1337
   mnemonic: test test test test test test test test test test test junk
-  number_of_accounts: 30
+  number_of_accounts: 100

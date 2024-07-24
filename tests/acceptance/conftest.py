@@ -58,7 +58,7 @@ PENALTY_DURATION = ONE_DAY  # 1 day in seconds
 
 # Coordinator
 TIMEOUT = 3600
-MAX_DKG_SIZE = 8
+MAX_DKG_SIZE = 32
 FEE_RATE = 1
 
 
@@ -258,13 +258,14 @@ def coordinator(
 
 
 @pytest.fixture(scope="module")
-def fee_model(nucypher_dependency, deployer_account, coordinator, ritual_token):
+def fee_model(
+    nucypher_dependency, deployer_account, coordinator, ritual_token, accounts
+):
     contract = deployer_account.deploy(
-        nucypher_dependency.FlatRateFeeModel,
-        coordinator.address,
-        ritual_token.address,
-        FEE_RATE,
+        nucypher_dependency.FreeFeeModel,
     )
+    contract.approveInitiator(accounts.alice_account, sender=deployer_account)
+
     treasury_role = coordinator.TREASURY_ROLE()
     coordinator.grantRole(
         treasury_role, deployer_account.address, sender=deployer_account

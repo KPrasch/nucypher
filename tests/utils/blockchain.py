@@ -20,7 +20,7 @@ from tests.constants import NUMBER_OF_ETH_TEST_ACCOUNTS, TEST_ETH_PROVIDER_URI
 
 class ReservedTestAccountManager(TestAccountManager):
 
-    NUMBER_OF_URSULAS_IN_TESTS = 10
+    NUMBER_OF_URSULAS_IN_TESTS = 30
     NUMBER_OF_STAKING_PROVIDERS_IN_TESTS = NUMBER_OF_URSULAS_IN_TESTS
 
     # Internal
