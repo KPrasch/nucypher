@@ -28,7 +28,7 @@ from eth_utils.abi import event_abi_to_log_topic
 from requests import HTTPError
 from web3 import Web3
 from web3._utils.events import get_event_data
-from web3.contract.contract import Contract
+from web3.contract.contract import Contract, ContractEvent
 from web3.datastructures import AttributeDict
 from web3.exceptions import BlockNotFound
 from web3.types import BlockIdentifier
@@ -189,7 +189,7 @@ class EventScanner:
         web3: Web3,
         contract: Contract,
         state: EventScannerState,
-        events: List,
+        events: List[ContractEvent],
         min_chunk_scan_size: int = MIN_CHUNK_NUM_BLOCKS,
         max_chunk_scan_size: int = MAX_CHUNK_NUM_BLOCKS,
         max_request_retries: int = DEFAULT_MAX_RETRIES,
