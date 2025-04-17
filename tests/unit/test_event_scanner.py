@@ -10,7 +10,7 @@ import pytest
 import requests
 from requests import HTTPError
 
-from nucypher.blockchain.eth.trackers.dkg import ActiveRitualTracker
+from nucypher.blockchain.eth.trackers.dkg import DkgRitualTracker
 from nucypher.blockchain.eth.trackers.events import EventScannerTask
 from nucypher.utilities.events import (
     ALCHEMY_FREE_TIER_MAX_CHUNK_NUM_BLOCKS,
@@ -22,7 +22,7 @@ from nucypher.utilities.events import (
     is_alchemy_free_tier,
 )
 
-CHAIN_REORG_WINDOW = ActiveRitualTracker.CHAIN_REORG_SCAN_WINDOW
+CHAIN_REORG_WINDOW = DkgRitualTracker.CHAIN_REORG_SCAN_WINDOW
 
 
 def test_min_scan_chunk_size_enforcement():
