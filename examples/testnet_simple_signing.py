@@ -20,15 +20,6 @@ domain = domains.LYNX
 cohort_id = 0  # got this from a side channel
 threshold = 2  # 2-of-3 signing
 
-data_to_sign = b"paz al amanecer"
-signing_request = ThresholdSignatureRequest(
-    cohort_id=cohort_id,
-    data_to_sign=data_to_sign,
-    context=None,
-)
-
-print("--------- Threshold Signing Bob ---------")
-
 eth_endpoint = os.environ["DEMO_L1_PROVIDER_URI"]
 polygon_endpoint = os.environ["DEMO_L2_PROVIDER_URI"]
 porter_base_url = os.environ["DEMO_PORTER_URI"]
@@ -41,6 +32,17 @@ signing_coordinator_agent = SigningCoordinatorAgent(
     blockchain_endpoint=polygon_endpoint,
     registry=registry,
 )
+
+data_to_sign = b"paz al amanecer"
+signing_request = ThresholdSignatureRequest(
+    cohort_id=cohort_id,
+    chain_id=signing_coordinator_agent.blockchain.client.chain_id,
+    data_to_sign=data_to_sign,
+    context=None,
+)
+
+print("--------- Threshold Signing Bob ---------")
+
 
 # known authorized encryptor for ritual 3
 bob = Bob(

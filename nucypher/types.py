@@ -25,19 +25,22 @@ class ThresholdSignatureRequest:
 
     def __init__(
         self,
-        data_to_sign: bytes,
         cohort_id: int,
+        chain_id: int,
+        data_to_sign: bytes,
         context: Optional[ContextDict] = None,
     ):
-        self.data_to_sign = data_to_sign
         self.cohort_id = cohort_id
+        self.chain_id = chain_id
+        self.data_to_sign = data_to_sign
         self.context = context or {}
 
     def __bytes__(self) -> bytes:
         """Serialize the request to bytes in JSON format."""
         data = {
-            "data_to_sign": self.data_to_sign.hex(),
             "cohort_id": self.cohort_id,
+            "chain_id": self.chain_id,
+            "data_to_sign": self.data_to_sign.hex(),
             "context": self.context,
         }
         return json.dumps(data).encode()
@@ -47,10 +50,12 @@ class ThresholdSignatureRequest:
         result = json.loads(request_data.decode())
         data_to_sign = bytes(HexBytes(result["data_to_sign"]))
         cohort_id = result["cohort_id"]
+        chain_id = result["chain_id"]
         context = result["context"]
         return ThresholdSignatureRequest(
-            data_to_sign=data_to_sign,
             cohort_id=cohort_id,
+            chain_id=chain_id,
+            data_to_sign=data_to_sign,
             context=context,
         )
 
