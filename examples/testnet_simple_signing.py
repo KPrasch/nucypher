@@ -8,7 +8,7 @@ from nucypher.blockchain.eth import domains
 from nucypher.blockchain.eth.agents import SigningCoordinatorAgent
 from nucypher.blockchain.eth.registry import ContractRegistry
 from nucypher.characters.lawful import Bob
-from nucypher.types import ThresholdSignatureRequest
+from nucypher.types import SignatureRequest
 from nucypher.utilities.logging import GlobalLoggerSettings
 
 LOG_LEVEL = "debug"
@@ -21,7 +21,7 @@ cohort_id = 0  # got this from a side channel
 threshold = 2  # 2-of-3 signing
 
 data_to_sign = b"paz al amanecer"
-signing_request = ThresholdSignatureRequest(
+signing_request = SignatureRequest(
     cohort_id=cohort_id,
     data_to_sign=data_to_sign,
     context=None,

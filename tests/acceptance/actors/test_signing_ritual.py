@@ -5,7 +5,7 @@ from eth_account.messages import defunct_hash_message
 from nucypher.blockchain.eth.models import SigningCoordinator
 from nucypher.policy.conditions.auth.evm import EIP1271Auth
 from nucypher.policy.conditions.lingo import ConditionLingo
-from nucypher.types import ThresholdSignatureRequest
+from nucypher.types import SignatureRequest
 
 
 @pytest.fixture(scope="module")
@@ -177,9 +177,9 @@ def test_signing_request_fulfilment(
     bob.start_learning_loop(now=True)
     data_to_sign = b"test_data"
 
-    signing_request = ThresholdSignatureRequest(
-        data_to_sign=data_to_sign,
+    signing_request = SignatureRequest(
         cohort_id=cohort_id,
+        data_to_sign=data_to_sign,
         context=None,
     )
     signatures = yield bob.request_threshold_signatures(

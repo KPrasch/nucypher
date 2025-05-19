@@ -116,7 +116,7 @@ from nucypher.policy.conditions.types import Lingo
 from nucypher.policy.kits import PolicyMessageKit
 from nucypher.policy.payment import ContractPayment, PaymentMethod
 from nucypher.policy.policies import Policy
-from nucypher.types import ThresholdSignatureRequest
+from nucypher.types import SignatureRequest
 from nucypher.utilities.emitters import StdoutEmitter
 from nucypher.utilities.logging import Logger
 from nucypher.utilities.networking import validate_operator_ip
@@ -677,7 +677,7 @@ class Bob(Character):
 
     def request_threshold_signatures(
         self,
-        signing_request: ThresholdSignatureRequest,
+        signing_request: SignatureRequest,
         ursulas: List["Ursula"] = None,
         timeout: int = ThresholdSigningClient.DEFAULT_TIMEOUT,
     ) -> List[bytes]:

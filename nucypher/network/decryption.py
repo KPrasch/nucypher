@@ -9,7 +9,7 @@ from nucypher_core import (
 )
 
 from nucypher.network.client import ThresholdAccessControlClient
-from nucypher.types import ThresholdSignatureRequest, ThresholdSignatureResponse
+from nucypher.types import SignatureRequest, SignatureResponse
 from nucypher.utilities.concurrency import BatchValueFactory, WorkerPool
 
 
@@ -154,12 +154,12 @@ class ThresholdSigningClient(NetworkRequestClient):
 
     def gather_signatures(
         self,
-        signing_requests: Dict[ChecksumAddress, ThresholdSignatureRequest],
+        signing_requests: Dict[ChecksumAddress, SignatureRequest],
         threshold: int,
         timeout: int = NetworkRequestClient.DEFAULT_TIMEOUT,
         stagger_timeout: int = NetworkRequestClient.DEFAULT_STAGGER_TIMEOUT,
     ) -> Tuple[
-        Dict[ChecksumAddress, Tuple[ChecksumAddress, ThresholdSignatureResponse]],
+        Dict[ChecksumAddress, Tuple[ChecksumAddress, SignatureResponse]],
         Dict[ChecksumAddress, str],
     ]:
         self._ensure_ursula_availability(
@@ -170,7 +170,7 @@ class ThresholdSigningClient(NetworkRequestClient):
 
         def worker(
             ursula_address: ChecksumAddress,
-        ) -> Tuple[ChecksumAddress, ThresholdSignatureResponse]:
+        ) -> Tuple[ChecksumAddress, SignatureResponse]:
 
             encrypted_request = signing_requests[ursula_address]
 
@@ -183,7 +183,7 @@ class ThresholdSigningClient(NetworkRequestClient):
                     timeout=timeout,
                 )
                 if response.status_code == HTTPStatus.OK:
-                    response = ThresholdSignatureResponse.from_bytes(response.content)
+                    response = SignatureResponse.from_bytes(response.content)
                     operator_address = node_or_sprout.operator_address
                     return operator_address, response
 

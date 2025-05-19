@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 from typing import NamedTuple, NewType, Optional, TypeVar
 
 from hexbytes import HexBytes
@@ -20,18 +21,30 @@ class PhaseId(NamedTuple):
     phase: PhaseNumber
 
 
-class ThresholdSignatureRequest:
-    """TODO: Implement this in nucypher_core"""
+class _SignatureTypes(Enum):
+    EIP191 = "eip-191"
+    EIP712 = "eip-712"
+
+
+class SignatureRequest:
 
     def __init__(
         self,
         data_to_sign: bytes,
         cohort_id: int,
         context: Optional[ContextDict] = None,
+        _type: Optional[str] = _SignatureTypes.EIP191.value,
     ):
+
+        if _type not in [t.value for t in _SignatureTypes]:
+            raise ValueError(
+                f"Invalid type: {_type}. Must be one of {[t.value for t in _SignatureTypes]}"
+            )
+        self.cohort_id = cohort_id
         self.data_to_sign = data_to_sign
         self.cohort_id = cohort_id
         self.context = context or {}
+        self._type = _type
 
     def __bytes__(self) -> bytes:
         """Serialize the request to bytes in JSON format."""
@@ -39,43 +52,64 @@ class ThresholdSignatureRequest:
             "data_to_sign": self.data_to_sign.hex(),
             "cohort_id": self.cohort_id,
             "context": self.context,
+            "type": self._type,
         }
         return json.dumps(data).encode()
 
     @staticmethod
     def from_bytes(request_data: bytes):
-        result = json.loads(request_data.decode())
-        data_to_sign = bytes(HexBytes(result["data_to_sign"]))
-        cohort_id = result["cohort_id"]
-        context = result["context"]
-        return ThresholdSignatureRequest(
-            data_to_sign=data_to_sign,
+        try:
+            result = json.loads(request_data.decode())
+            data_to_sign = bytes(HexBytes(result["data_to_sign"]))
+            cohort_id = result["cohort_id"]
+            chain_id = result["chain_id"]
+            context = result["context"]
+            _type = result["type"]
+        except (ValueError, KeyError) as e:
+            raise ValueError("Invalid request data") from e
+        return SignatureRequest(
             cohort_id=cohort_id,
+            data_to_sign=data_to_sign,
             context=context,
+            _type=_type,
         )
 
 
-class ThresholdSignatureResponse:
+class SignatureResponse:
 
-    def __init__(self, message_hash: bytes, signature: bytes):
+    def __init__(
+        self,
+        message_hash: bytes,
+        signature: bytes,
+        _type: Optional[str] = _SignatureTypes.EIP191.value,
+    ):
+        if _type not in [t.value for t in _SignatureTypes]:
+            raise ValueError(
+                f"Invalid type: {_type}. Must be one of {[t.value for t in _SignatureTypes]}"
+            )
         self.message_hash = message_hash
         self.signature = signature
+        self._type = _type
 
     def __bytes__(self) -> bytes:
-        """Serialize the response to bytes in JSON format."""
         data = {
             "message_hash": self.message_hash.hex(),
             "signature": self.signature.hex(),
+            "type": self._type,
         }
         return json.dumps(data).encode()
 
     @classmethod
     def from_bytes(cls, response_data: bytes):
-        """Deserialize the response from bytes in JSON format."""
-        result = json.loads(response_data.decode())
-        message_hash = bytes(HexBytes(result["message_hash"]))
-        signature = bytes(HexBytes(result["signature"]))
+        try:
+            result = json.loads(response_data.decode())
+            message_hash = bytes(HexBytes(result["message_hash"]))
+            signature = bytes(HexBytes(result["signature"]))
+            _type = result["type"]
+        except (ValueError, KeyError) as e:
+            raise ValueError("Invalid response data") from e
         return cls(
             message_hash=message_hash,
             signature=signature,
+            _type=_type,
         )
