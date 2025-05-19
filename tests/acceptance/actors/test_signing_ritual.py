@@ -5,7 +5,6 @@ from eth_account.messages import defunct_hash_message
 from nucypher.blockchain.eth.models import SigningCoordinator
 from nucypher.policy.conditions.auth.evm import EIP1271Auth
 from nucypher.policy.conditions.lingo import ConditionLingo
-from nucypher.types import SignatureRequest
 
 
 @pytest.fixture(scope="module")
