@@ -6,23 +6,115 @@ from hexbytes import HexBytes
 from nucypher.policy.conditions.types import ContextDict
 
 
-class ThresholdSignatureRequest:
-    """TODO: Implement this in nucypher_core"""
+class UserOp:
 
     def __init__(
         self,
-        data_to_sign: bytes,
+        sender: str,
+        destination: str,
+        value: int,
+        data: str,
+        nonce: int,
+        chain_id: int,
+        contract_address: str,
+    ):
+        self.sender = sender
+        self.destination = destination
+        self.value = value
+        self.data = data
+        self.nonce = nonce
+        self.chain_id = chain_id
+        self.contract_address = contract_address
+
+    def to_message(self) -> dict:
+        """Returns the message payload for EIP-712 encoding."""
+        return {
+            "sender": self.sender,
+            "destination": self.destination,
+            "value": self.value,
+            "data": self.data,
+            "nonce": self.nonce,
+            "chainId": self.chain_id,
+            "contractAddress": self.contract_address,
+        }
+
+    def to_structured_data(self) -> dict:
+        """Builds the full EIP-712 structured data dict."""
+        domain = {
+            "name": "TACoMultisig",
+            "version": "1",
+            "chainId": self.chain_id,
+            "verifyingContract": self.contract_address,
+        }
+        _types = {
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"},
+            ],
+            "Transaction": [
+                {"name": "sender", "type": "address"},
+                {"name": "destination", "type": "address"},
+                {"name": "value", "type": "uint256"},
+                {"name": "data", "type": "bytes"},
+                {"name": "nonce", "type": "uint256"},
+            ],
+        }
+        return {
+            "types": _types,
+            "domain": domain,
+            "primaryType": "Transaction",
+            "message": self.to_message(),
+        }
+
+    def __bytes__(self) -> bytes:
+        """
+        Serializes the UserOp to bytes in JSON format.
+        """
+        return json.dumps(self.to_structured_data()).encode()
+
+    @staticmethod
+    def from_bytes(user_op_data: bytes):
+        """
+        Deserializes the UserOp from bytes in JSON format.
+        """
+        result = json.loads(user_op_data.decode())
+        sender = result["message"]["sender"]
+        destination = result["message"]["destination"]
+        value = result["message"]["value"]
+        data = result["message"]["data"]
+        nonce = result["message"]["nonce"]
+        chain_id = result["domain"]["chainId"]
+        contract_address = result["domain"]["verifyingContract"]
+
+        return UserOp(
+            sender=sender,
+            destination=destination,
+            value=value,
+            data=data,
+            nonce=nonce,
+            chain_id=chain_id,
+            contract_address=contract_address,
+        )
+
+
+class SignatureRequest:
+
+    def __init__(
+        self,
+        data: bytes,
         cohort_id: int,
         context: Optional[ContextDict] = None,
     ):
-        self.data_to_sign = data_to_sign
+        self.data = data
         self.cohort_id = cohort_id
         self.context = context or {}
 
     def __bytes__(self) -> bytes:
         """Serialize the request to bytes in JSON format."""
         data = {
-            "data_to_sign": self.data_to_sign.hex(),
+            "data": bytes(self.data).hex(),
             "cohort_id": self.cohort_id,
             "context": self.context,
         }

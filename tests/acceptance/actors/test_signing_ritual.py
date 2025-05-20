@@ -1,8 +1,9 @@
 import pytest
 import pytest_twisted
-from eth_account.messages import defunct_hash_message
+from eth_account.messages import encode_typed_data
 
 from nucypher.blockchain.eth.models import SigningCoordinator
+from nucypher.network.signing import SignatureRequest, UserOp
 from nucypher.policy.conditions.auth.evm import EIP1271Auth
 from nucypher.policy.conditions.lingo import ConditionLingo
 
@@ -174,11 +175,19 @@ def test_signing_request_fulfilment(
 ):
     print("==================== SIGNING REQUEST ====================")
     bob.start_learning_loop(now=True)
-    data_to_sign = b"test_data"
+    user_op = UserOp(
+        sender=accounts[0],
+        destination=accounts[1],
+        value=0,
+        data="0xdeadbeef",
+        nonce=0,
+        chain_id=1,
+        contract_address=accounts[2],
+    )
 
     signing_request = SignatureRequest(
+        data=bytes(user_op),
         cohort_id=cohort_id,
-        data_to_sign=data_to_sign,
         context=None,
     )
     signatures = yield bob.request_threshold_signatures(
@@ -189,7 +198,7 @@ def test_signing_request_fulfilment(
     assert len(signatures) >= signing_cohort.threshold
     multisig = nucypher_dependency.ThresholdSigningMultisig.at(signing_cohort.multisig)
     result = multisig.isValidSignature(
-        defunct_hash_message(data_to_sign),
+        encode_typed_data(full_message=user_op.to_structured_data()),
         b"".join(signatures),
     )
     magic_value = EIP1271Auth.MAGIC_VALUE_BYTES
