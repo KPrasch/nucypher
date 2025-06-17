@@ -8,6 +8,7 @@ from nucypher_core.ferveo import (
     Dkg,
     DkgPublicKey,
     FerveoVariant,
+    HandoverTranscript,
     Keypair,
     Transcript,
     Validator,
@@ -99,3 +100,37 @@ def produce_decryption_share(
         keypair
     )
     return share
+
+
+def initiate_handover(
+    nodes: List[Validator],
+    aggregated_transcript: AggregatedTranscript,
+    handover_slot_index: int,
+    keypair: Keypair,
+    *args,
+    **kwargs,
+) -> HandoverTranscript:
+    if not all((nodes, aggregated_transcript, keypair)):
+        raise Exception("missing arguments")  # sanity check
+
+    dkg = _make_dkg(nodes=nodes, *args, **kwargs)
+    handover_transcript = dkg.generate_handover_transcript(
+        aggregated_transcript,
+        handover_slot_index,
+        keypair,
+    )
+    return handover_transcript
+
+
+def finalize_handover(
+    aggregated_transcript: AggregatedTranscript,
+    handover_transcript: HandoverTranscript,
+    keypair: Keypair,
+) -> HandoverTranscript:
+    if not all((aggregated_transcript, handover_transcript, keypair)):
+        raise Exception("missing arguments")  # sanity check
+
+    new_aggregate = aggregated_transcript.finalize_handover(
+        handover_transcript, keypair
+    )
+    return new_aggregate
