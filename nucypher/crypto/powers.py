@@ -20,6 +20,7 @@ from nucypher_core.ferveo import (
     DecryptionShareSimple,
     DkgPublicKey,
     FerveoVariant,
+    HandoverTranscript,
     Transcript,
     Validator,
 )
@@ -263,7 +264,12 @@ class RitualisticPower(KeyPairBasedPower):
     _default_private_key_class = ferveo.Keypair
 
     not_found_error = NoRitualisticPower
-    provides = ("derive_decryption_share", "generate_transcript")
+    provides = (
+        "derive_decryption_share",
+        "generate_transcript",
+        "initiate_handover",
+        "finalize_handover",
+    )
 
     def produce_decryption_share(
         self,
@@ -291,13 +297,31 @@ class RitualisticPower(KeyPairBasedPower):
         )
         return decryption_share
 
+    def initiate_handover(
+        self,
+        nodes: List[Validator],
+        aggregated_transcript: AggregatedTranscript,
+        handover_slot_index: int,
+        *args,
+        **kwargs,
+    ) -> HandoverTranscript:
+        handover_transcript = dkg.initiate_handover(
+            nodes=nodes,
+            aggregated_transcript=aggregated_transcript,
+            handover_slot_index=handover_slot_index,
+            keypair=self.keypair._privkey,
+            *args,
+            **kwargs,
+        )
+        return handover_transcript
+
     def generate_transcript(
-            self,
-            checksum_address: ChecksumAddress,
-            ritual_id: int,
-            shares: int,
-            threshold: int,
-            nodes: list
+        self,
+        checksum_address: ChecksumAddress,
+        ritual_id: int,
+        shares: int,
+        threshold: int,
+        nodes: list,
     ) -> Transcript:
         transcript = dkg.generate_transcript(
             ritual_id=ritual_id,
@@ -324,6 +348,18 @@ class RitualisticPower(KeyPairBasedPower):
             transcripts=transcripts
         )
         return aggregated_transcript, dkg_public_key
+
+    def finalize_handover(
+        self,
+        aggregated_transcript: AggregatedTranscript,
+        handover_transcript: HandoverTranscript,
+    ) -> AggregatedTranscript:
+        new_aggregate = dkg.finalize_handover(
+            aggregated_transcript=aggregated_transcript,
+            handover_transcript=handover_transcript,
+            keypair=self.keypair._privkey,
+        )
+        return new_aggregate
 
 
 class DerivedKeyBasedPower(CryptoPowerUp):
