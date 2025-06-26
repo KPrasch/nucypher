@@ -17,7 +17,9 @@ from nucypher.types import PhaseNumber
 
 PHASE1 = PhaseNumber(1)
 PHASE2 = PhaseNumber(2)
-
+HANDOVER_AWAITING_TRANSCRIPT = PhaseNumber(11)
+HANDOVER_AWAITING_BLINDED_SHARE = PhaseNumber(12)
+HANDOVER_AWAITING_FINALIZATION = PhaseNumber(13)
 
 @dataclass
 class Ferveo:
@@ -162,3 +164,21 @@ class Coordinator:
             for participant_data in data:
                 participant = Coordinator.Participant.from_data(data=participant_data)
                 yield participant
+
+    @dataclass
+    class HandoverStatus:
+        NON_INITIATED = 0
+        HANDOVER_AWAITING_TRANSCRIPT = 1
+        HANDOVER_AWAITING_BLINDED_SHARE = 2
+        HANDOVER_AWAITING_FINALIZATION = 3
+        HANDOVER_TIMEOUT = 4
+
+    @dataclass
+    class Handover:
+        key: bytes
+        departing_validator: ChecksumAddress
+        incoming_validator: ChecksumAddress
+        init_timestamp: int
+        blinded_share: bytes
+        transcript: bytes
+        decryption_request_pubkey: bytes
