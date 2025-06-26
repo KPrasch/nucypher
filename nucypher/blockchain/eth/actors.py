@@ -24,6 +24,7 @@ from nucypher_core.ferveo import (
     DecryptionShareSimple,
     DkgPublicKey,
     FerveoVariant,
+    HandoverTranscript,
     Transcript,
     Validator,
 )
@@ -47,7 +48,12 @@ from nucypher.blockchain.eth.interfaces import (
     BlockchainInterface,
     BlockchainInterfaceFactory,
 )
-from nucypher.blockchain.eth.models import PHASE1, PHASE2, Coordinator
+from nucypher.blockchain.eth.models import (
+    HANDOVER_AWAITING_TRANSCRIPT,
+    PHASE1,
+    PHASE2,
+    Coordinator,
+)
 from nucypher.blockchain.eth.registry import ContractRegistry
 from nucypher.blockchain.eth.signers import Signer
 from nucypher.blockchain.eth.trackers import dkg
@@ -694,7 +700,7 @@ class Operator(BaseActor):
         )
         if async_tx:
             self.log.info(
-                f"Active ritual in progress: {self.transacting_power.account} has submitted tx"
+                f"Active ritual in progress: {self.transacting_power.account} has submitted tx "
                 f"for ritual #{ritual_id}, phase #{PHASE2} (final: {async_tx.final})."
             )
             return async_tx
@@ -748,6 +754,143 @@ class Operator(BaseActor):
         if total >= ritual.dkg_size:
             self.log.debug(f"DKG ritual #{ritual.id} should now be finalized")
 
+        return async_tx
+
+    def _is_handover_transcript_required(
+        self,
+        ritual_id: int,
+        departing_validator: ChecksumAddress,
+    ) -> bool:
+        """Check whether node needs to act as the incoming validator in a handover."""
+
+        # check ritual status from the blockchain
+        status = self.coordinator_agent.get_ritual_status(ritual_id=ritual_id)
+        if status != Coordinator.RitualStatus.ACTIVE:
+            # This is a normal state when replaying/syncing historical
+            # blocks that contain StartRitual events of pending or completed rituals.
+            self.log.debug(f"ritual #{ritual_id} is not active; status={status}.")
+            return False
+
+        handover_request = self.coordinator_agent.get_handover(
+            ritual_id=ritual_id, departing_validator=departing_validator
+        )
+
+        if handover_request.incoming_validator != self.checksum_address:
+            self.log.debug(
+                f"Handover request for ritual #{ritual_id} is not for this node."
+            )
+            return False
+
+        handover_status = self.coordinator_agent.get_handover_status(
+            ritual_id=ritual_id,
+            departing_validator=departing_validator,
+        )
+
+        if handover_status != Coordinator.HandoverStatus.HANDOVER_AWAITING_TRANSCRIPT:
+            self.log.debug(
+                f"Handover request for ritual #{ritual_id} is not in the expected state."
+            )
+            return False
+
+        return True
+
+    def _produce_handover_transcript(
+        self, ritual_id: int, departing_validator: ChecksumAddress
+    ) -> HandoverTranscript:
+        ritual = self._resolve_ritual(ritual_id)
+        validators = self._resolve_validators(ritual)
+
+        # Raises ValueError if departing_validator is not in the providers list
+        handover_slot_index = ritual.providers.index(departing_validator)
+        aggregated_transcript = AggregatedTranscript.from_bytes(
+            bytes(ritual.aggregated_transcript)
+        )
+
+        handover_transcript = self.ritual_power.initiate_handover(
+            nodes=validators,
+            aggregated_transcript=aggregated_transcript,
+            handover_slot_index=handover_slot_index,
+        )
+        return handover_transcript
+
+    def _publish_handover_transcript(
+        self,
+        ritual_id: int,
+        departing_validator: ChecksumAddress,
+        handover_transcript: HandoverTranscript,
+    ) -> AsyncTx:
+        """Publish a handover transcript to the Coordinator."""
+        participant_public_key = self.threshold_request_power.get_pubkey_from_ritual_id(
+            ritual_id
+        )
+        handover_transcript = bytes(handover_transcript)
+        identifier = PhaseId(ritual_id=ritual_id, phase=HANDOVER_AWAITING_TRANSCRIPT)
+        async_tx_hooks = self._setup_async_hooks(
+            identifier, ritual_id, departing_validator, handover_transcript
+        )
+
+        async_tx = self.coordinator_agent.post_handover_transcript(
+            ritual_id=ritual_id,
+            departing_validator=departing_validator,
+            handover_transcript=handover_transcript,
+            participant_public_key=participant_public_key,
+            transacting_power=self.transacting_power,
+            async_tx_hooks=async_tx_hooks,
+        )
+        self.dkg_storage.store_ritual_phase_async_tx(
+            phase_id=identifier, async_tx=async_tx
+        )
+        return async_tx
+
+    def perform_handover_transcript_phase(
+        self,
+        ritual_id: int,
+        departing_participant: ChecksumAddress,
+        **kwargs,
+    ) -> Optional[AsyncTx]:
+
+        # check if there is a pending tx for this phase
+        async_tx = self.dkg_storage.get_ritual_phase_async_tx(
+            phase_id=PhaseId(ritual_id, HANDOVER_AWAITING_TRANSCRIPT)
+        )
+        if async_tx:
+            self.log.info(
+                f"Active handover in progress: {self.transacting_power.account} has submitted tx "
+                f"for ritual #{ritual_id}, handover transcript phase, (final: {async_tx.final})."
+            )
+            return async_tx
+
+        if not self._is_handover_transcript_required(
+            ritual_id=ritual_id, departing_validator=departing_participant
+        ):
+            self.log.debug(
+                f"No action required for handover transcript for ritual #{ritual_id}"
+            )
+            return
+
+        try:
+            handover_transcript = self._produce_handover_transcript(
+                ritual_id=ritual_id,
+                departing_validator=departing_participant,
+            )
+        except Exception as e:
+            stack_trace = traceback.format_stack()
+            message = (
+                f"Failed to produce handover transcript for ritual #{ritual_id} and "
+                f"departing validator {departing_participant}: {str(e)}\n{stack_trace}"
+            )
+            self.log.critical(message)
+            return
+
+        async_tx = self._publish_handover_transcript(
+            ritual_id=ritual_id,
+            departing_validator=departing_participant,
+            handover_transcript=handover_transcript,
+        )
+        self.log.debug(
+            f"{self.transacting_power.account[:8]} created a handover transcript for "
+            f"DKG ritual #{ritual_id} and departing validator {departing_participant}."
+        )
         return async_tx
 
     def produce_decryption_share(
