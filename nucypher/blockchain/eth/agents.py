@@ -759,6 +759,41 @@ class CoordinatorAgent(EthereumContractAgent):
         result = self.contract.functions.isProviderKeySet(staking_provider).call()
         return result
 
+    @contract_api(CONTRACT_CALL)
+    def get_handover_status(
+        self, ritual_id: int, departing_validator: ChecksumAddress
+    ) -> int:
+        result = self.contract.functions.getHandoverState(
+            ritual_id, departing_validator
+        ).call()
+        return result
+
+    @contract_api(CONTRACT_CALL)
+    def get_handover_key(
+        self, ritual_id: int, departing_validator: ChecksumAddress
+    ) -> bytes:
+        result = self.contract.functions.getHandoverKey(
+            ritual_id, departing_validator
+        ).call()
+        return bytes(result)
+
+    @contract_api(CONTRACT_CALL)
+    def get_handover(
+        self, ritual_id: int, departing_validator: ChecksumAddress
+    ) -> Coordinator.Handover:
+        key = self.get_handover_key(ritual_id, departing_validator)
+        result = self.contract.functions.handovers(key).call()
+        handover = Coordinator.Handover(
+            key=key,
+            departing_validator=ChecksumAddress(departing_validator),
+            init_timestamp=int(result[0]),
+            incoming_validator=ChecksumAddress(result[1]),
+            transcript=bytes(result[2]),
+            decryption_request_pubkey=bytes(result[3]),
+            blinded_share=bytes(result[4]),
+        )
+        return handover
+
     @contract_api(TRANSACTION)
     def set_provider_public_key(
         self, public_key: FerveoPublicKey, transacting_power: TransactingPower
