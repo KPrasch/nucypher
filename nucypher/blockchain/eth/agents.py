@@ -48,7 +48,14 @@ from nucypher.blockchain.eth.interfaces import (
     BlockchainInterface,
     BlockchainInterfaceFactory,
 )
-from nucypher.blockchain.eth.models import PHASE1, PHASE2, Coordinator, Ferveo
+from nucypher.blockchain.eth.models import (
+    HANDOVER_AWAITING_BLINDED_SHARE,
+    HANDOVER_AWAITING_TRANSCRIPT,
+    PHASE1,
+    PHASE2,
+    Coordinator,
+    Ferveo,
+)
 from nucypher.blockchain.eth.registry import (
     ContractRegistry,
 )
@@ -824,6 +831,54 @@ class CoordinatorAgent(EthereumContractAgent):
             transacting_power=transacting_power,
             async_tx_hooks=async_tx_hooks,
             info={"ritual_id": ritual_id, "phase": PHASE2},
+        )
+        return async_tx
+
+    @contract_api(TRANSACTION)
+    def post_handover_transcript(
+        self,
+        ritual_id: int,
+        departing_validator: ChecksumAddress,
+        handover_transcript: bytes,
+        participant_public_key: SessionStaticKey,
+        transacting_power: TransactingPower,
+        async_tx_hooks: BlockchainInterface.AsyncTxHooks,
+    ) -> AsyncTx:
+        contract_function: ContractFunction = (
+            self.contract.functions.postHandoverTranscript(
+                ritualId=ritual_id,
+                departingParticipant=departing_validator,
+                transcript=bytes(handover_transcript),
+                decryptionRequestStaticKey=bytes(participant_public_key),
+            )
+        )
+        async_tx = self.blockchain.send_async_transaction(
+            contract_function=contract_function,
+            gas_estimation_multiplier=1.4,
+            transacting_power=transacting_power,
+            async_tx_hooks=async_tx_hooks,
+            info={"ritual_id": ritual_id, "phase": HANDOVER_AWAITING_TRANSCRIPT},
+        )
+        return async_tx
+
+    @contract_api(TRANSACTION)
+    def post_blinded_share_for_handover(
+        self,
+        ritual_id: int,
+        blinded_share: bytes,
+        transacting_power: TransactingPower,
+        async_tx_hooks: BlockchainInterface.AsyncTxHooks,
+    ) -> AsyncTx:
+        contract_function: ContractFunction = self.contract.functions.postBlindedShare(
+            ritualId=ritual_id,
+            blindedShare=bytes(blinded_share),
+        )
+        async_tx = self.blockchain.send_async_transaction(
+            contract_function=contract_function,
+            gas_estimation_multiplier=1.4,
+            transacting_power=transacting_power,
+            async_tx_hooks=async_tx_hooks,
+            info={"ritual_id": ritual_id, "phase": HANDOVER_AWAITING_BLINDED_SHARE},
         )
         return async_tx
 
