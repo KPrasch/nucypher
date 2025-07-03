@@ -14,6 +14,8 @@ concurrency:
 env:
   # Used for testing alchemy free tier rpc error detection and retry logic
   ALCHEMY_FREE_TIER_POLYGON_RPC_ENDPOINT: ${{ secrets.ALCHEMY_FREE_TIER_POLYGON_RPC_ENDPOINT }}
+  # Used by acceptance/conditions tests
+  POAP_API_KEY: ${{ secrets.POAP_API_KEY }}
 
 jobs:
   python-tests:
