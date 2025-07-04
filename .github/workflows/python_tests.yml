@@ -14,8 +14,6 @@ concurrency:
 env:
   # Used for testing alchemy free tier rpc error detection and retry logic
   ALCHEMY_FREE_TIER_POLYGON_RPC_ENDPOINT: ${{ secrets.ALCHEMY_FREE_TIER_POLYGON_RPC_ENDPOINT }}
-  # Used by acceptance/conditions tests
-  POAP_API_KEY: ${{ secrets.POAP_API_KEY }}
 
 jobs:
   python-tests:
@@ -109,12 +107,18 @@ jobs:
       - name: Conditions Tests (Coverage)
         if: matrix.python-version == '3.12'
         working-directory: tests/acceptance
+        env:
+          # Used for testing a POAP API call
+          POAP_API_KEY: ${{ secrets.POAP_API_KEY }}
         run: |
           coverage run --data-file=acceptance_conditions_data -m pytest conditions
           coverage xml -i --data-file=acceptance_conditions_data -o acceptance-conditions-coverage.xml
 
       - name: Conditions Tests
         if: matrix.python-version != '3.12'
+        env:
+          # Used for testing a POAP API call
+          POAP_API_KEY: ${{ secrets.POAP_API_KEY }}
         working-directory: tests/acceptance
         run: python -m pytest conditions
 
