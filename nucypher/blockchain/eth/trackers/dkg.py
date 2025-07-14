@@ -113,12 +113,16 @@ class ActiveRitualTracker:
         self.actions = {
             self.contract.events.StartRitual: self.operator.perform_round_1,
             self.contract.events.StartAggregationRound: self.operator.perform_round_2,
+            self.contract.events.HandoverRequest: self.operator.perform_handover_transcript_phase,
+            self.contract.events.HandoverTranscriptPosted: self.operator.perform_handover_blinded_share_phase,
         }
 
         self.events = [
             self.contract.events.StartRitual,
             self.contract.events.StartAggregationRound,
             self.contract.events.EndRitual,
+            self.contract.events.HandoverRequest,
+            self.contract.events.HandoverTranscriptPosted,
         ]
 
         # TODO: Remove the default JSON-RPC retry middleware
@@ -211,15 +215,38 @@ class ActiveRitualTracker:
 
     def _action_required(self, ritual_event: AttributeDict) -> bool:
         """Check if an action is required for a given ritual event."""
+
+        # Let's handle separately handover events and non-handover events
+        handover_events = [
+            self.contract.events.HandoverTranscriptPosted,
+            self.contract.events.HandoverRequest,
+        ]
+        event_type = getattr(self.contract.events, ritual_event.event)
+        if event_type in handover_events:
+            is_departing_participant_in_handover = (
+                event_type == self.contract.events.HandoverTranscriptPosted
+                and ritual_event.args.departingParticipant
+                == self.operator.checksum_address
+            )
+            is_incoming_participant_in_handover = (
+                event_type == self.contract.events.HandoverRequest
+                and ritual_event.args.incomingParticipant
+                == self.operator.checksum_address
+            )
+            # for handover events we need to act only if the operator is the departing or incoming participant
+            return (
+                is_departing_participant_in_handover
+                or is_incoming_participant_in_handover
+            )
+
+        # Non-handover events (for the moment, DKG events)
+
         # establish participation state first
         participation_state = self._get_participation_state(ritual_event)
-
         if not participation_state.participating:
             return False
 
         # does event have an associated action
-        event_type = getattr(self.contract.events, ritual_event.event)
-
         event_has_associated_action = event_type in self.actions
         already_posted_transcript = (
             event_type == self.contract.events.StartRitual
