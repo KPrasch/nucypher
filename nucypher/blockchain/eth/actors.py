@@ -399,29 +399,65 @@ class Operator(BaseActor):
     def _setup_async_hooks(
         self, phase_id: PhaseId, *args
     ) -> BlockchainInterface.AsyncTxHooks:
-        tx_type = "POST_TRANSCRIPT" if phase_id.phase == PHASE1 else "POST_AGGREGATE"
+
+        TX_TYPES = {
+            PHASE1: "POST_TRANSCRIPT",
+            PHASE2: "POST_AGGREGATE",
+            HANDOVER_AWAITING_TRANSCRIPT: "HANDOVER_AWAITING_TRANSCRIPT",
+            HANDOVER_AWAITING_BLINDED_SHARE: "HANDOVER_POST_BLINDED_SHARE",
+        }
+
+        tx_type = TX_TYPES[phase_id.phase]
 
         def resubmit_tx():
             if phase_id.phase == PHASE1:
                 # check status of ritual before resubmitting; prevent infinite loops
                 if not self._is_phase_1_action_required(ritual_id=phase_id.ritual_id):
                     self.log.info(
-                        f"No need to resubmit tx: additional action not required for ritual# {phase_id.ritual_id} (status={self.coordinator_agent.get_ritual_status(phase_id.ritual_id)})"
+                        f"No need to resubmit tx: additional action not required for ritual #{phase_id.ritual_id} "
+                        f"(status={self.coordinator_agent.get_ritual_status(phase_id.ritual_id)})"
                     )
                     return
                 async_tx = self.publish_transcript(*args)
-            else:
+            elif phase_id.phase == PHASE2:
                 # check status of ritual before resubmitting; prevent infinite loops
                 if not self._is_phase_2_action_required(ritual_id=phase_id.ritual_id):
                     self.log.info(
-                        f"No need to resubmit tx: additional action not required for ritual# {phase_id.ritual_id} (status={self.coordinator_agent.get_ritual_status(phase_id.ritual_id)})"
+                        f"No need to resubmit tx: additional action not required for ritual #{phase_id.ritual_id} "
+                        f"(status={self.coordinator_agent.get_ritual_status(phase_id.ritual_id)})"
                     )
                     return
                 async_tx = self.publish_aggregated_transcript(*args)
+            elif phase_id.phase == HANDOVER_AWAITING_TRANSCRIPT:
+                # check status of handover before resubmitting; prevent infinite loops
+                _, departing_validator, _ = *args
+                if not self._is_handover_transcript_required(
+                    ritual_id=phase_id.ritual_id,
+                    departing_validator=departing_validator,
+                ):
+                    self.log.info(
+                        f"No need to resubmit tx: additional action not required for handover in ritual #{phase_id.ritual_id}"
+                    )
+                    return
+                async_tx = self._publish_handover_transcript(*args)
+            elif phase_id.phase == HANDOVER_AWAITING_BLINDED_SHARE:
+                # check status of handover before resubmitting; prevent infinite loops
+                if not self._is_handover_blinded_share_required(
+                    ritual_id=phase_id.ritual_id
+                ):
+                    self.log.info(
+                        f"No need to resubmit tx: additional action not required for handover in ritual #{phase_id.ritual_id}"
+                    )
+                    return
+                async_tx = self._publish_blinded_share_for_handover(*args)
+            else:
+                raise ValueError(
+                    f"Unsupported phase {phase_id.phase} for async tx resubmission"
+                )
 
             self.log.info(
                 f"{self.transacting_power.account[:8]} resubmitted a new async tx {async_tx.id} "
-                f"for DKG ritual #{phase_id.ritual_id}"
+                f"of type {tx_type} for DKG ritual #{phase_id.ritual_id}."
             )
 
         def on_broadcast_failure(tx: FutureTx, e: Exception):
