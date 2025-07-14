@@ -49,6 +49,7 @@ from nucypher.blockchain.eth.interfaces import (
     BlockchainInterfaceFactory,
 )
 from nucypher.blockchain.eth.models import (
+    HANDOVER_AWAITING_BLINDED_SHARE,
     HANDOVER_AWAITING_TRANSCRIPT,
     PHASE1,
     PHASE2,
@@ -890,6 +891,162 @@ class Operator(BaseActor):
         self.log.debug(
             f"{self.transacting_power.account[:8]} created a handover transcript for "
             f"DKG ritual #{ritual_id} and departing validator {departing_participant}."
+        )
+        return async_tx
+
+    def _is_handover_blinded_share_required(self, ritual_id: int) -> bool:
+        """Check whether node needs to post a blind share for handover"""
+
+        # check ritual status from the blockchain
+        dkg_status = self.coordinator_agent.get_ritual_status(ritual_id=ritual_id)
+        if dkg_status != Coordinator.RitualStatus.ACTIVE:
+            self.log.debug(
+                f"ritual #{ritual_id} is not active, handover is not possible; status={dkg_status}."
+            )
+            return False
+
+        handover_request = self.coordinator_agent.get_handover(
+            ritual_id=ritual_id, departing_validator=self.checksum_address
+        )
+
+        if handover_request.departing_validator != self.checksum_address:
+            self.log.debug(
+                f"Handover request for ritual #{ritual_id} is not for this node."
+            )
+            return False
+
+        handover_status = self.coordinator_agent.get_handover_status(
+            ritual_id=ritual_id, departing_validator=self.checksum_address
+        )
+        if (
+            handover_status
+            != Coordinator.HandoverStatus.HANDOVER_AWAITING_BLINDED_SHARE
+        ):
+            self.log.debug(
+                f"ritual #{ritual_id} is not waiting for handover blind share; status={handover_status}."
+            )
+            return False
+
+        return True
+
+    def _produce_blinded_share_for_handover(self, ritual_id: int) -> bytes:
+        if not self._is_handover_blinded_share_required(ritual_id=ritual_id):
+            self.log.debug(
+                f"No action required for handover blinded share for ritual #{ritual_id}"
+            )
+            return
+
+        ritual = self._resolve_ritual(ritual_id)
+        aggregated_transcript = AggregatedTranscript.from_bytes(
+            bytes(ritual.aggregated_transcript)
+        )
+        handover = self.coordinator_agent.get_handover(
+            ritual_id=ritual_id,
+            departing_validator=self.checksum_address,
+        )
+        self.log.debug(
+            f"{self.transacting_power.account[:8]} producing a new blinded share "
+            f"for handover at ritual #{ritual_id}."  # and validator index #{handover.share_index}." # TODO: See ferveo#210
+        )
+
+        handover_transcript = HandoverTranscript.from_bytes(bytes(handover.transcript))
+        try:
+            new_aggregate = self.ritual_power.finalize_handover(
+                aggregated_transcript=aggregated_transcript,
+                handover_transcript=handover_transcript,
+            )
+        except Exception as e:
+            stack_trace = traceback.format_stack()
+            self.log.critical(
+                f"Failed to produce blinded share for ritual #{ritual_id}: {str(e)}\n{stack_trace}"
+            )
+            return
+
+        # extract blinded share from aggregate
+        # TODO: This is a temporary workaround to extract the blinded share
+        # See https://github.com/nucypher/nucypher-contracts/issues/400
+        aggregate_bytes = bytes(new_aggregate)
+
+        # TODO: Workaround to find the share index of the current validator. This was supposed to be
+        # in the handover request, but the rust implementation does not expose it. See ferveo#210
+        for v in self._resolve_validators(ritual):
+            if v.address == self.checksum_address:
+                share_index = v.share_index
+                break
+        else:
+            raise ValueError(
+                f"Validator {self.checksum_address} not found in ritual #{ritual_id} providers."
+            )
+        start = 32 + 48 * ritual.threshold + 96 * share_index
+        length = 96
+        blinded_share = aggregate_bytes[start : start + length]
+        return blinded_share
+
+    def _publish_blinded_share_for_handover(
+        self,
+        ritual_id: int,
+        blinded_share: bytes,
+    ) -> AsyncTx:
+        """Publish a handover blinded share to the Coordinator."""
+        blinded_share = bytes(blinded_share)
+        identifier = PhaseId(ritual_id=ritual_id, phase=HANDOVER_AWAITING_BLINDED_SHARE)
+        async_tx_hooks = self._setup_async_hooks(
+            identifier,
+            ritual_id,
+            blinded_share,
+        )
+
+        async_tx = self.coordinator_agent.post_blinded_share_for_handover(
+            ritual_id=ritual_id,
+            blinded_share=blinded_share,
+            transacting_power=self.transacting_power,
+            async_tx_hooks=async_tx_hooks,
+        )
+        self.dkg_storage.store_ritual_phase_async_tx(
+            phase_id=identifier, async_tx=async_tx
+        )
+        return async_tx
+
+    def perform_handover_blinded_share_phase(
+        self, ritual_id: int, **kwargs
+    ) -> Optional[AsyncTx]:
+
+        if not self._is_handover_blinded_share_required(ritual_id=ritual_id):
+            self.log.debug(
+                f"No action required for handover blinded share for ritual #{ritual_id}"
+            )
+            return
+
+        # check if there is a pending tx for this phase
+        async_tx = self.dkg_storage.get_ritual_phase_async_tx(
+            phase_id=PhaseId(ritual_id, HANDOVER_AWAITING_BLINDED_SHARE)
+        )
+        if async_tx:
+            self.log.info(
+                f"Active handover in progress: {self.transacting_power.account} has submitted tx "
+                f"for ritual #{ritual_id}, blinded share phase, (final: {async_tx.final})."
+            )
+            return async_tx
+
+        try:
+            blinded_share = self._produce_blinded_share_for_handover(
+                ritual_id=ritual_id,
+            )
+        except Exception as e:
+            stack_trace = traceback.format_stack()
+            self.log.critical(
+                f"Failed to produce handover blinded share for ritual #{ritual_id}: {e}\n{stack_trace}"
+            )
+            return
+
+
+        async_tx = self._publish_blinded_share_for_handover(
+            ritual_id=ritual_id,
+            blinded_share=blinded_share,
+        )
+        self.log.debug(
+            f"{self.transacting_power.account[:8]} created a handover blinded share for "
+            f"DKG ritual #{ritual_id}."
         )
         return async_tx
 
