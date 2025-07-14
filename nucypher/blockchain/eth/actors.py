@@ -391,7 +391,6 @@ class Operator(BaseActor):
                 )
             result.append(external_validator)
 
-        result = sorted(result, key=lambda x: x.address)
         self.dkg_storage.store_validators(ritual.id, result)
 
         return result
