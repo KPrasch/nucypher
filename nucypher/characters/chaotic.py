@@ -87,7 +87,7 @@ class DKGOmniscient:
             ]
 
             validators = [
-                ferveo.Validator(checksum_addresses[i], keypair.public_key())
+                ferveo.Validator(checksum_addresses[i], keypair.public_key(), i)
                 for i, keypair in enumerate(validator_keypairs)
             ]
 
@@ -111,13 +111,14 @@ class DKGOmniscient:
             self.validator_keypairs = validator_keypairs
 
             # any validator can generate the same aggregated transcript
-            self.server_aggregate, self.dkg_public_key = dkg.aggregate_transcripts(
+            self.server_aggregate = dkg.aggregate_transcripts(
                 ritual_id=self.tau,
                 me=validators[0],
                 shares=self.shares_num,
                 threshold=self.security_threshold,
-                transcripts=self.transcripts,
+                validator_messages=self.transcripts,
             )
+            self.dkg_public_key = self.server_aggregate.public_key
 
     _dkg_insight = DKGInsight()
 

@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union
+from typing import List, Union
 
 from nucypher_core.ferveo import (
     AggregatedTranscript,
@@ -56,15 +56,16 @@ def derive_public_key(*args, **kwargs) -> DkgPublicKey:
 
 
 def aggregate_transcripts(
-    transcripts: List[Tuple[Validator, Transcript]], shares: int, *args, **kwargs
-) -> Tuple[AggregatedTranscript, DkgPublicKey]:
-    validators = [t[0] for t in transcripts]
+    validator_messages: List[ValidatorMessage], shares: int, *args, **kwargs
+) -> AggregatedTranscript:
+    validators = [vm.validator for vm in validator_messages]
     _dkg = _make_dkg(nodes=validators, shares=shares, *args, **kwargs)
-    validator_msgs = [ValidatorMessage(v[0], v[1]) for v in transcripts]
-    pvss_aggregated = _dkg.aggregate_transcripts(validator_msgs)
-    verify_aggregate(pvss_aggregated, shares, validator_msgs)
-    LOGGER.debug(f"derived final DKG key {bytes(_dkg.public_key).hex()[:10]}")
-    return pvss_aggregated, _dkg.public_key
+    pvss_aggregated = _dkg.aggregate_transcripts(validator_messages)
+    verify_aggregate(pvss_aggregated, shares, validator_messages)
+    LOGGER.debug(
+        f"derived final DKG key {bytes(pvss_aggregated.public_key).hex()[:10]}"
+    )
+    return pvss_aggregated
 
 
 def verify_aggregate(

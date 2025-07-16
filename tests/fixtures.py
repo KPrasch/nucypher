@@ -6,7 +6,6 @@ import tempfile
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Tuple
 from unittest.mock import PropertyMock
 
 import maya
@@ -767,9 +766,9 @@ def ursulas(accounts, ursula_test_config, staking_providers):
 
 
 @pytest.fixture(scope="session")
-def dkg_public_key_data(
+def aggregated_transcript(
     get_random_checksum_address,
-) -> Tuple[AggregatedTranscript, DkgPublicKey]:
+) -> AggregatedTranscript:
     ritual_id = 0
     num_shares = 4
     threshold = 3
@@ -779,12 +778,13 @@ def dkg_public_key_data(
             Validator(
                 address=get_random_checksum_address(),
                 public_key=Keypair.random().public_key(),
+                share_index=i,
             )
         )
 
     validators.sort(key=lambda x: x.address)  # must be sorted
 
-    transcripts = []
+    validator_messages = []
     for validator in validators:
         transcript = dkg.generate_transcript(
             ritual_id=ritual_id,
@@ -793,30 +793,23 @@ def dkg_public_key_data(
             threshold=threshold,
             nodes=validators,
         )
-        transcripts.append((validator, transcript))
+        validator_messages.append(dkg.ValidatorMessage(validator, transcript))
 
-    aggregate_transcript, public_key = dkg.aggregate_transcripts(
+    aggregate_transcript = dkg.aggregate_transcripts(
         ritual_id=ritual_id,
         me=validators[0],
         shares=num_shares,
         threshold=threshold,
-        transcripts=transcripts,
+        validator_messages=validator_messages,
+        nodes=validators,
     )
 
-    return aggregate_transcript, public_key
+    return aggregate_transcript
 
 
 @pytest.fixture(scope="session")
-def dkg_public_key(dkg_public_key_data) -> DkgPublicKey:
-    _, dkg_public_key = dkg_public_key_data
-    return dkg_public_key
-
-
-@pytest.fixture(scope="session")
-def aggregated_transcript(dkg_public_key_data) -> AggregatedTranscript:
-    aggregated_transcript, _ = dkg_public_key_data
-    return aggregated_transcript
-
+def dkg_public_key(aggregated_transcript) -> DkgPublicKey:
+    return aggregated_transcript.public_key
 
 #
 # DKG Ritual Aggregation

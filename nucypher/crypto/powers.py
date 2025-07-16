@@ -18,11 +18,11 @@ from nucypher_core.ferveo import (
     CiphertextHeader,
     DecryptionSharePrecomputed,
     DecryptionShareSimple,
-    DkgPublicKey,
     FerveoVariant,
     HandoverTranscript,
     Transcript,
     Validator,
+    ValidatorMessage,
 )
 from nucypher_core.umbral import PublicKey, SecretKey, SecretKeyFactory, generate_kfrags
 
@@ -271,6 +271,20 @@ class RitualisticPower(KeyPairBasedPower):
         "finalize_handover",
     )
 
+    def __find_me_in_validator_set(
+        self, checksum_address: ChecksumAddress, nodes: List[Validator]
+    ) -> Validator:
+        """
+        Finds the Validator in the list of nodes by checksum address.
+        Raises ValueError if not found.
+        """
+        for node in nodes:
+            if node.address == checksum_address:
+                return node
+        raise ValueError(
+            f"Validator with address {checksum_address} not found in nodes."
+        )
+
     def produce_decryption_share(
         self,
         checksum_address: ChecksumAddress,
@@ -285,7 +299,9 @@ class RitualisticPower(KeyPairBasedPower):
     ) -> Union[DecryptionShareSimple, DecryptionSharePrecomputed]:
         decryption_share = dkg.produce_decryption_share(
             ritual_id=ritual_id,
-            me=Validator(address=checksum_address, public_key=self.keypair.pubkey),
+            me=self.__find_me_in_validator_set(
+                checksum_address=checksum_address, nodes=nodes
+            ),
             shares=shares,
             threshold=threshold,
             nodes=nodes,
@@ -325,7 +341,9 @@ class RitualisticPower(KeyPairBasedPower):
     ) -> Transcript:
         transcript = dkg.generate_transcript(
             ritual_id=ritual_id,
-            me=Validator(address=checksum_address, public_key=self.keypair.pubkey),
+            me=self.__find_me_in_validator_set(
+                checksum_address=checksum_address, nodes=nodes
+            ),
             shares=shares,
             threshold=threshold,
             nodes=nodes
@@ -338,16 +356,19 @@ class RitualisticPower(KeyPairBasedPower):
         checksum_address: ChecksumAddress,
         shares: int,
         threshold: int,
-        transcripts: List[Tuple[Validator, Transcript]],
-    ) -> Tuple[AggregatedTranscript, DkgPublicKey]:
-        aggregated_transcript, dkg_public_key = dkg.aggregate_transcripts(
+        validator_messages: List[ValidatorMessage],
+    ) -> AggregatedTranscript:
+        nodes = [vm.validator for vm in validator_messages]
+        aggregated_transcript = dkg.aggregate_transcripts(
             ritual_id=ritual_id,
-            me=Validator(address=checksum_address, public_key=self.keypair.pubkey),
+            me=self.__find_me_in_validator_set(
+                checksum_address=checksum_address, nodes=nodes
+            ),
             shares=shares,
             threshold=threshold,
-            transcripts=transcripts
+            validator_messages=validator_messages,
         )
-        return aggregated_transcript, dkg_public_key
+        return aggregated_transcript
 
     def finalize_handover(
         self,

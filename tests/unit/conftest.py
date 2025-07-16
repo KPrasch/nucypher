@@ -107,6 +107,7 @@ def random_transcript(get_random_checksum_address):
             Validator(
                 address=get_random_checksum_address(),
                 public_key=Keypair.random().public_key(),
+                share_index=i,
             )
         )
 

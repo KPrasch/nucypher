@@ -27,6 +27,7 @@ from nucypher_core.ferveo import (
     HandoverTranscript,
     Transcript,
     Validator,
+    ValidatorMessage,
 )
 from web3 import HTTPProvider, Web3
 from web3.types import TxReceipt
@@ -369,12 +370,13 @@ class Operator(BaseActor):
             return validators
 
         result = list()
-        for staking_provider_address in ritual.providers:
+        for i, staking_provider_address in enumerate(ritual.providers):
             if self.checksum_address == staking_provider_address:
                 # Local
                 external_validator = Validator(
                     address=self.checksum_address,
                     public_key=self.ritual_power.public_key(),
+                    share_index=i,
                 )
             else:
                 # Remote
@@ -387,7 +389,9 @@ class Operator(BaseActor):
                     f"Ferveo public key for {staking_provider_address} is {bytes(public_key).hex()[:-8:-1]}"
                 )
                 external_validator = Validator(
-                    address=staking_provider_address, public_key=public_key
+                    address=staking_provider_address,
+                    public_key=public_key,
+                    share_index=i,
                 )
             result.append(external_validator)
 
@@ -429,7 +433,7 @@ class Operator(BaseActor):
                 async_tx = self.publish_aggregated_transcript(*args)
             elif phase_id.phase == HANDOVER_AWAITING_TRANSCRIPT:
                 # check status of handover before resubmitting; prevent infinite loops
-                _, departing_validator, _ = *args
+                _, departing_validator, _ = args
                 if not self._is_handover_transcript_required(
                     ritual_id=phase_id.ritual_id,
                     departing_validator=departing_validator,
@@ -753,19 +757,17 @@ class Operator(BaseActor):
         )
         validators = self._resolve_validators(ritual)
 
-        transcripts = (Transcript.from_bytes(bytes(t)) for t in ritual.transcripts)
-        messages = list(zip(validators, transcripts))
+        transcripts = list(Transcript.from_bytes(bytes(t)) for t in ritual.transcripts)
+        messages = [ValidatorMessage(v, t) for v, t in zip(validators, transcripts)]
         try:
-            (
-                aggregated_transcript,
-                dkg_public_key,
-            ) = self.ritual_power.aggregate_transcripts(
+            aggregated_transcript = self.ritual_power.aggregate_transcripts(
                 threshold=ritual.threshold,
                 shares=ritual.shares,
                 checksum_address=self.checksum_address,
                 ritual_id=ritual.id,
-                transcripts=messages,
+                validator_messages=messages,
             )
+            dkg_public_key = aggregated_transcript.public_key
         except Exception as e:
             stack_trace = traceback.format_stack()
             self.log.critical(

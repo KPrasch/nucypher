@@ -13,7 +13,7 @@ import click
 from constant_sorrow.constants import KEYSTORE_LOCKED
 from mnemonic.mnemonic import Mnemonic
 from nucypher_core import SessionSecretFactory
-from nucypher_core.ferveo import Keypair
+from nucypher_core.ferveo import Keypair as FerveoKeypair
 from nucypher_core.umbral import SecretKeyFactory
 
 from nucypher.config.constants import DEFAULT_CONFIG_ROOT
@@ -502,7 +502,7 @@ class Keystore:
 
         elif issubclass(power_class, RitualisticPower):
             keypair_class: RitualisticKeypair = power_class._keypair_class
-            size = Keypair.secure_randomness_size()
+            size = FerveoKeypair.secure_randomness_size()
             blob = __skf.make_secret(info)[:size]
             keypair = keypair_class.from_secure_randomness(blob)
             power = power_class(keypair=keypair, *power_args, **power_kwargs)
