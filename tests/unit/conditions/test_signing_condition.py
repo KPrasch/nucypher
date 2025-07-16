@@ -3,17 +3,24 @@ import json
 import random
 
 import pytest
+from ecdsa import SECP256k1, SigningKey
+from ecdsa.util import sigencode_string
 from web3 import Web3
 
+from nucypher.policy.conditions.ecdsa import ECDSACondition, ECDSAVerificationCall
 from nucypher.policy.conditions.exceptions import (
     InvalidCondition,
     InvalidContextVariableData,
     RequiredContextVariable,
 )
+from nucypher.policy.conditions.json.api import JsonApiCondition
+from nucypher.policy.conditions.json.auth import AuthorizationType
 from nucypher.policy.conditions.lingo import (
     ConditionLingo,
     ConditionType,
+    ConditionVariable,
     ReturnValueTest,
+    SequentialCondition,
 )
 from nucypher.policy.conditions.signing.base import (
     SIGNING_CONDITION_OBJECT_CONTEXT_VAR,
@@ -848,3 +855,147 @@ def test_signing_object_abi_attribute_condition_lingo_json_serialization(
         providers=condition_provider_manager, **context
     )
     assert allowed is True
+
+
+def test_signing_restriction_based_points_value_from_rest_endpoint(
+    mocker, get_random_checksum_address, condition_provider_manager
+):
+    expected_points = 5600
+
+    endpoint_points_response = {
+        "servers": [
+            {
+                "_id": "676b6ccacc9470b8185bd111",
+                "guildId": "1215232680942374912",
+                "points": expected_points,
+                "guildName": "Gaia 🌱",
+            },
+            {
+                "_id": "67792e00cc9470b81880a848",
+                "guildId": "1209630079936630824",
+                "points": 4410,
+                "guildName": "Sahara AI Official",
+            },
+            {
+                "_id": "675fa592cc9470b818e681bd",
+                "guildId": "1004724463658618910",
+                "points": 0,
+                "guildName": "Chromia Lounge",
+            },
+        ],
+        "usage": 1,
+        "limit": 2000,
+    }
+
+    mocked_get = mocker.patch(
+        "requests.get",
+        return_value=mocker.Mock(
+            status_code=200, json=lambda: endpoint_points_response
+        ),
+    )
+
+    # JSON conditions
+    json_condition = JsonApiCondition(
+        endpoint="https://www.engages.io/api/v1/points",
+        query="$.servers[?(@.guildId==1215232680942374912)].points",
+        authorization_token=":authToken",
+        authorization_type=AuthorizationType.X_API_KEY,
+        return_value_test=ReturnValueTest(">", 0),
+    )
+
+    # ECDSA condition
+    # random signing key (a bot will have one of their own)
+    signing_key = SigningKey.generate(curve=SECP256k1)
+    verifying_key = signing_key.verifying_key
+
+    # the bot will sign a message
+    test_message = b"This is a test message for ECDSA verification"
+    test_signature = signing_key.sign(
+        test_message,
+        hashfunc=ECDSAVerificationCall._hash_func,
+        sigencode=sigencode_string,
+    )
+    ecdsa_condition = ECDSACondition(
+        message=":bytes:ecdsaMessage",
+        signature=":ecdsaSignature",
+        verifying_key=verifying_key.to_string().hex(),
+        curve=SECP256k1.name,
+    )
+
+    # Signing ABI condition
+    erc20_token_address = get_random_checksum_address()
+    amount = expected_points
+
+    signing_abi_condition = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            allowed_abi_calls={
+                "execute(address,uint256,bytes)": [
+                    # only allow specific token address
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        return_value_test=ReturnValueTest("==", erc20_token_address),
+                    ),
+                    AbiParameterValidation(
+                        parameter_index=2,
+                        nested_abi_validation=AbiCallValidation(
+                            allowed_abi_calls={
+                                "transfer(address,uint256)": [
+                                    AbiParameterValidation(
+                                        parameter_index=1,
+                                        return_value_test=ReturnValueTest(
+                                            # TODO expectation is that points is already in wei
+                                            #  (can't do ether -> wei conversion as part of condition)
+                                            "==",
+                                            ":points",
+                                        ),
+                                    ),
+                                ]
+                            }
+                        ),
+                    ),
+                ]
+            }
+        ),
+    )
+
+    sequential_condition = SequentialCondition(
+        condition_variables=[
+            ConditionVariable(var_name="ecdsa", condition=ecdsa_condition),
+            ConditionVariable(var_name="points", condition=json_condition),
+            ConditionVariable(var_name="signingAbi", condition=signing_abi_condition),
+        ]
+    )
+
+    # create user operation based on values (this would be done by the bot)
+    user_op = create_erc20_transfer(
+        sender=get_random_checksum_address(),
+        nonce=76,
+        token=erc20_token_address,
+        to=get_random_checksum_address(),
+        amount=amount,
+    )
+
+    # create context for conditions (application-specific
+    # logic for getting token and adding to context)
+    context = {
+        ":authToken": "1234567890abcdef",
+        ":bytes:ecdsaMessage": test_message.hex(),
+        ":ecdsaSignature": test_signature.hex(),
+        SIGNING_CONDITION_OBJECT_CONTEXT_VAR: user_op,
+    }
+
+    # verify sequential condition
+    allowed, values = sequential_condition.verify(
+        providers=condition_provider_manager, **context
+    )
+
+    assert allowed is True
+    assert values == [
+        True,
+        expected_points,
+        # TODO: in abi encoding, address values are lowercase hence the
+        #  return value of parameter check from condition is lowercase
+        [erc20_token_address.lower(), [expected_points]],
+    ]
+    assert mocked_get.call_count == 1
