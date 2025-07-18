@@ -125,12 +125,16 @@ class JsonRequestCall(ExecutionCall, ABC):
                 f"JSONPath error: {jsonpath_err}"
             ) from jsonpath_err
 
-        if len(matches) > 1:
-            message = f"Ambiguous JSONPath query - multiple matches found for: {resolved_query}"
-            self.logger.info(message)
-            raise JsonRequestException(message)
+        # if len(matches) > 1:
+        #     message = f"Ambiguous JSONPath query - multiple matches found for: {resolved_query}"
+        #     self.logger.info(message)
+        #     raise JsonRequestException(message)
 
-        result = matches[0].value
+        if len(matches) > 1:
+            result = [match.value for match in matches]
+        else:
+            result = matches[0].value
+
         return result
 
 

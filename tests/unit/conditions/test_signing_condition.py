@@ -21,6 +21,8 @@ from nucypher.policy.conditions.lingo import (
     ConditionVariable,
     ReturnValueTest,
     SequentialCondition,
+    VariableOperation,
+    VariableOperations,
 )
 from nucypher.policy.conditions.signing.base import (
     SIGNING_CONDITION_OBJECT_CONTEXT_VAR,
@@ -860,14 +862,14 @@ def test_signing_object_abi_attribute_condition_lingo_json_serialization(
 def test_signing_restriction_based_points_value_from_rest_endpoint(
     mocker, get_random_checksum_address, condition_provider_manager
 ):
-    expected_points = 5600
+    expected_total_points = 5600 + 4410 + 0  # sum of points from the mocked response
 
     endpoint_points_response = {
         "servers": [
             {
                 "_id": "676b6ccacc9470b8185bd111",
                 "guildId": "1215232680942374912",
-                "points": expected_points,
+                "points": 5600,
                 "guildName": "Gaia 🌱",
             },
             {
@@ -897,10 +899,18 @@ def test_signing_restriction_based_points_value_from_rest_endpoint(
     # JSON conditions
     json_condition = JsonApiCondition(
         endpoint="https://www.engages.io/api/v1/points",
-        query="$.servers[?(@.guildId==1215232680942374912)].points",
+        query="$.servers[*].points",
         authorization_token=":authToken",
         authorization_type=AuthorizationType.X_API_KEY,
-        return_value_test=ReturnValueTest(">", 0),
+        return_value_test=ReturnValueTest(
+            comparator=">",
+            value=0,
+            operations=VariableOperations(
+                operations=[
+                    VariableOperation(operation="sum"),  # sum all points
+                ]
+            ),
+        ),
     )
 
     # ECDSA condition
@@ -924,7 +934,7 @@ def test_signing_restriction_based_points_value_from_rest_endpoint(
 
     # Signing ABI condition
     erc20_token_address = get_random_checksum_address()
-    amount = expected_points
+    amount = expected_total_points * (10**18)
 
     signing_abi_condition = SigningObjectAbiAttributeCondition(
         attribute_name="call_data",
@@ -962,7 +972,18 @@ def test_signing_restriction_based_points_value_from_rest_endpoint(
     sequential_condition = SequentialCondition(
         condition_variables=[
             ConditionVariable(var_name="ecdsa", condition=ecdsa_condition),
-            ConditionVariable(var_name="points", condition=json_condition),
+            ConditionVariable(
+                var_name="points",
+                condition=json_condition,
+                operations=VariableOperations(
+                    [
+                        VariableOperation(operation="sum"),
+                        VariableOperation(
+                            operation="*=", value=10**18
+                        ),  # convert to wei
+                    ]
+                ),
+            ),
             ConditionVariable(var_name="signingAbi", condition=signing_abi_condition),
         ]
     )
@@ -993,9 +1014,9 @@ def test_signing_restriction_based_points_value_from_rest_endpoint(
     assert allowed is True
     assert values == [
         True,
-        expected_points,
+        [5600, 4410, 0],  # points from the mocked response,
         # TODO: in abi encoding, address values are lowercase hence the
         #  return value of parameter check from condition is lowercase
-        [erc20_token_address.lower(), [expected_points]],
+        [erc20_token_address.lower(), [amount]],
     ]
     assert mocked_get.call_count == 1
