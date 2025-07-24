@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import pytest_twisted
 from eth_utils import keccak
@@ -6,6 +8,7 @@ from twisted.internet import reactor
 from twisted.internet.task import deferLater
 
 from nucypher.blockchain.eth.agents import CoordinatorAgent
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.blockchain.eth.models import Coordinator
 from nucypher.crypto.powers import TransactingPower
 from tests.utils.dkg import generate_fake_ritual_transcript, threshold_from_shares
@@ -36,12 +39,22 @@ def cohort_ursulas(cohort, taco_application_agent):
     return ursulas_for_cohort
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def transacting_powers(accounts, cohort_ursulas):
     return [
         TransactingPower(account=ursula, signer=accounts.get_account_signer(ursula))
         for ursula in cohort_ursulas
     ]
+
+
+@pytest.fixture(scope="module")
+def incoming_validator(staking_providers):
+    return staking_providers[3]
+
+
+@pytest.fixture(scope="module")
+def departing_validator(cohort):
+    return cohort[0]
 
 
 def test_coordinator_properties(agent):
@@ -243,3 +256,280 @@ def test_post_aggregation(
 
     ritual_dkg_key = agent.get_ritual_public_key(ritual_id=ritual_id)
     assert bytes(ritual_dkg_key) == bytes(dkg_public_key)
+
+
+@pytest.mark.usefixtures("ursulas")
+def test_request_handover(
+    accounts,
+    agent,
+    testerchain,
+    incoming_validator,
+    departing_validator,
+    supervisor_transacting_power,
+):
+    ritual_id = agent.number_of_rituals() - 1
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.NON_INITIATED
+
+    receipt = agent.request_handover(
+        ritual_id=ritual_id,
+        departing_validator=departing_validator,
+        incoming_validator=incoming_validator,
+        transacting_power=supervisor_transacting_power,
+    )
+
+    assert receipt["status"] == 1
+    handover_events = agent.contract.events.HandoverRequest().process_receipt(receipt)
+    handover_event = handover_events[0]
+    assert handover_event["args"]["ritualId"] == ritual_id
+    assert handover_event["args"]["incomingParticipant"] == incoming_validator
+    assert handover_event["args"]["departingParticipant"] == departing_validator
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.HANDOVER_AWAITING_TRANSCRIPT
+
+    handover = agent.get_handover(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover.departing_validator == departing_validator
+    assert handover.incoming_validator == incoming_validator
+    assert handover.transcript == b""  # no transcript available yet
+    assert (
+        handover.decryption_request_pubkey == b""
+    )  # no decryption request pubkey available yet
+    assert handover.blinded_share == b""  # no blinded share available yet
+    assert handover.key == agent.get_handover_key(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+
+
+@pytest_twisted.inlineCallbacks
+def test_post_handover_transcript(
+    agent,
+    accounts,
+    transacting_powers,
+    testerchain,
+    clock,
+    mock_async_hooks,
+    departing_validator,
+    incoming_validator,
+    taco_application_agent,
+):
+    ritual_id = agent.number_of_rituals() - 1
+
+    transcript = os.urandom(32)  # Randomly generated transcript for testing
+    participant_public_key = SessionStaticSecret.random().public_key()
+
+    operator = taco_application_agent.get_operator_from_staking_provider(
+        incoming_validator
+    )
+    incoming_operator_transacting_power = TransactingPower(
+        account=operator,
+        signer=accounts.get_account_signer(operator),
+    )
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.HANDOVER_AWAITING_TRANSCRIPT
+
+    async_tx = agent.post_handover_transcript(
+        ritual_id=ritual_id,
+        departing_validator=departing_validator,
+        handover_transcript=transcript,
+        participant_public_key=participant_public_key,
+        transacting_power=incoming_operator_transacting_power,
+        async_tx_hooks=mock_async_hooks,
+    )
+
+    testerchain.tx_machine.start()
+    while not async_tx.final:
+        yield clock.advance(testerchain.tx_machine._task.interval)
+    testerchain.tx_machine.stop()
+
+    post_transcript_events = (
+        agent.contract.events.HandoverTranscriptPosted().process_receipt(
+            async_tx.receipt
+        )
+    )
+    handover_event = post_transcript_events[0]
+    assert handover_event["args"]["ritualId"] == ritual_id
+    assert handover_event["args"]["incomingParticipant"] == incoming_validator
+    assert handover_event["args"]["departingParticipant"] == departing_validator
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.HANDOVER_AWAITING_BLINDED_SHARE
+
+    # ensure relevant hooks are called (once for each tx) OR not called (failure ones)
+    yield deferLater(reactor, 0.2, lambda: None)
+    assert mock_async_hooks.on_broadcast.call_count == 1
+    assert mock_async_hooks.on_finalized.call_count == 1
+    assert async_tx.successful is True
+
+    # failure hooks not called
+    assert mock_async_hooks.on_broadcast_failure.call_count == 0
+    assert mock_async_hooks.on_fault.call_count == 0
+    assert mock_async_hooks.on_insufficient_funds.call_count == 0
+
+    # check proper state
+    handover = agent.get_handover(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover.departing_validator == departing_validator
+    assert handover.incoming_validator == incoming_validator
+    assert handover.transcript == transcript
+    assert handover.decryption_request_pubkey == bytes(participant_public_key)
+    assert handover.blinded_share == b""  # no blinded share available yet
+    assert handover.key == agent.get_handover_key(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+
+
+@pytest_twisted.inlineCallbacks
+def test_post_blinded_share(
+    agent,
+    accounts,
+    transacting_powers,
+    testerchain,
+    clock,
+    mock_async_hooks,
+    departing_validator,
+    incoming_validator,
+    taco_application_agent,
+):
+    ritual_id = agent.number_of_rituals() - 1
+
+    blinded_share = os.urandom(96)  # Randomly generated bytes for testing
+
+    operator = taco_application_agent.get_operator_from_staking_provider(
+        departing_validator
+    )
+    departing_operator_transacting_power = TransactingPower(
+        account=operator,
+        signer=accounts.get_account_signer(operator),
+    )
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.HANDOVER_AWAITING_BLINDED_SHARE
+
+    async_tx = agent.post_blinded_share_for_handover(
+        ritual_id=ritual_id,
+        blinded_share=blinded_share,
+        transacting_power=departing_operator_transacting_power,
+        async_tx_hooks=mock_async_hooks,
+    )
+
+    testerchain.tx_machine.start()
+    while not async_tx.final:
+        yield clock.advance(testerchain.tx_machine._task.interval)
+    testerchain.tx_machine.stop()
+
+    events = agent.contract.events.BlindedSharePosted().process_receipt(
+        async_tx.receipt
+    )
+    handover_event = events[0]
+    assert handover_event["args"]["ritualId"] == ritual_id
+    assert handover_event["args"]["departingParticipant"] == departing_validator
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.HANDOVER_AWAITING_FINALIZATION
+
+    # ensure relevant hooks are called (once for each tx) OR not called (failure ones)
+    yield deferLater(reactor, 0.2, lambda: None)
+    assert mock_async_hooks.on_broadcast.call_count == 1
+    assert mock_async_hooks.on_finalized.call_count == 1
+    assert async_tx.successful is True
+
+    # failure hooks not called
+    assert mock_async_hooks.on_broadcast_failure.call_count == 0
+    assert mock_async_hooks.on_fault.call_count == 0
+    assert mock_async_hooks.on_insufficient_funds.call_count == 0
+
+    # check proper state
+    handover = agent.get_handover(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover.departing_validator == departing_validator
+    assert handover.incoming_validator == incoming_validator
+    assert handover.blinded_share == blinded_share
+
+
+@pytest.mark.usefixtures("ursulas")
+def test_finalize_handover(
+    accounts,
+    agent,
+    testerchain,
+    incoming_validator,
+    departing_validator,
+    supervisor_transacting_power,
+):
+    ritual_id = agent.number_of_rituals() - 1
+    ritual = agent.get_ritual(ritual_id)
+    old_aggregated_transcript = ritual.aggregated_transcript
+    blinded_share = agent.get_handover(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    ).blinded_share
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.HANDOVER_AWAITING_FINALIZATION
+
+    receipt = agent.finalize_handover(
+        ritual_id=ritual_id,
+        departing_validator=departing_validator,
+        transacting_power=supervisor_transacting_power,
+    )
+
+    assert receipt["status"] == 1
+    handover_events = agent.contract.events.HandoverFinalized().process_receipt(receipt)
+    handover_event = handover_events[0]
+    assert handover_event["args"]["ritualId"] == ritual_id
+    assert handover_event["args"]["incomingParticipant"] == incoming_validator
+    assert handover_event["args"]["departingParticipant"] == departing_validator
+
+    handover_status = agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover_status == Coordinator.HandoverStatus.NON_INITIATED
+
+    handover = agent.get_handover(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    # The handover model still contains key data
+    assert handover.key == agent.get_handover_key(
+        ritual_id=ritual_id, departing_validator=departing_validator
+    )
+    assert handover.departing_validator == departing_validator
+    # Remaining data should be empty, though
+    assert handover.incoming_validator == NULL_ADDRESS
+    assert handover.transcript == b""
+    assert handover.decryption_request_pubkey == b""
+    assert handover.blinded_share == b""
+
+    # Now let's check that agggregate transcript has been updated
+    ritual = agent.get_ritual(ritual_id)
+    new_aggregated_transcript = ritual.aggregated_transcript
+    assert new_aggregated_transcript != old_aggregated_transcript
+
+    index = 0
+    threshold = 2
+    blind_share_position = 32 + index * 96 + threshold * 48
+
+    old_aggregate_with_blinded_share = (
+        old_aggregated_transcript[:blind_share_position]
+        + blinded_share
+        + old_aggregated_transcript[blind_share_position + 96 :]
+    )
+    assert old_aggregate_with_blinded_share == new_aggregated_transcript

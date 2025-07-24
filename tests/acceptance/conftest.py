@@ -13,6 +13,7 @@ from nucypher.blockchain.eth.agents import (
 )
 from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
 from nucypher.blockchain.eth.registry import ContractRegistry, RegistrySourceManager
+from nucypher.crypto.powers import TransactingPower
 from nucypher.utilities.logging import Logger
 from tests.constants import (
     BONUS_TOKENS_FOR_TESTS,
@@ -261,6 +262,24 @@ def fee_model(nucypher_dependency, deployer_account, coordinator, ritual_token):
     coordinator.approveFeeModel(contract.address, sender=deployer_account)
 
     return contract
+
+
+@pytest.fixture(scope="module")
+def handover_supervisor(deployer_account, coordinator):
+    coordinator.grantRole(
+        coordinator.HANDOVER_SUPERVISOR_ROLE(),
+        deployer_account.address,
+        sender=deployer_account,
+    )
+    return deployer_account
+
+
+@pytest.fixture(scope="module")
+def supervisor_transacting_power(handover_supervisor, accounts):
+    return TransactingPower(
+        account=handover_supervisor.address,
+        signer=accounts.get_account_signer(handover_supervisor.address),
+    )
 
 
 @pytest.fixture(scope="module")
