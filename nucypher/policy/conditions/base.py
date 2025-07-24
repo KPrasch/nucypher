@@ -100,8 +100,8 @@ class Condition(_Serializable, ABC):
 
 
 class MultiCondition(Condition):
-    MAX_NUM_CONDITIONS = 5
-    MAX_MULTI_CONDITION_NESTED_LEVEL = 2
+    MAX_NUM_CONDITIONS = 10
+    MAX_MULTI_CONDITION_NESTED_LEVEL = 3
 
     @property
     @abstractmethod

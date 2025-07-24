@@ -1,5 +1,6 @@
 from enum import Enum
 
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.policy.conditions.evm import ContractCondition
 from nucypher.policy.conditions.lingo import (
     ConditionVariable,
@@ -15,6 +16,7 @@ from nucypher.policy.conditions.signing.base import (
     SigningObjectAbiAttributeCondition,
 )
 from tests.constants import TESTERCHAIN_CHAIN_ID
+from tests.utils.erc4337 import encode_function_call
 
 
 class IntentState(Enum):
@@ -33,9 +35,16 @@ class OrderState(Enum):
 
 
 def test_bridge_fulfiller_execute_intent_condition(
-    orderbook_contract, condition_providers
+    mocker, orderbook_contract, condition_providers, get_random_checksum_address
 ):
     """Test the complete bridge fulfiller execute intent condition using OrderBook contract."""
+
+    call_data = encode_function_call(
+        "executeIntent(uint256,address)", [1, get_random_checksum_address()]
+    )
+    signing_object = mocker.Mock()
+    signing_object.call_data = bytes(call_data)
+    context = {SIGNING_CONDITION_OBJECT_CONTEXT_VAR: signing_object}
 
     #
     # fulfiller for UserOp for executing the intent
@@ -76,7 +85,7 @@ def test_bridge_fulfiller_execute_intent_condition(
                         "stateMutability": "view",
                     },
                     method="getOrderID",
-                    parameters=":intentID",
+                    parameters=[":intentID"],
                     return_value_test=ReturnValueTest(comparator=">=", value=0),
                 ),
             ),
@@ -137,7 +146,9 @@ def test_bridge_fulfiller_execute_intent_condition(
                     },
                     method="getIntent",
                     parameters=[":intentID"],
-                    return_value_test=ReturnValueTest(comparator="!=", value=None),
+                    return_value_test=ReturnValueTest(
+                        comparator="!=", value=[NULL_ADDRESS, 0]
+                    ),
                 ),
             ),
             ConditionVariable(
@@ -157,7 +168,9 @@ def test_bridge_fulfiller_execute_intent_condition(
                     },
                     method="getOrder",
                     parameters=[":orderID"],
-                    return_value_test=ReturnValueTest(comparator="!=", value=None),
+                    return_value_test=ReturnValueTest(
+                        comparator="!=", value=[NULL_ADDRESS, 0]
+                    ),
                 ),
             ),
             ConditionVariable(
@@ -180,6 +193,12 @@ def test_bridge_fulfiller_execute_intent_condition(
             ),
         ]
     )
+
+    # Verify the condition
+    allowed, result = fulfiller_execute_intent_condition.verify(
+        providers=condition_providers, **context
+    )
+    assert allowed is True, f"Condition should be allowed, but got result: {result}"
 
     print("Bridge fulfiller execute intent condition created successfully")
     print(f"OrderBook contract address: {orderbook_contract.address}")
@@ -250,6 +269,10 @@ def test_bridge_fulfiller_claim_condition(orderbook_contract, condition_provider
             ),
         ]
     )
+
+    # Verify the condition
+    allowed, result = fulfiller_claim_condition.verify(providers=condition_providers)
+    assert allowed is True, f"Condition should be allowed, but got result: {result}"
 
     print("Bridge fulfiller claim condition created successfully")
     print(f"OrderBook contract address: {orderbook_contract.address}")

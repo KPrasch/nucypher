@@ -1,14 +1,12 @@
 import copy
 import json
 import random
-from enum import Enum
 
 import pytest
 from ecdsa import SECP256k1, SigningKey
 from ecdsa.util import sigencode_string
 from web3 import Web3
 
-from nucypher.policy.conditions.evm import ContractCondition
 from nucypher.policy.conditions.ecdsa import ECDSACondition, ECDSAVerificationCall
 from nucypher.policy.conditions.exceptions import (
     InvalidCondition,
@@ -22,7 +20,6 @@ from nucypher.policy.conditions.lingo import (
     ConditionType,
     ConditionVariable,
     ReturnValueTest,
-    SequentialCondition,
     SequentialCondition,
     VariableOperation,
     VariableOperations,
