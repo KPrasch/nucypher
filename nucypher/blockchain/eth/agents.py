@@ -874,6 +874,24 @@ class CoordinatorAgent(EthereumContractAgent):
         return async_tx
 
     @contract_api(TRANSACTION)
+    def request_handover(
+        self,
+        ritual_id: int,
+        departing_validator: ChecksumAddress,
+        incoming_validator: ChecksumAddress,
+        transacting_power: TransactingPower,
+    ) -> TxReceipt:
+        contract_function: ContractFunction = self.contract.functions.handoverRequest(
+            ritualId=ritual_id,
+            departingParticipant=departing_validator,
+            incomingParticipant=incoming_validator,
+        )
+        receipt = self.blockchain.send_transaction(
+            contract_function=contract_function, transacting_power=transacting_power
+        )
+        return receipt
+
+    @contract_api(TRANSACTION)
     def post_handover_transcript(
         self,
         ritual_id: int,
@@ -920,6 +938,38 @@ class CoordinatorAgent(EthereumContractAgent):
             info={"ritual_id": ritual_id, "phase": HANDOVER_AWAITING_BLINDED_SHARE},
         )
         return async_tx
+
+    @contract_api(TRANSACTION)
+    def finalize_handover(
+        self,
+        ritual_id: int,
+        departing_validator: ChecksumAddress,
+        transacting_power: TransactingPower,
+    ) -> TxReceipt:
+        contract_function: ContractFunction = self.contract.functions.finalizeHandover(
+            ritualId=ritual_id,
+            departingParticipant=departing_validator,
+        )
+        receipt = self.blockchain.send_transaction(
+            contract_function=contract_function, transacting_power=transacting_power
+        )
+        return receipt
+
+    @contract_api(TRANSACTION)
+    def cancel_handover(
+        self,
+        ritual_id: int,
+        departing_validator: ChecksumAddress,
+        transacting_power: TransactingPower,
+    ) -> TxReceipt:
+        contract_function: ContractFunction = self.contract.functions.cancelHandover(
+            ritualId=ritual_id,
+            departingParticipant=departing_validator,
+        )
+        receipt = self.blockchain.send_transaction(
+            contract_function=contract_function, transacting_power=transacting_power
+        )
+        return receipt
 
     @contract_api(CONTRACT_CALL)
     def get_ritual_id_from_public_key(self, public_key: DkgPublicKey) -> int:
