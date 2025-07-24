@@ -163,16 +163,11 @@ def eip1271_contract_wallet(project, deployer_account):
 
 
 @pytest.fixture
-def bridge_destination_contract(project, deployer_account):
-    """Deploy the bridge destination contract for testing."""
-    _bridge_destination_contract = deployer_account.deploy(
-        project.BridgeDestinationContract
+def orderbook_contract(project, deployer_account):
+    """Deploy the OrderBook contract for testing."""
+    threshold_signer = deployer_account.address
+    max_timeout = 86400  # 24 hours in seconds
+    _orderbook_contract = deployer_account.deploy(
+        project.OrderBook, threshold_signer, max_timeout
     )
-    return _bridge_destination_contract
-
-
-@pytest.fixture
-def bridge_origin_contract(project, deployer_account):
-    """Deploy the bridge origin contract for testing."""
-    _bridge_origin_contract = deployer_account.deploy(project.BridgeOriginContract)
-    return _bridge_origin_contract
+    return _orderbook_contract
