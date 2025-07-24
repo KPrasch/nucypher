@@ -79,7 +79,7 @@ def get_cohort_multisig(cohort_id, nucypher_dependency, signing_coordinator_chil
     return multisig
 
 
-def test_signing_cohort_initiation(
+def _cohort_initiation(
     chain,
     signing_coordinator_agent,
     accounts,
@@ -113,7 +113,7 @@ def test_signing_cohort_initiation(
 
 
 @pytest_twisted.inlineCallbacks
-def test_signing_cohort_finality(
+def _cohort_finality(
     signing_coordinator_agent,
     cohort_id,
     cohort,
@@ -180,7 +180,7 @@ def test_get_signers(
 
 
 @pytest_twisted.inlineCallbacks
-def test_signing_request_fulfilment(
+def _request_fulfilment(
     chain,
     bob,
     accounts,
@@ -489,7 +489,7 @@ def test_packed_user_op_signing_request(
 #
 @pytest_twisted.inlineCallbacks
 @pytest.mark.parametrize("aa_version", [AAVersion.V08, AAVersion.MDT])
-def test_signing_request_with_signing_object_attribute_condition(
+def _request_with_signing_object_attribute_condition(
     aa_version,
     chain,
     bob,

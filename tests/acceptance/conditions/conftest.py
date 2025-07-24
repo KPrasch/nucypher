@@ -160,3 +160,19 @@ def eip1271_contract_wallet(project, deployer_account):
         project.SmartContractWallet, deployer_account.address
     )
     return _eip1271_contract_wallet
+
+
+@pytest.fixture
+def bridge_destination_contract(project, deployer_account):
+    """Deploy the bridge destination contract for testing."""
+    _bridge_destination_contract = deployer_account.deploy(
+        project.BridgeDestinationContract
+    )
+    return _bridge_destination_contract
+
+
+@pytest.fixture
+def bridge_origin_contract(project, deployer_account):
+    """Deploy the bridge origin contract for testing."""
+    _bridge_origin_contract = deployer_account.deploy(project.BridgeOriginContract)
+    return _bridge_origin_contract
