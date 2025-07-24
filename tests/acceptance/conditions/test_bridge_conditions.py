@@ -1,4 +1,3 @@
-import pytest
 from enum import Enum
 
 from nucypher.policy.conditions.evm import ContractCondition
@@ -6,6 +5,8 @@ from nucypher.policy.conditions.lingo import (
     ConditionVariable,
     ReturnValueTest,
     SequentialCondition,
+    VariableOperation,
+    VariableOperations,
 )
 from nucypher.policy.conditions.signing.base import (
     SIGNING_CONDITION_OBJECT_CONTEXT_VAR,
@@ -55,6 +56,11 @@ def test_bridge_fulfiller_execute_intent_condition(
                             ]
                         }
                     ),
+                ),
+                operations=VariableOperations(
+                    [
+                        VariableOperation(operation="index", value=0),
+                    ]
                 ),
             ),  # intentId -> [ID]
             ConditionVariable(

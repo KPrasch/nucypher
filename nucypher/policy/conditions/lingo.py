@@ -302,6 +302,11 @@ _OPERATOR_FUNCTIONS = {
     "/=": pyoperator.truediv,
     "%=": pyoperator.mod,
     "^=": pyoperator.pow,
+    "index": lambda a, b: (
+        a[b]
+        if isinstance(a, list)
+        else _raise_operator_value_error(f"{a} is not a list")
+    ),
     # operations that don't require 2nd value, keep parameter for simplistic consistency
     "sum": lambda a, _: (
         sum(a)
