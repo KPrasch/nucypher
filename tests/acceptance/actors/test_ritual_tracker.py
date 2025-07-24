@@ -596,7 +596,7 @@ def test_get_participation_state_purge_expired_cache_entries(
         ActiveRitualTracker._RITUAL_TIMEOUT_ADDITIONAL_TTL_BUFFER
     )
 
-    with patch.object(agent, "get_timeout", return_value=faked_ritual_timeout):
+    with patch.object(agent, "get_dkg_timeout", return_value=faked_ritual_timeout):
         # fake timeout only needed for initialization
         active_ritual_tracker = ActiveRitualTracker(operator=ursula)
 

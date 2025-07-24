@@ -22,7 +22,7 @@ def ritualist(ursulas, mock_coordinator_agent) -> Operator:
     ursula = ursulas[0]
     mocked_agent = Mock(spec=CoordinatorAgent)
     mocked_agent.contract = mock_coordinator_agent.contract
-    mocked_agent.get_timeout.return_value = 60  # 60s
+    mocked_agent.get_dkg_timeout.return_value = 60  # 60s
     mocked_blockchain = Mock()
     mocked_agent.blockchain = mocked_blockchain
     mocked_w3 = Mock()
@@ -79,7 +79,7 @@ def test_first_scan_start_block_calc_is_perfect(ritualist):
     sample_base_block_number = latest_block_number - sample_window
     # timeout
     ritual_timeout = 60 * 60 * 24  # 24 hours
-    mocked_agent.get_timeout.return_value = ritual_timeout
+    mocked_agent.get_dkg_timeout.return_value = ritual_timeout
     target_average_block_time = 8  # 8s block time
     sample_base_block_timestamp = now.subtract(
         seconds=target_average_block_time * sample_window
@@ -146,7 +146,7 @@ def test_first_scan_start_block_calc_is_not_perfect_go_back_more_blocks(ritualis
     sample_base_block_number = latest_block_number - sample_window
     # timeout
     ritual_timeout = 60 * 60 * 24  # 24 hours
-    mocked_agent.get_timeout.return_value = ritual_timeout
+    mocked_agent.get_dkg_timeout.return_value = ritual_timeout
 
     target_average_block_time = 12  # 12s block tim4e
     sample_base_block_timestamp = now.subtract(

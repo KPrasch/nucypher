@@ -145,7 +145,7 @@ class ActiveRitualTracker:
         self.task = EventScannerTask(scanner=self.scan)
 
         cache_ttl = (
-            self.coordinator_agent.get_timeout()
+            self.coordinator_agent.get_dkg_timeout()
             + self._RITUAL_TIMEOUT_ADDITIONAL_TTL_BUFFER
         )
         self._participation_states = TTLCache(
@@ -173,7 +173,7 @@ class ActiveRitualTracker:
         Returns the block number to start scanning for events from.
         """
         w3 = self.web3
-        timeout = self.coordinator_agent.get_timeout()
+        timeout = self.coordinator_agent.get_dkg_timeout()
 
         latest_block = w3.eth.get_block("latest")
         if latest_block.number == 0:

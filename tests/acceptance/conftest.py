@@ -49,7 +49,8 @@ PENALTY_DURATION = ONE_DAY  # 1 day in seconds
 
 
 # Coordinator
-TIMEOUT = 3600
+DKG_TIMEOUT = 3600
+HANDOVER_TIMEOUT = 1800
 MAX_DKG_SIZE = 8
 FEE_RATE = 1
 
@@ -220,10 +221,12 @@ def coordinator(
     _coordinator = deployer_account.deploy(
         nucypher_dependency.Coordinator,
         taco_child_application.address,
+        DKG_TIMEOUT,
+        HANDOVER_TIMEOUT,
     )
 
     encoded_initializer_function = _coordinator.initialize.encode_input(
-        TIMEOUT, MAX_DKG_SIZE, deployer_account.address
+        MAX_DKG_SIZE, deployer_account.address
     )
     proxy = deployer_account.deploy(
         oz_dependency.TransparentUpgradeableProxy,

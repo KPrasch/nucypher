@@ -572,8 +572,8 @@ class CoordinatorAgent(EthereumContractAgent):
     contract_name: str = "Coordinator"
 
     @contract_api(CONTRACT_CALL)
-    def get_timeout(self) -> int:
-        return self.contract.functions.timeout().call()
+    def get_dkg_timeout(self) -> int:
+        return self.contract.functions.dkgTimeout().call()
 
     @contract_api(CONTRACT_CALL)
     def get_ritual_status(self, ritual_id: int) -> int:
@@ -758,6 +758,10 @@ class CoordinatorAgent(EthereumContractAgent):
     def is_provider_public_key_set(self, staking_provider: ChecksumAddress) -> bool:
         result = self.contract.functions.isProviderKeySet(staking_provider).call()
         return result
+
+    @contract_api(CONTRACT_CALL)
+    def get_handover_timeout(self) -> int:
+        return self.contract.functions.handoverTimeout().call()
 
     @contract_api(CONTRACT_CALL)
     def get_handover_status(

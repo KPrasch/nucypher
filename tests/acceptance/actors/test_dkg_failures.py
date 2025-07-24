@@ -132,7 +132,7 @@ def test_dkg_failure_with_ferveo_key_mismatch(
         )
         yield clock.advance(interval)
         yield testerchain.time_travel(
-            seconds=coordinator_agent.get_timeout() // 6
+            seconds=coordinator_agent.get_dkg_timeout() // 6
         )  # min. 6 rounds before timeout
 
     assert (

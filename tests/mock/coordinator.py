@@ -213,7 +213,7 @@ class MockCoordinatorAgent(MockContractAgent):
     def is_provider_public_key_set(self, staking_provider: ChecksumAddress) -> bool:
         return staking_provider in self._participant_keys_history
 
-    def get_timeout(self) -> int:
+    def get_dkg_timeout(self) -> int:
         return self.timeout
 
     def number_of_rituals(self) -> int:
