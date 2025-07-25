@@ -1,6 +1,7 @@
 import ast
 import base64
 import json
+import math
 import operator as pyoperator
 import statistics
 from enum import Enum
@@ -308,6 +309,11 @@ _OPERATOR_FUNCTIONS = {
         if isinstance(a, list)
         else _raise_operator_value_error(f"{a} is not a list")
     ),
+    "round": lambda a, b: (
+        round(a, b)
+        if isinstance(a, (int, float))
+        else _raise_operator_value_error("Invalid input for round")
+    ),
     # operations that don't require 2nd value, keep parameter for simplistic consistency
     "sum": lambda a, _: (
         sum(a)
@@ -343,6 +349,16 @@ _OPERATOR_FUNCTIONS = {
         len(a)
         if isinstance(a, (list, dict))
         else _raise_operator_value_error("Invalid input for len")
+    ),
+    "ceil": lambda a, _: (
+        math.ceil(a)
+        if isinstance(a, (int, float))
+        else _raise_operator_value_error("Invalid input for ceil")
+    ),
+    "floor": lambda a, _: (
+        math.floor(a)
+        if isinstance(a, (int, float))
+        else _raise_operator_value_error("Invalid input for floor")
     ),
 }
 
