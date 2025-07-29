@@ -768,6 +768,9 @@ class Operator(BaseActor):
                 validator_messages=messages,
             )
             dkg_public_key = aggregated_transcript.public_key
+            # FIXME: Workaround: remove the public key (last 8 + 48 bytes of the aggregated transcript)
+            # to pass size validation check on contract publish. See ferveo#209
+            aggregated_transcript = bytes(aggregated_transcript)[: -8 - 48]
         except Exception as e:
             stack_trace = traceback.format_stack()
             self.log.critical(
@@ -840,9 +843,16 @@ class Operator(BaseActor):
 
         # Raises ValueError if departing_validator is not in the providers list
         handover_slot_index = ritual.providers.index(departing_validator)
-        aggregated_transcript = AggregatedTranscript.from_bytes(
+        # FIXME: Workaround: add serialized public key to aggregated transcript.
+        # Since we use serde/bincode in rust, we need a metadata field for the public key, which is the field size,
+        # as 8 bytes in little-endian. See ferveo#209
+        public_key_metadata = b"0\x00\x00\x00\x00\x00\x00\x00"
+        transcript = (
             bytes(ritual.aggregated_transcript)
+            + public_key_metadata
+            + bytes(ritual.public_key)
         )
+        aggregated_transcript = AggregatedTranscript.from_bytes(transcript)
 
         handover_transcript = self.ritual_power.initiate_handover(
             nodes=validators,
@@ -974,9 +984,16 @@ class Operator(BaseActor):
             return
 
         ritual = self._resolve_ritual(ritual_id)
-        aggregated_transcript = AggregatedTranscript.from_bytes(
+        # FIXME: Workaround: add serialized public key to aggregated transcript.
+        # Since we use serde/bincode in rust, we need a metadata field for the public key, which is the field size,
+        # as 8 bytes in little-endian. See ferveo#209
+        public_key_metadata = b"0\x00\x00\x00\x00\x00\x00\x00"
+        transcript = (
             bytes(ritual.aggregated_transcript)
+            + public_key_metadata
+            + bytes(ritual.public_key)
         )
+        aggregated_transcript = AggregatedTranscript.from_bytes(transcript)
         handover = self.coordinator_agent.get_handover(
             ritual_id=ritual_id,
             departing_validator=self.checksum_address,
@@ -1096,9 +1113,16 @@ class Operator(BaseActor):
     ) -> Union[DecryptionShareSimple, DecryptionSharePrecomputed]:
         ritual = self._resolve_ritual(ritual_id)
         validators = self._resolve_validators(ritual)
-        aggregated_transcript = AggregatedTranscript.from_bytes(
+        # FIXME: Workaround: add serialized public key to aggregated transcript.
+        # Since we use serde/bincode in rust, we need a metadata field for the public key, which is the field size,
+        # as 8 bytes in little-endian. See ferveo#209
+        public_key_metadata = b"0\x00\x00\x00\x00\x00\x00\x00"
+        transcript = (
             bytes(ritual.aggregated_transcript)
+            + public_key_metadata
+            + bytes(ritual.public_key)
         )
+        aggregated_transcript = AggregatedTranscript.from_bytes(transcript)
         decryption_share = self.ritual_power.produce_decryption_share(
             nodes=validators,
             threshold=ritual.threshold,
