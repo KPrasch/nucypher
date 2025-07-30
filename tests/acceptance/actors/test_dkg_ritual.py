@@ -344,6 +344,7 @@ def test_authorized_decryption(
     yield
 
 
+@pytest.mark.skip("Caches are disabled - See #3623")
 @pytest_twisted.inlineCallbacks
 def test_decrypt_without_any_cached_values(
     threshold_message_kit, ritual_id, cohort, bob, coordinator_agent, plaintext
