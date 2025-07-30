@@ -318,16 +318,20 @@ class RitualisticPower(KeyPairBasedPower):
         nodes: List[Validator],
         aggregated_transcript: AggregatedTranscript,
         handover_slot_index: int,
-        *args,
-        **kwargs,
+        me: Validator,
+        ritual_id: int,
+        shares: int,
+        threshold: int,
     ) -> HandoverTranscript:
         handover_transcript = dkg.initiate_handover(
             nodes=nodes,
             aggregated_transcript=aggregated_transcript,
             handover_slot_index=handover_slot_index,
+            me=me,
+            ritual_id=ritual_id,
+            shares=shares,
+            threshold=threshold,
             keypair=self.keypair._privkey,
-            *args,
-            **kwargs,
         )
         return handover_transcript
 

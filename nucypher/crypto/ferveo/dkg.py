@@ -44,23 +44,41 @@ def _make_dkg(
     return dkg
 
 
-def generate_transcript(*args, **kwargs) -> Transcript:
-    dkg = _make_dkg(*args, **kwargs)
+def generate_transcript(
+    me: Validator,
+    ritual_id: int,
+    shares: int,
+    threshold: int,
+    nodes: List[Validator],
+) -> Transcript:
+    dkg = _make_dkg(
+        me=me, ritual_id=ritual_id, shares=shares, threshold=threshold, nodes=nodes
+    )
     transcript = dkg.generate_transcript()
     return transcript
 
 
-def derive_public_key(*args, **kwargs) -> DkgPublicKey:
-    dkg = _make_dkg(*args, **kwargs)
+def derive_public_key(
+    me: Validator, ritual_id: int, shares: int, threshold: int, nodes: List[Validator]
+) -> DkgPublicKey:
+    dkg = _make_dkg(
+        me=me, ritual_id=ritual_id, shares=shares, threshold=threshold, nodes=nodes
+    )
     return dkg.public_key
 
 
 def aggregate_transcripts(
-    validator_messages: List[ValidatorMessage], shares: int, *args, **kwargs
+    me: Validator,
+    ritual_id: int,
+    shares: int,
+    threshold: int,
+    validator_messages: List[ValidatorMessage],
 ) -> AggregatedTranscript:
-    validators = [vm.validator for vm in validator_messages]
-    _dkg = _make_dkg(nodes=validators, shares=shares, *args, **kwargs)
-    pvss_aggregated = _dkg.aggregate_transcripts(validator_messages)
+    nodes = [vm.validator for vm in validator_messages]
+    dkg = _make_dkg(
+        me=me, ritual_id=ritual_id, shares=shares, threshold=threshold, nodes=nodes
+    )
+    pvss_aggregated = dkg.aggregate_transcripts(validator_messages)
     verify_aggregate(pvss_aggregated, shares, validator_messages)
     LOGGER.debug(
         f"derived final DKG key {bytes(pvss_aggregated.public_key).hex()[:10]}"
@@ -83,9 +101,14 @@ def produce_decryption_share(
     ciphertext_header: CiphertextHeader,
     aad: bytes,
     variant: FerveoVariant,
-    *args, **kwargs
+    me: Validator,
+    ritual_id: int,
+    shares: int,
+    threshold: int,
 ) -> Union[DecryptionShareSimple, DecryptionSharePrecomputed]:
-    dkg = _make_dkg(nodes=nodes, *args, **kwargs)
+    dkg = _make_dkg(
+        me=me, ritual_id=ritual_id, shares=shares, threshold=threshold, nodes=nodes
+    )
     if not all((nodes, aggregated_transcript, keypair, ciphertext_header, aad)):
         raise Exception("missing arguments")  # sanity check
     try:
@@ -108,13 +131,17 @@ def initiate_handover(
     aggregated_transcript: AggregatedTranscript,
     handover_slot_index: int,
     keypair: Keypair,
-    *args,
-    **kwargs,
+    me: Validator,
+    ritual_id: int,
+    shares: int,
+    threshold: int,
 ) -> HandoverTranscript:
     if not all((nodes, aggregated_transcript, keypair)):
         raise Exception("missing arguments")  # sanity check
 
-    dkg = _make_dkg(nodes=nodes, *args, **kwargs)
+    dkg = _make_dkg(
+        me=me, ritual_id=ritual_id, shares=shares, threshold=threshold, nodes=nodes
+    )
     handover_transcript = dkg.generate_handover_transcript(
         aggregated_transcript,
         handover_slot_index,

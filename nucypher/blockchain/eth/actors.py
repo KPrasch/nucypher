@@ -861,6 +861,10 @@ class Operator(BaseActor):
             nodes=validators,
             aggregated_transcript=aggregated_transcript,
             handover_slot_index=handover_slot_index,
+            me=validators[0],  # FIXME
+            ritual_id=ritual_id,
+            shares=ritual.dkg_size,
+            threshold=ritual.threshold,
         )
         return handover_transcript
 
