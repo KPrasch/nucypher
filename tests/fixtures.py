@@ -801,7 +801,6 @@ def aggregated_transcript(
         shares=num_shares,
         threshold=threshold,
         validator_messages=validator_messages,
-        nodes=validators,
     )
 
     return aggregate_transcript
