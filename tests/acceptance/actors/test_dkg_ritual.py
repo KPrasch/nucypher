@@ -143,6 +143,19 @@ def threshold_message_kit(coordinator_agent, plaintext, condition, signer, ritua
     return enrico.encrypt_for_dkg(plaintext=plaintext.encode(), conditions=condition)
 
 
+@pytest.fixture(scope="module")
+def incoming_validator(ursulas, dkg_size, clock):
+    incoming_validator = ursulas[dkg_size]
+    incoming_validator.ritual_tracker.task._task.clock = clock
+    incoming_validator.ritual_tracker.start()
+    return incoming_validator
+
+
+@pytest.fixture(scope="module")
+def departing_validator(cohort):
+    return cohort[0]
+
+
 def test_dkg_initiation(
     coordinator_agent,
     accounts,
@@ -399,3 +412,114 @@ def test_encryption_and_decryption_prometheus_metrics():
     assert num_decryption_requests == (
         num_decryption_successes + num_decryption_failures
     )
+
+
+def test_handover_request(
+    coordinator_agent,
+    testerchain,
+    ritual_id,
+    supervisor_transacting_power,
+    departing_validator,
+    incoming_validator,
+):
+    testerchain.tx_machine.start()
+
+    print("==================== INITIALIZING HANDOVER ====================")
+    receipt = coordinator_agent.request_handover(
+        ritual_id=ritual_id,
+        departing_validator=departing_validator.checksum_address,
+        incoming_validator=incoming_validator.checksum_address,
+        transacting_power=supervisor_transacting_power,
+    )
+
+    testerchain.time_travel(seconds=1)
+    testerchain.wait_for_receipt(receipt["transactionHash"])
+
+    handover_status = coordinator_agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator.checksum_address
+    )
+    assert handover_status == Coordinator.HandoverStatus.HANDOVER_AWAITING_TRANSCRIPT
+
+
+@pytest_twisted.inlineCallbacks
+def test_handover_finality(
+    coordinator_agent,
+    ritual_id,
+    cohort,
+    clock,
+    interval,
+    testerchain,
+    departing_validator,
+    incoming_validator,
+    supervisor_transacting_power,
+):
+    print("==================== AWAITING HANDOVER FINALITY ====================")
+
+    handover_status = coordinator_agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator.checksum_address
+    )
+    assert handover_status != Coordinator.HandoverStatus.NON_INITIATED
+
+    while handover_status not in (
+        Coordinator.HandoverStatus.NON_INITIATED,
+        Coordinator.HandoverStatus.HANDOVER_AWAITING_FINALIZATION,
+    ):
+        handover_status = coordinator_agent.get_handover_status(
+            ritual_id=ritual_id,
+            departing_validator=departing_validator.checksum_address,
+        )
+        assert handover_status != Coordinator.HandoverStatus.HANDOVER_TIMEOUT
+        yield clock.advance(interval)
+        yield testerchain.time_travel(seconds=1)
+
+    _receipt = coordinator_agent.finalize_handover(
+        ritual_id=ritual_id,
+        departing_validator=departing_validator.checksum_address,
+        transacting_power=supervisor_transacting_power,
+    )
+    handover_status = coordinator_agent.get_handover_status(
+        ritual_id=ritual_id, departing_validator=departing_validator.checksum_address
+    )
+    assert handover_status == Coordinator.HandoverStatus.NON_INITIATED
+
+    testerchain.tx_machine.stop()
+    assert not testerchain.tx_machine.running
+    last_scanned_block = REGISTRY.get_sample_value(
+        "ritual_events_last_scanned_block_number"
+    )
+    assert last_scanned_block > 0
+    yield
+
+
+@pytest_twisted.inlineCallbacks
+def test_decryption_after_handover(
+    mocker,
+    bob,
+    accounts,
+    coordinator_agent,
+    threshold_message_kit,
+    ritual_id,
+    cohort,
+    plaintext,
+):
+    print("==================== DKG DECRYPTION POST-HANDOVER ====================")
+
+    # ritual_id, ciphertext, conditions are obtained from the side channel
+    bob.start_learning_loop(now=True)
+    cleartext = yield bob.threshold_decrypt(
+        threshold_message_kit=threshold_message_kit,
+    )
+    assert bytes(cleartext) == plaintext.encode()
+
+    # TODO: Somehow assert that the decryption was done by the incoming validator
+    # I've seen it in the logs, but not sure how to assert it here
+
+    num_successes = REGISTRY.get_sample_value(
+        "threshold_decryption_num_successes_total"
+    )
+
+    ritual = coordinator_agent.get_ritual(ritual_id)
+    # at least a threshold of ursulas were successful (concurrency)
+    assert int(num_successes) >= ritual.threshold
+    print("===================== DECRYPTION SUCCESSFUL =====================")
+    yield
