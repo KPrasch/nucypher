@@ -282,19 +282,21 @@ def run_test(
                 )
                 assert bytes(cleartext) == PLAINTEXT.encode()
 
+                # TODO See #3623 - uncomment the check below once caching is used again;
+                #  it specifically checks that caching is used
                 # decrypt again (should only use cached values)
-                with patch.object(
-                    mock_coordinator_agent,
-                    "get_provider_public_key",
-                    side_effect=RuntimeError(
-                        "should not be called to create validators; cache should be used"
-                    ),
-                ):
-                    # would like to but can't patch agent.get_ritual, since bob uses it
-                    cleartext = bob.threshold_decrypt(
-                        threshold_message_kit=threshold_message_kit,
-                    )
-                    assert bytes(cleartext) == PLAINTEXT.encode()
+                # with patch.object(
+                #     mock_coordinator_agent,
+                #     "get_provider_public_key",
+                #     side_effect=RuntimeError(
+                #         "should not be called to create validators; cache should be used"
+                #     ),
+                # ):
+                #     # would like to but can't patch agent.get_ritual, since bob uses it
+                #     cleartext = bob.threshold_decrypt(
+                #         threshold_message_kit=threshold_message_kit,
+                #     )
+                #     assert bytes(cleartext) == PLAINTEXT.encode()
             print("==================== DECRYPTION SUCCESSFUL ====================")
             return threshold_message_kit
 
