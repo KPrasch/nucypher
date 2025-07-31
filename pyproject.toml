@@ -7,7 +7,9 @@ description = "A threshold access control application to empower privacy in dece
 [tool.poetry.dependencies]
 python = ">=3.9,<4"
 
-nucypher-core = "==0.13.0"
+# TODO update once we have a new release
+nucypher-core = { git = "https://github.com/nucypher/nucypher-core.git", branch = "handover", subdirectory = "nucypher-core-python" }
+
 cryptography = "*"
 pynacl = ">=1.4.0"
 mnemonic = "*"
