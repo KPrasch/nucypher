@@ -1100,7 +1100,6 @@ class Operator(BaseActor):
             )
             return
 
-
         async_tx = self._publish_blinded_share_for_handover(
             ritual_id=ritual_id,
             blinded_share=blinded_share,
