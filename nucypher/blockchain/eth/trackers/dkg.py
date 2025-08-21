@@ -24,7 +24,7 @@ class DkgRitualTracker(RitualTracker):
 
     class DkgParticipationState(RitualTracker.ParticipationState):
         """
-        Participation state for handover rituals.
+        Participation state for DKG rituals.
         """
         def __init__(
             self,
@@ -38,7 +38,7 @@ class DkgRitualTracker(RitualTracker):
 
     class HandoverParticipationState(RitualTracker.ParticipationState):
         """
-        Participation state for handover rituals.
+        Participation state for Handover rituals.
         """
 
         PREFIX = "handover-"
