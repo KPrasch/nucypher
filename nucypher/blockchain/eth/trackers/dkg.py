@@ -26,6 +26,9 @@ class DkgRitualTracker(RitualTracker):
         """
         Participation state for DKG rituals.
         """
+
+        PREFIX = "dkg-"
+
         def __init__(
             self,
             participating=False,
@@ -93,7 +96,7 @@ class DkgRitualTracker(RitualTracker):
         if event_type in self.handover_event_types:
             return f"{self.CohortParticipationStateDuringHandover.PREFIX}{event.args.ritualId}"
         else:
-            return str(event.args.ritualId)
+            return f"{self.DkgParticipationState.PREFIX}{event.args.ritualId}"
 
     def _action_required_based_on_participation_state(
         self,
