@@ -20,7 +20,6 @@ class SignatureRequestType(Enum):
 
     USEROP = "userop"
     PACKED_USER_OP = "packedUserOp"
-    EIP_191 = "eip-191"
 
 
 # TODO I'm hesitant to have too much logic in this module because
@@ -80,61 +79,6 @@ class SignatureResponse:
             _hash=_hash,
             signature=signature,
             signature_type=signature_type,
-        )
-
-
-# TODO: This is only really for simple testing for now
-class EIP191SignatureRequest(BaseSignatureRequest):
-    def __init__(
-        self,
-        data: bytes,
-        cohort_id: int,
-        chain_id: int,
-        context: Optional[ContextDict] = None,
-    ):
-        self.data = data
-        super().__init__(
-            cohort_id=cohort_id,
-            chain_id=chain_id,
-            signature_type=SignatureRequestType.EIP_191,
-            context=context,
-        )
-
-    def __bytes__(self) -> bytes:
-        """Serialize the EIP191 request to bytes in JSON format."""
-        data = {
-            "data": HexBytes(self.data).hex(),
-            "cohort_id": self.cohort_id,
-            "chain_id": self.chain_id,
-            "context": self.context,
-            "signature_type": self.signature_type.value,
-        }
-        return json.dumps(data).encode()
-
-    @classmethod
-    def from_bytes(cls, request_data: bytes):
-        """Deserialize the EIP191 request from bytes in JSON format."""
-        try:
-            result = json.loads(request_data.decode())
-            data = bytes(HexBytes(result["data"]))
-            cohort_id = result["cohort_id"]
-            chain_id = result["chain_id"]
-            context = result["context"]
-            signature_type_str = result["signature_type"]
-
-        except (json.JSONDecodeError, KeyError) as e:
-            raise ValueError("Invalid UserOperation request data") from e
-
-        # Validate signature type
-        signature_type = SignatureRequestType(signature_type_str)
-        if signature_type != SignatureRequestType.EIP_191:
-            raise ValueError(f"Expected EIP191 signature type, got {signature_type}")
-
-        return cls(
-            data=data,
-            cohort_id=cohort_id,
-            chain_id=chain_id,
-            context=context,
         )
 
 
@@ -324,12 +268,6 @@ def deserialize_signature_request(
         result = json.loads(request_data.decode())
         signature_type_str = result["signature_type"]
         signature_type = SignatureRequestType(signature_type_str)
-
-        # Reject EIP191 signature requests
-        if signature_type == SignatureRequestType.EIP_191:
-            raise UnsupportedSignatureRequest(
-                "EIP191 signature requests are not supported"
-            )
 
         signature_request = None
         if signature_type == SignatureRequestType.USEROP:
