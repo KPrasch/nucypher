@@ -310,11 +310,6 @@ def sign_signature_request_data(
             aa_version=request.aa_version,
             chain_id=request.chain_id,
         )
-    elif isinstance(request, EIP191SignatureRequest):
-        return transacting_power.sign_message_eip191(
-            request.data,
-            standardize=False,
-        )
 
     raise UnsupportedSignatureRequest(
         f"Unsupported signature request: {request.__class__.__name__}"
@@ -330,6 +325,12 @@ def deserialize_signature_request(
         signature_type_str = result["signature_type"]
         signature_type = SignatureRequestType(signature_type_str)
 
+        # Reject EIP191 signature requests
+        if signature_type == SignatureRequestType.EIP_191:
+            raise UnsupportedSignatureRequest(
+                "EIP191 signature requests are not supported"
+            )
+
         signature_request = None
         if signature_type == SignatureRequestType.USEROP:
             signature_request = UserOperationSignatureRequest.from_bytes(request_data)
@@ -337,8 +338,6 @@ def deserialize_signature_request(
             signature_request = PackedUserOperationSignatureRequest.from_bytes(
                 request_data
             )
-        elif signature_type == SignatureRequestType.EIP_191:
-            signature_request = EIP191SignatureRequest.from_bytes(request_data)
 
         if not signature_request:
             raise UnsupportedSignatureRequest(
@@ -361,8 +360,6 @@ def get_signature_request_object(request: BaseSignatureRequest) -> Any:
         return request.user_op
     elif isinstance(request, PackedUserOperationSignatureRequest):
         return request.packed_user_op
-    elif isinstance(request, EIP191SignatureRequest):
-        return request.data
 
     raise UnsupportedSignatureRequest(
         f"Unsupported signature request: {request.__class__.__name__}"
