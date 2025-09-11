@@ -49,10 +49,11 @@ from nucypher.blockchain.eth.interfaces import (
     BlockchainInterfaceFactory,
 )
 from nucypher.blockchain.eth.models import (
+    DKG_PHASE_1,
+    DKG_PHASE_2,
     HANDOVER_AWAITING_BLINDED_SHARE,
     HANDOVER_AWAITING_TRANSCRIPT,
-    PHASE1,
-    PHASE2,
+    SIGNING_AWAITING_SIGNATURES,
     Coordinator,
     Ferveo,
     SigningCoordinator,
@@ -846,7 +847,7 @@ class CoordinatorAgent(EthereumContractAgent):
             contract_function=contract_function,
             transacting_power=transacting_power,
             async_tx_hooks=async_tx_hooks,
-            info={"ritual_id": ritual_id, "phase": PHASE1},
+            info={"ritual_id": ritual_id, "phase": DKG_PHASE_1},
         )
         return async_tx
 
@@ -871,7 +872,7 @@ class CoordinatorAgent(EthereumContractAgent):
             gas_estimation_multiplier=1.4,
             transacting_power=transacting_power,
             async_tx_hooks=async_tx_hooks,
-            info={"ritual_id": ritual_id, "phase": PHASE2},
+            info={"ritual_id": ritual_id, "phase": DKG_PHASE_2},
         )
         return async_tx
 
@@ -1120,6 +1121,7 @@ class SigningCoordinatorAgent(EthereumContractAgent):
             gas_estimation_multiplier=1.4,
             transacting_power=transacting_power,
             async_tx_hooks=async_tx_hooks,
+            info={"ritual_id": cohort_id, "phase": SIGNING_AWAITING_SIGNATURES},
         )
         return async_tx
 
