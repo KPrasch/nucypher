@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List
 
@@ -9,6 +10,7 @@ from web3.datastructures import AttributeDict
 
 from nucypher.blockchain.eth.trackers.events import EventTracker
 from nucypher.blockchain.eth.utils import get_block_just_before
+from nucypher.config.constants import NUCYPHER_ENVVAR_MIN_RITUAL_EVENTS_CHUNK_NUM_BLOCKS
 from nucypher.utilities.cache import TTLCache
 
 
@@ -18,6 +20,12 @@ class RitualTracker(EventTracker, ABC):
 
     # what's the buffer for potentially receiving repeated events - 10mins?
     _TIMEOUT_ADDITIONAL_TTL_BUFFER = 60 * 10
+
+    CHAIN_REORG_SCAN_WINDOW = 20
+
+    MIN_RITUAL_EVENTS_CHUNK_SIZE = int(
+        os.environ.get(NUCYPHER_ENVVAR_MIN_RITUAL_EVENTS_CHUNK_NUM_BLOCKS, 60)
+    )  # default 60 blocks @ 2s per block on Polygon = 120s of blocks (somewhat related to interval)
 
     class ParticipationState:
         def __init__(
@@ -35,8 +43,6 @@ class RitualTracker(EventTracker, ABC):
         actions: Dict[ContractEvent, Callable],
         timeout: int,
         persistent: bool = False,
-        *args,
-        **kwargs,
     ):
         super().__init__(
             operator=operator,
@@ -45,8 +51,8 @@ class RitualTracker(EventTracker, ABC):
             events=events,
             actions=actions,
             persistent=persistent,
-            *args,
-            **kwargs,
+            min_chunk_scan_size=self.MIN_RITUAL_EVENTS_CHUNK_SIZE,
+            chain_reorg_rescan_window=self.CHAIN_REORG_SCAN_WINDOW,
         )
         self.timeout = timeout
 

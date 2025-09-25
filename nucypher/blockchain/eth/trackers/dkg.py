@@ -1,12 +1,10 @@
 from typing import Optional, Union
 
-import os
 from prometheus_client import REGISTRY, Gauge
 from web3.datastructures import AttributeDict
 
 from nucypher.blockchain.eth.models import Coordinator
 from nucypher.blockchain.eth.trackers.rituals import RitualTracker
-from nucypher.config.constants import NUCYPHER_ENVVAR_MIN_RITUAL_EVENTS_CHUNK_NUM_BLOCKS
 
 
 class DkgRitualTracker(RitualTracker):
@@ -15,12 +13,6 @@ class DkgRitualTracker(RitualTracker):
         "Last scanned block number for ritual events",
         registry=REGISTRY,
     )
-
-    CHAIN_REORG_SCAN_WINDOW = 20
-
-    MIN_RITUAL_EVENTS_CHUNK_SIZE = int(
-        os.environ.get(NUCYPHER_ENVVAR_MIN_RITUAL_EVENTS_CHUNK_NUM_BLOCKS, 60)
-    )  # default 60 blocks @ 2s per block on Polygon = 120s of blocks (somewhat related to interval)
 
     class DkgParticipationState(RitualTracker.ParticipationState):
         """
@@ -87,8 +79,6 @@ class DkgRitualTracker(RitualTracker):
             actions=actions,
             persistent=persistent,
             timeout=self.coordinator_agent.get_dkg_timeout(),
-            min_chunk_scan_size=self.MIN_RITUAL_EVENTS_CHUNK_SIZE,
-            chain_reorg_rescan_window=self.CHAIN_REORG_SCAN_WINDOW,
         )
 
     def _get_identifier(self, event: AttributeDict) -> str:

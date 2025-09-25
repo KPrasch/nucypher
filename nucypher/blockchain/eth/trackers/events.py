@@ -72,6 +72,8 @@ class EventTracker(ABC):
         contract: Contract,
         events: List[ContractEvent],
         actions: Dict[ContractEvent, Callable],
+        min_chunk_scan_size: int,
+        chain_reorg_rescan_window: int,
         persistent: bool = False,  # TODO: use persistent storage?,
         *args,
         **kwargs,
@@ -95,8 +97,8 @@ class EventTracker(ABC):
             state=self.state,
             contract=self.contract,
             events=self.events,
-            *args,
-            **kwargs,
+            min_chunk_scan_size=min_chunk_scan_size,
+            chain_reorg_rescan_window=chain_reorg_rescan_window,
         )
 
         self.task = EventScannerTask(scanner=self.scan)
