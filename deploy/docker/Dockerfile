@@ -3,11 +3,16 @@ FROM nucypher/rust-python:3.12.11
 # set default user
 USER $USER
 
+# update os
+RUN sudo apt-get update -y
+RUN sudo apt-get full-upgrade -y
+
 # set default in-container workdir
 WORKDIR /code
 
 # Layer 1: Install dependencies
 COPY requirements.txt /code
+RUN pip3 install --upgrade pip
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Layer 2: Install nucypher entrypoint
