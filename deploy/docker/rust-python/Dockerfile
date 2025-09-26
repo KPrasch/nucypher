@@ -7,6 +7,9 @@ RUN apt-get install -y sudo adduser
 # full upgrade of installed packages
 RUN sudo apt-get full-upgrade -y
 
+# upgrade pip3
+RUN pip3 install --upgrade pip
+
 # install rust: obtained from https://github.com/rust-lang/docker-rust/blob/3aad80112be66bf796c202713029d7ba93dff7fa/stable/trixie/slim/Dockerfile
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
