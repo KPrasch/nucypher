@@ -19,9 +19,6 @@ env: # TODO: Use variables when GH supports it for forks. See https://github.com
 jobs:
   lynx-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ "3.10" ]
 
     steps:
       - name: Checkout repo
@@ -34,7 +31,7 @@ jobs:
         name: Set up Python ${{ matrix.python-version }} Environment
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
 
       - id: python_cache
         name: Retrieve Cached Python Dependencies
