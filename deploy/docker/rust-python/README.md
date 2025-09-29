@@ -2,11 +2,11 @@
 
 ### Setup
 ```bash
-# the default username in the container ("nucypher")
+# the user in the container (typically "nucypher")
 # circle ci expects the user "circleci"
 export DOCKER_USER=<USERNAME>
 
-# the version of python to build (currently "3.13.7")
+# the version of python to use
 export PYTHON_VERSION=<VERSION>
 ```
 
