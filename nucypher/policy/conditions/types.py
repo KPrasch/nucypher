@@ -60,6 +60,11 @@ class ContractConditionDict(RPCConditionDict):
     functionAbi: NotRequired[ABIFunction]
 
 
+class JsonConditionDict(BaseExecConditionDict):
+    data: Any
+    query: NotRequired[str]
+
+
 class JsonApiConditionDict(BaseExecConditionDict):
     endpoint: str
     query: NotRequired[str]
@@ -223,6 +228,7 @@ class SigningObjectAbiAttributeCondition(_BaseSigningObjectAttributeCondition):
 # - RPCCondition
 # - ContractCondition
 # - CompoundCondition
+# - JsonCondition
 # - JsonApiCondition
 # - JsonRpcCondition
 # - JWTCondition
@@ -237,6 +243,7 @@ ConditionDict = Union[
     RPCConditionDict,
     ContractConditionDict,
     CompoundConditionDict,
+    JsonConditionDict,
     JsonApiConditionDict,
     JsonRpcConditionDict,
     JWTConditionDict,
