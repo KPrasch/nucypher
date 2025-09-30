@@ -14,11 +14,13 @@ from nucypher.policy.conditions.context import (
     string_contains_context_variable,
 )
 from nucypher.policy.conditions.exceptions import (
-    ConditionEvaluationFailed,
     JsonRequestException,
 )
 from nucypher.policy.conditions.json.auth import AuthorizationType
-from nucypher.policy.conditions.json.utils import process_result_for_condition_eval
+from nucypher.policy.conditions.json.utils import (
+    process_result_for_condition_eval,
+    query_json_data,
+)
 from nucypher.policy.conditions.lingo import ExecutionCallCondition
 from nucypher.utilities.logging import Logger
 
@@ -108,30 +110,7 @@ class JsonRequestCall(ExecutionCall, ABC):
             )
 
     def _query_response(self, response_json: Any, **context) -> Any:
-        if not self.query:
-            return response_json  # primitive value
-
-        resolved_query = resolve_any_context_variables(self.query, **context)
-        try:
-            expression = parse(resolved_query)
-            matches = expression.find(response_json)
-            if not matches:
-                message = f"No matches found for the JSONPath query: {resolved_query}"
-                self.logger.info(message)
-                raise ConditionEvaluationFailed(message)
-        except (JsonPathLexerError, JsonPathParserError) as jsonpath_err:
-            self.logger.error(f"JSONPath error occurred: {jsonpath_err}")
-            raise ConditionEvaluationFailed(
-                f"JSONPath error: {jsonpath_err}"
-            ) from jsonpath_err
-
-        if len(matches) > 1:
-            message = f"Ambiguous JSONPath query - multiple matches found for: {resolved_query}"
-            self.logger.info(message)
-            raise JsonRequestException(message)
-
-        result = matches[0].value
-        return result
+        return query_json_data(response_json, self.query, **context)
 
 
 class JSONPathField(String):
