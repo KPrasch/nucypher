@@ -7,6 +7,8 @@ description = "A threshold access control application to empower privacy in dece
 [tool.poetry.dependencies]
 python = ">=3.10,<4"
 
+ckzg = ">=2.1.1"  # required for python 3.13 support
+
 nucypher-core = "==0.15.0"
 cryptography = ">=44.0.1"   # Latest version with no known vulns (as per 2025-09-23)
 pynacl = ">=1.4.0"
