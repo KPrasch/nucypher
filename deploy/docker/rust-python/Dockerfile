@@ -1,4 +1,4 @@
-FROM python:3.12.11-slim-trixie
+FROM python:3.13.7-slim-trixie
 
 # prepare container
 RUN apt-get update -y
