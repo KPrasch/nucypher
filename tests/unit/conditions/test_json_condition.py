@@ -132,3 +132,63 @@ def test_json_condition_ambiguous_json_path_multiple_results():
     )
     with pytest.raises(Exception):
         condition.verify()
+
+
+def test_json_condition_invalid_jsonpath_syntax():
+    """Test that invalid JSONPath syntax is caught during initialization."""
+    data = {"store": {"book": [{"price": 10.5}]}}
+    with pytest.raises(InvalidCondition, match="not a valid JSONPath expression"):
+        JsonCondition(
+            data=data,
+            query="$[invalid syntax",  # Invalid JSONPath
+            return_value_test=ReturnValueTest("==", 10.5),
+        )
+
+
+def test_json_condition_no_matches_found():
+    """Test that a query with no matches raises ConditionEvaluationFailed."""
+    from nucypher.policy.conditions.exceptions import ConditionEvaluationFailed
+
+    data = {"store": {"book": [{"price": 10.5}]}}
+    condition = JsonCondition(
+        data=data,
+        query="$.store.nonexistent",  # Path doesn't exist
+        return_value_test=ReturnValueTest("==", 10.5),
+    )
+    with pytest.raises(ConditionEvaluationFailed, match="No matches found"):
+        condition.verify()
+
+
+def test_json_condition_jsonpath_error_with_context_variable():
+    """Test JSONPath errors during verify when using context variables."""
+    from nucypher.policy.conditions.exceptions import ConditionEvaluationFailed
+
+    # Create a condition with a context variable in the query
+    # The actual query will be resolved at verify time, so we can test runtime errors
+    data = {"store": {"book": [{"price": 10.5}]}}
+    condition = JsonCondition(
+        data=data,
+        query="$.store.:field",
+        return_value_test=ReturnValueTest("==", 10.5),
+    )
+
+    # Verify with a context variable that creates an invalid path
+    with pytest.raises(ConditionEvaluationFailed, match="No matches found"):
+        condition.verify(**{":field": "nonexistent"})
+
+
+def test_json_condition_jsonpath_parser_error_at_runtime():
+    """Test that JSONPath parser errors at runtime are caught."""
+    from nucypher.policy.conditions.exceptions import ConditionEvaluationFailed
+
+    # Use context variable to inject invalid syntax at runtime (bypassing validation)
+    data = {"store": {"book": [{"price": 10.5}]}}
+    condition = JsonCondition(
+        data=data,
+        query="$.:invalid_syntax",  # Context variable will inject invalid syntax
+        return_value_test=ReturnValueTest("==", 10.5),
+    )
+
+    # The context variable resolves to invalid JSONPath syntax at runtime
+    with pytest.raises(ConditionEvaluationFailed, match="JSONPath error"):
+        condition.verify(**{":invalid_syntax": "[invalid syntax"})
