@@ -380,7 +380,7 @@ class VariableOperation(_Serializable):
             required=True,
             validate=OneOf(_OPERATOR_FUNCTIONS, error="Not a permitted operation"),
         )
-        value = fields.Raw(required=False, allow_none=True)
+        value = AnyField(required=False, allow_none=True)
 
         @post_load
         def make(self, data, **kwargs):
