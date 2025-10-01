@@ -13,6 +13,8 @@ OPERATION_TEST_CASES = [
     ("/=", 2, 6, 3.0),
     ("%=", 2, 5, 1),
     ("^=", 2, 3, 9),
+    ("abs", None, -3, 3),
+    ("abs", None, 3, 3),
     ("avg", None, [1, 2, 3], 2),
     ("avg", None, [10, 15, 20], 15),
     ("ceil", None, 3.1, 4),
@@ -20,6 +22,12 @@ OPERATION_TEST_CASES = [
     ("index", 1, [10, 20, 30], 20),
     ("index", 0, [10, 20, 30], 10),
     ("index", 2, [10, 20, 30], 30),
+    (
+        "index",
+        4,
+        ["Proper", "preparation", "prevents", "poor", "performance"],
+        "performance",
+    ),  # -- Ray Lewis
     ("len", None, [1, 2, 3, False, 123.0, "six"], 6),
     ("max", None, [1, 2, 3], 3),
     ("max", None, [123, 25, 35], 123),
@@ -32,7 +40,68 @@ OPERATION_TEST_CASES = [
     ("round", 2, 3.1415, 3.14),
     ("sum", None, [1, 2, 3], 6),
     ("sum", None, [1232, 22212, 3231], 26675),
+    # casting
+    ("int", None, 3.9, 3),
+    ("int", None, "123", 123),
+    ("float", None, 3, 3.0),
+    ("float", None, "123.456", 123.456),
+    ("str", None, 123, "123"),
+    ("str", None, 123.456, "123.456"),
+    (
+        "str",
+        None,
+        "Do not confuse one story for all stories",
+        "Do not confuse one story for all stories",
+    ),  # -- Anonymous
+    ("bool", None, 0, False),
+    ("bool", None, 1, True),
+    ("bool", None, "", False),
+    ("bool", None, "Non-empty string", True),
 ]
+
+
+def test_invalid_operation_inputs():
+    with pytest.raises(ValueError, match="Not a permitted operation"):
+        VariableOperation(operation="unknown_op", value=2)
+
+    with pytest.raises(ValueError, match="At least one operation required"):
+        VariableOperations([])  # Empty operations list
+
+
+def test_all_operations_covered():
+    tested_operations = [op for op, *_ in OPERATION_TEST_CASES]
+    assert set(tested_operations) == _OPERATOR_FUNCTIONS.keys()
+
+
+@pytest.mark.parametrize("operation", [op for op, *_ in OPERATION_TEST_CASES])
+def test_type_errors_in_calc(operation):
+    op = VariableOperation(
+        operation=operation,
+        value=[
+            "random",
+            "list",
+            "that",
+            "doesn't",
+            "make",
+            "sense",
+            "for",
+            "most",
+            "operations",
+        ],
+    )
+    # Skip type error test for bool and str casting operations because
+    # they can handle any input without raising TypeError
+    if operation in ["bool", "str"]:
+        return
+
+    with pytest.raises(TypeError):
+        if operation in ["int", "float"]:
+            op.calc(["some", "list"])
+        elif operation == "%=":
+            # Modulus can handle strings in Python, so misuse it with a number
+            op.calc(10)
+        else:
+            op.calc("initial_value_that_does_not_make_sense")
 
 
 @pytest.mark.parametrize("operation,value,initial,expected", OPERATION_TEST_CASES)
@@ -40,11 +109,6 @@ def test_variable_operation_calc(operation, value, initial, expected):
     op = VariableOperation(operation=operation, value=value)
     result = op.calc(initial)
     assert result == expected
-
-
-def test_all_operations_covered():
-    tested_operations = [op for op, *_ in OPERATION_TEST_CASES]
-    assert set(tested_operations) == _OPERATOR_FUNCTIONS.keys()
 
 
 def test_cascading_operations():
@@ -58,15 +122,8 @@ def test_cascading_operations():
             VariableOperation(operation="+=", value=10),  # 16
             VariableOperation(operation="%=", value=9),  # 7
             VariableOperation(operation="^=", value=2),  # 49
+            VariableOperation(operation="abs"),  # 49
         ]
     )
     result = operations.calc(initial)
     assert result == 49
-
-
-def test_invalid_operation_inputs():
-    with pytest.raises(ValueError, match="Not a permitted operation"):
-        VariableOperation(operation="unknown_op", value=2)
-
-    with pytest.raises(ValueError, match="At least one operation required"):
-        VariableOperations([])  # Empty operations list
