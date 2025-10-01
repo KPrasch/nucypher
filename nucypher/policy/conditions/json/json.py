@@ -23,7 +23,7 @@ def _parse_json_data(data: Any) -> Any:
 
     try:
         return json.loads(data)
-    except (json.JSONDecodeError, ValueError) as e:
+    except ValueError as e:
         raise InvalidCondition(f"Invalid JSON string: {e}") from e
 
 
