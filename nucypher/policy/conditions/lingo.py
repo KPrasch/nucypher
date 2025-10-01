@@ -452,6 +452,8 @@ class ConditionVariable(_Serializable):
         self.condition = condition
         self.operations = operations
 
+        self._validate()
+
 
 class SequentialCondition(MultiCondition):
     """
