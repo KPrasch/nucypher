@@ -33,6 +33,7 @@ from nucypher.policy.conditions.context import (
     resolve_any_context_variables,
 )
 from nucypher.policy.conditions.exceptions import (
+    ConditionEvaluationFailed,
     InvalidCondition,
     InvalidConditionLingo,
     ReturnValueEvaluationError,
@@ -293,8 +294,8 @@ _COMPARATOR_FUNCTIONS = {
 }
 
 
-def _raise_operator_value_error(msg: str):
-    raise ValueError(msg)
+def _raise_operator_type_error(msg: str):
+    raise TypeError(msg)
 
 
 _OPERATOR_FUNCTIONS = {
@@ -307,65 +308,64 @@ _OPERATOR_FUNCTIONS = {
     "index": lambda a, b: (
         a[b]
         if isinstance(a, list)
-        else _raise_operator_value_error(f"{a} is not a list")
+        else _raise_operator_type_error(f"{a} is not a list")
     ),
     "round": lambda a, b: (
         round(a, b)
         if isinstance(a, (int, float))
-        else _raise_operator_value_error("Invalid input for round")
+        else _raise_operator_type_error("Invalid input for round")
     ),
     # operations that don't require 2nd value, keep parameter for simplistic consistency
     "sum": lambda a, _: (
         sum(a)
         if isinstance(a, list)
-        else _raise_operator_value_error("Invalid input for sum")
+        else _raise_operator_type_error("Invalid input for sum")
     ),
     "avg": lambda a, _: (
         statistics.mean(a)
         if isinstance(a, list)
-        else _raise_operator_value_error("Invalid input for avg")
+        else _raise_operator_type_error("Invalid input for avg")
     ),
     "min": lambda a, _: (
         min(a)
         if isinstance(a, list)
-        else _raise_operator_value_error("Invalid input for min")
+        else _raise_operator_type_error("Invalid input for min")
     ),
     "max": lambda a, _: (
         max(a)
         if isinstance(a, list)
-        else _raise_operator_value_error("Invalid input for max")
+        else _raise_operator_type_error("Invalid input for max")
     ),
     "median": lambda a, _: (
         statistics.median(a)
         if isinstance(a, list)
-        else _raise_operator_value_error("Invalid input for median")
+        else _raise_operator_type_error("Invalid input for median")
     ),
     "mode": lambda a, _: (
         statistics.mode(a)
         if isinstance(a, list)
-        else _raise_operator_value_error("Invalid input for mode")
+        else _raise_operator_type_error("Invalid input for mode")
     ),
     "len": lambda a, _: (
         len(a)
         if isinstance(a, (list, dict))
-        else _raise_operator_value_error("Invalid input for len")
+        else _raise_operator_type_error("Invalid input for len")
     ),
     "ceil": lambda a, _: (
         math.ceil(a)
         if isinstance(a, (int, float))
-        else _raise_operator_value_error("Invalid input for ceil")
+        else _raise_operator_type_error("Invalid input for ceil")
     ),
     "floor": lambda a, _: (
         math.floor(a)
         if isinstance(a, (int, float))
-        else _raise_operator_value_error("Invalid input for floor")
+        else _raise_operator_type_error("Invalid input for floor")
     ),
 }
 
 
 class VariableOperation(_Serializable):
     class Schema(CamelCaseSchema):
-        SKIP_VALUES = (None,)
         operation = fields.Str(
             required=True,
             validate=OneOf(_OPERATOR_FUNCTIONS, error="Not a permitted operation"),
@@ -381,6 +381,8 @@ class VariableOperation(_Serializable):
         self.value = value
         super().__init__()
 
+        self._validate()
+
     def calc(self, variable_value: Any):
         """
         Calculate the result of the operation on the variable value.
@@ -393,7 +395,7 @@ class VariableOperations(_Serializable):
     class Schema(CamelCaseSchema):
         operations = fields.List(
             fields.Nested(VariableOperation.Schema()),
-            validate=validate.Length(min=1),
+            validate=validate.Length(min=1, error="At least one operation required"),
             required=True,
         )
 
@@ -404,6 +406,8 @@ class VariableOperations(_Serializable):
     def __init__(self, operations: List[VariableOperation]):
         self.operations = operations
         super().__init__()
+
+        self._validate()
 
     def calc(self, variable_value: Any):
         """
@@ -578,7 +582,14 @@ class SequentialCondition(MultiCondition):
                 break
 
             if condition_variable.operations:
-                result = condition_variable.operations.calc(result)
+                try:
+                    result = condition_variable.operations.calc(result)
+                except Exception as e:
+                    raise ConditionEvaluationFailed(
+                        f"Error performing operations on result of condition variable "
+                        f"'{condition_variable.var_name}': {e}"
+                    )
+
             inner_context[f":{condition_variable.var_name}"] = result
 
         return latest_success, values
@@ -855,7 +866,12 @@ class ReturnValueTest(_Serializable):
 
         # perform any additional operations before comparison
         if self.operations:
-            data = self.operations.calc(data)
+            try:
+                data = self.operations.calc(data)
+            except Exception as e:
+                raise ReturnValueEvaluationError(
+                    f"Error performing operations on returned data: {e}"
+                )
 
         processed_data = self._process_data(data)
         left_operand = self._sanitize_value(processed_data)
