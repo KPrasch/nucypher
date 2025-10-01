@@ -1,14 +1,14 @@
 import sys
 
+# Our python support is [3.10 - 3.13]
 if sys.version_info >= (3, 11):
     # Necessary because of `NotRequired` import - https://peps.python.org/pep-0655/
     from typing import Literal, NotRequired, TypedDict
-elif sys.version_info >= (3, 8):
+else:
+    # v3.10
     from typing import Literal
 
     from typing_extensions import NotRequired, TypedDict
-else:
-    from typing_extensions import Literal, NotRequired, TypedDict
 
 from typing import Any, Dict, List, Union
 
