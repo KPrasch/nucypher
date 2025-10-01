@@ -117,18 +117,14 @@ def test_json_condition_from_lingo_expression():
     assert condition.to_dict() == lingo_dict
 
 
-def test_json_condition_ambiguous_json_path_multiple_results():
-    """Test that ambiguous queries raise an exception."""
-    from nucypher.policy.conditions.exceptions import JsonRequestException
-
+def test_json_condition_json_path_multiple_results():
     data = {"store": {"book": [{"price": 1}, {"price": 2}]}}
     condition = JsonCondition(
         data=":data",
         query="$.store.book[*].price",
-        return_value_test=ReturnValueTest("==", 1),
+        return_value_test=ReturnValueTest("==", [1, 2]),
     )
-    with pytest.raises(JsonRequestException, match="multiple matches"):
-        condition.verify(**{":data": data})
+    assert condition.verify(**{":data": data})
 
 
 def test_json_condition_invalid_jsonpath_syntax():

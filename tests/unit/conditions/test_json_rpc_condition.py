@@ -14,6 +14,8 @@ from nucypher.policy.conditions.lingo import (
     ConditionLingo,
     ConditionType,
     ReturnValueTest,
+    VariableOperation,
+    VariableOperations,
 )
 
 UUID4_STR = "b192fdd2-1529-4fe9-a671-e5386453aa9c"
@@ -367,7 +369,7 @@ def test_json_rpc_condition_from_lingo_expression_with_authorization():
     assert condition.to_dict() == lingo_dict
 
 
-def test_ambiguous_json_path_multiple_results(mocker):
+def test_json_path_multiple_results(mocker):
     mock_response = mocker.Mock(status_code=200)
     mock_response.json.return_value = {
         "result": {"mathresult": [{"answer": 19}, {"answer": -19}]}
@@ -382,5 +384,35 @@ def test_ambiguous_json_path_multiple_results(mocker):
         return_value_test=ReturnValueTest("==", 19),
     )
 
-    with pytest.raises(JsonRequestException, match="Ambiguous JSONPath query"):
-        condition.verify()
+    result, value = condition.verify()
+    assert result is False
+    assert value == [19, -19]
+
+    # verify multiple values
+    condition = JsonRpcCondition(
+        endpoint="https://math.example.com/",
+        method="subtract",
+        params=[42, 23],
+        query="$.mathresult[*].answer",
+        return_value_test=ReturnValueTest("==", [19, -19]),
+    )
+
+    result, value = condition.verify()
+    assert result is True
+    assert value == [19, -19]
+
+    # use variable operation for multiple values
+    condition = JsonRpcCondition(
+        endpoint="https://math.example.com/",
+        method="subtract",
+        params=[42, 23],
+        query="$.mathresult[*].answer",
+        return_value_test=ReturnValueTest(
+            operations=VariableOperations([VariableOperation(operation="sum")]),
+            comparator="==",
+            value=0,
+        ),
+    )
+    result, value = condition.verify()
+    assert result is True
+    assert value == [19, -19]
