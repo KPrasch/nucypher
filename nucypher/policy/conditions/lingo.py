@@ -400,42 +400,25 @@ class VariableOperation(_Serializable):
         operation_function = _OPERATOR_FUNCTIONS[self.operation]
         return operation_function(variable_value, self.value)
 
-
-class VariableOperations(_Serializable):
-    class Schema(CamelCaseSchema):
-        operations = fields.List(
-            fields.Nested(VariableOperation.Schema()),
-            validate=validate.Length(min=1, error="At least one operation required"),
-            required=True,
-        )
-
-        @post_load
-        def make(self, data, **kwargs):
-            return VariableOperations(**data)
-
-    def __init__(self, operations: List[VariableOperation]):
-        self.operations = operations
-        super().__init__()
-
-        self._validate()
-
-    def calc(self, variable_value: Any):
+    @classmethod
+    def calc_from_list(cls, operations: List["VariableOperation"], variable_value: Any):
         """
-        Calculate the result of the operation on the variable value.
+        Calculate the result of a list of operations on the variable value.
         """
         result = variable_value
-        for operation in self.operations:
+        for operation in operations:
             result = operation.calc(result)
         return result
 
 
 class ConditionVariable(_Serializable):
     class Schema(CamelCaseSchema):
-        SKIP_VALUES = (None,)
         var_name = fields.Str(required=True)
         condition = _ConditionField(required=True)
-        operations = fields.Nested(
-            VariableOperations.Schema(), required=False, allow_none=True
+        operations = fields.List(
+            fields.Nested(VariableOperation.Schema()),
+            validate=validate.Length(min=1, error="At least one operation required"),
+            required=False,
         )
 
         @post_load
@@ -446,7 +429,7 @@ class ConditionVariable(_Serializable):
         self,
         var_name: str,
         condition: Condition,
-        operations: Optional[VariableOperations] = None,
+        operations: Optional[List[VariableOperation]] = None,
     ):
         self.var_name = var_name
         self.condition = condition
@@ -466,6 +449,7 @@ class SequentialCondition(MultiCondition):
             "condition": {
                 CONDITION
             }
+            "operations": [VARIABLE_OPERATION*] (Optional)
         }
 
         SEQUENTIAL_CONDITION = {
@@ -595,7 +579,9 @@ class SequentialCondition(MultiCondition):
 
             if condition_variable.operations:
                 try:
-                    result = condition_variable.operations.calc(result)
+                    result = VariableOperation.calc_from_list(
+                        condition_variable.operations, result
+                    )
                 except Exception as e:
                     raise ConditionEvaluationFailed(
                         f"Error performing operations on result of condition variable "
@@ -772,8 +758,10 @@ class ReturnValueTest(_Serializable):
             ),
             allow_none=True,
         )
-        operations = fields.Nested(
-            VariableOperations.Schema(), required=False, allow_none=True
+        operations = fields.List(
+            fields.Nested(VariableOperation.Schema()),
+            validate=validate.Length(min=1, error="At least one operation required"),
+            required=False,
         )
 
         @validates_schema
@@ -798,7 +786,7 @@ class ReturnValueTest(_Serializable):
         comparator: str,
         value: Any,
         index: Optional[int] = None,
-        operations: Optional[VariableOperations] = None,
+        operations: Optional[List[VariableOperation]] = None,
     ):
         if not is_context_variable(value):
             # adjust stored value to be JSON serializable
@@ -879,7 +867,7 @@ class ReturnValueTest(_Serializable):
         # perform any additional operations before comparison
         if self.operations:
             try:
-                data = self.operations.calc(data)
+                data = VariableOperation.calc_from_list(self.operations, data)
             except Exception as e:
                 raise ReturnValueEvaluationError(
                     f"Error performing operations on returned data: {e}"
