@@ -3,7 +3,6 @@ import pytest
 from nucypher.policy.conditions.lingo import (
     _OPERATOR_FUNCTIONS,
     VariableOperation,
-    VariableOperations,
 )
 
 OPERATION_TEST_CASES = [
@@ -60,12 +59,9 @@ OPERATION_TEST_CASES = [
 ]
 
 
-def test_invalid_operation_inputs():
+def test_invalid_operation():
     with pytest.raises(ValueError, match="Not a permitted operation"):
         VariableOperation(operation="unknown_op", value=2)
-
-    with pytest.raises(ValueError, match="At least one operation required"):
-        VariableOperations([])  # Empty operations list
 
 
 def test_all_operations_covered():
@@ -113,17 +109,15 @@ def test_variable_operation_calc(operation, value, initial, expected):
 
 def test_cascading_operations():
     initial = [5, 6, 10, 20]
-    operations = VariableOperations(
-        [
-            VariableOperation(operation="index", value=2),  # 10
-            VariableOperation(operation="-=", value=2),  # 8
-            VariableOperation(operation="*=", value=3),  # 24
-            VariableOperation(operation="/=", value=4),  # 6
-            VariableOperation(operation="+=", value=10),  # 16
-            VariableOperation(operation="%=", value=9),  # 7
-            VariableOperation(operation="^=", value=2),  # 49
-            VariableOperation(operation="abs"),  # 49
-        ]
-    )
-    result = operations.calc(initial)
+    operations = [
+        VariableOperation(operation="index", value=2),  # 10
+        VariableOperation(operation="-=", value=2),  # 8
+        VariableOperation(operation="*=", value=3),  # 24
+        VariableOperation(operation="/=", value=4),  # 6
+        VariableOperation(operation="+=", value=10),  # 16
+        VariableOperation(operation="%=", value=9),  # 7
+        VariableOperation(operation="^=", value=2),  # 49
+        VariableOperation(operation="abs"),  # 49
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
     assert result == 49

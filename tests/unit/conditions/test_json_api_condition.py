@@ -13,7 +13,6 @@ from nucypher.policy.conditions.lingo import (
     ConditionLingo,
     ReturnValueTest,
     VariableOperation,
-    VariableOperations,
 )
 
 
@@ -452,9 +451,7 @@ def test_json_path_multiple_results(mocker):
         endpoint="https://api.example.com/data",
         query="$.store.book[*].price",
         return_value_test=ReturnValueTest(
-            operations=VariableOperations(
-                [VariableOperation(operation="index", value=1)]
-            ),
+            operations=[VariableOperation(operation="index", value=1)],
             comparator="==",
             value=2,
         ),

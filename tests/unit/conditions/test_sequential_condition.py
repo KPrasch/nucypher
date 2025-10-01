@@ -14,7 +14,6 @@ from nucypher.policy.conditions.lingo import (
     OrCompoundCondition,
     SequentialCondition,
     VariableOperation,
-    VariableOperations,
 )
 from nucypher.policy.conditions.utils import ConditionProviderManager
 
@@ -200,6 +199,15 @@ def test_sequential_condition(mock_condition_variables):
     assert len(original_context) == 0, "original context remains unchanged"
 
 
+def test_condition_variable_operations_validation(time_condition):
+    with pytest.raises(ValueError, match="At least one operation"):
+        _ = ConditionVariable(
+            var_name="var1",
+            condition=time_condition,
+            operations=[],
+        )
+
+
 @pytest.mark.usefixtures("mock_skip_schema_validation")
 def test_sequential_condition_variable_with_operations(
     mocker, mock_condition_variables
@@ -210,36 +218,28 @@ def test_sequential_condition_variable_with_operations(
     my_var_1 = ConditionVariable(
         var_name=var_1.var_name,
         condition=var_1.condition,
-        operations=VariableOperations(
-            operations=[VariableOperation(operation="*=", value=var_1_factor)]
-        ),
+        operations=[VariableOperation(operation="*=", value=var_1_factor)],
     )
 
     var_2_factor = 11
     my_var_2 = ConditionVariable(
         var_name=var_2.var_name,
         condition=var_2.condition,
-        operations=VariableOperations(
-            operations=[VariableOperation(operation="*=", value=var_2_factor)]
-        ),
+        operations=[VariableOperation(operation="*=", value=var_2_factor)],
     )
 
     var_3_factor = 12
     my_var_3 = ConditionVariable(
         var_name=var_3.var_name,
         condition=var_3.condition,
-        operations=VariableOperations(
-            operations=[VariableOperation(operation="*=", value=var_3_factor)]
-        ),
+        operations=[VariableOperation(operation="*=", value=var_3_factor)],
     )
 
     var_4_factor = 13
     my_var_4 = ConditionVariable(
         var_name=var_4.var_name,
         condition=var_4.condition,
-        operations=VariableOperations(
-            operations=[VariableOperation(operation="*=", value=var_4_factor)]
-        ),
+        operations=[VariableOperation(operation="*=", value=var_4_factor)],
     )
 
     def cond_5_verify(providers: ConditionProviderManager, **context):
@@ -290,11 +290,9 @@ def test_sequential_condition_variable_with_failed_operation(
     my_var_1 = ConditionVariable(
         var_name=var_1.var_name,
         condition=var_1.condition,
-        operations=VariableOperations(
-            operations=[
-                VariableOperation(operation="index", value=4)
-            ]  # invalid for int result; will fail
-        ),
+        operations=[
+            VariableOperation(operation="index", value=4)
+        ],  # invalid for int result; will fail
     )
 
     sequential_condition = SequentialCondition(

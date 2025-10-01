@@ -15,7 +15,6 @@ from nucypher.policy.conditions.lingo import (
     ConditionType,
     ReturnValueTest,
     VariableOperation,
-    VariableOperations,
 )
 
 UUID4_STR = "b192fdd2-1529-4fe9-a671-e5386453aa9c"
@@ -408,7 +407,7 @@ def test_json_path_multiple_results(mocker):
         params=[42, 23],
         query="$.mathresult[*].answer",
         return_value_test=ReturnValueTest(
-            operations=VariableOperations([VariableOperation(operation="sum")]),
+            operations=[VariableOperation(operation="sum")],
             comparator="==",
             value=0,
         ),

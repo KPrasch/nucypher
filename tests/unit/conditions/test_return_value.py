@@ -11,7 +11,6 @@ from nucypher.policy.conditions.exceptions import ReturnValueEvaluationError
 from nucypher.policy.conditions.lingo import (
     ReturnValueTest,
     VariableOperation,
-    VariableOperations,
 )
 
 
@@ -386,13 +385,13 @@ def test_return_value_json_serialization(test_value):
     test = ReturnValueTest(
         comparator=comparator,
         value=test_value,
-        operations=VariableOperations([VariableOperation(operation="int")]),
+        operations=[VariableOperation(operation="int")],
     )
     reloaded = schema.loads(test.to_json())
     assert test.comparator == reloaded.comparator
     assert test.value == reloaded.value
-    assert len(test.operations.operations) == len(reloaded.operations.operations)
-    for op1, op2 in zip(test.operations.operations, reloaded.operations.operations):
+    assert len(test.operations) == len(reloaded.operations)
+    for op1, op2 in zip(test.operations, reloaded.operations):
         assert op1.operation == op2.operation
         assert op1.value == op2.value
 
@@ -479,16 +478,24 @@ def test_return_value_test_in_and_not_in_comparator_invalid_types():
 
 
 def test_return_value_test_with_operations():
+    # empty operations
+    with pytest.raises(
+        ReturnValueTest.InvalidExpression, match="At least one operation required"
+    ):
+        _ = ReturnValueTest(
+            comparator="==",
+            value=10,
+            operations=[],
+        )
+
     # simple int comparison with operations
     test = ReturnValueTest(
         comparator="==",
         value=10,
-        operations=VariableOperations(
-            [
-                VariableOperation(operation="+=", value=5),
-                VariableOperation(operation="-=", value=3),
-            ]
-        ),
+        operations=[
+            VariableOperation(operation="+=", value=5),
+            VariableOperation(operation="-=", value=3),
+        ],
     )
     assert test.eval(8)  # (8 + 5) - 3 == 10
     assert not test.eval(7)
@@ -497,11 +504,9 @@ def test_return_value_test_with_operations():
     test = ReturnValueTest(
         comparator="==",
         value=True,
-        operations=VariableOperations(
-            [
-                VariableOperation(operation="bool"),
-            ]
-        ),
+        operations=[
+            VariableOperation(operation="bool"),
+        ],
     )
     assert test.eval("Non-empty string")  # bool("Non-empty string") == True
     assert not test.eval("")  # bool("") == False
@@ -511,13 +516,11 @@ def test_return_value_test_with_failed_operation():
     test = ReturnValueTest(
         comparator="==",
         value=10,
-        operations=VariableOperations(
-            [
-                VariableOperation(
-                    operation="index", value=10
-                ),  # invalid for int result; will fail
-            ]
-        ),
+        operations=[
+            VariableOperation(
+                operation="index", value=10
+            ),  # invalid for int result; will fail
+        ],
     )
     with pytest.raises(ReturnValueEvaluationError):
         assert test.eval(8)

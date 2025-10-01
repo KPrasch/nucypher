@@ -23,7 +23,6 @@ from nucypher.policy.conditions.lingo import (
     ReturnValueTest,
     SequentialCondition,
     VariableOperation,
-    VariableOperations,
 )
 from nucypher.policy.conditions.signing.base import (
     SIGNING_CONDITION_OBJECT_CONTEXT_VAR,
@@ -906,11 +905,9 @@ def test_signing_restriction_based_points_value_from_rest_endpoint(
         return_value_test=ReturnValueTest(
             comparator=">",
             value=0,
-            operations=VariableOperations(
-                operations=[
-                    VariableOperation(operation="sum"),  # sum all points
-                ]
-            ),
+            operations=[
+                VariableOperation(operation="sum"),  # sum all points
+            ],
         ),
     )
 
@@ -976,14 +973,10 @@ def test_signing_restriction_based_points_value_from_rest_endpoint(
             ConditionVariable(
                 var_name="points",
                 condition=json_condition,
-                operations=VariableOperations(
-                    [
-                        VariableOperation(operation="sum"),
-                        VariableOperation(
-                            operation="*=", value=10**18
-                        ),  # convert to wei
-                    ]
-                ),
+                operations=[
+                    VariableOperation(operation="sum"),
+                    VariableOperation(operation="*=", value=10**18),  # convert to wei
+                ],
             ),
             ConditionVariable(var_name="signingAbi", condition=signing_abi_condition),
         ]
