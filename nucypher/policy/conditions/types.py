@@ -27,11 +27,18 @@ ContextDict = Dict[str, Any]
 ComparatorLiteral = Literal["==", "!=", ">", "<", ">=", "<="]
 
 
+# VariableOperation
+class VariableOperation(TypedDict):
+    operation: str
+    value: NotRequired[Any]
+
+
 # Return Value Test
 class ReturnValueTestDict(TypedDict):
     comparator: ComparatorLiteral
     value: Any
-    key: NotRequired[Union[str, int]]
+    index: NotRequired[int]
+    operations: NotRequired[List[VariableOperation]]
 
 
 # Conditions
@@ -120,6 +127,7 @@ class CompoundConditionDict(_Condition):
 class ConditionVariableDict(TypedDict):
     varName: str
     condition: "ConditionDict"
+    operations: NotRequired[List[VariableOperation]]
 
 
 #
