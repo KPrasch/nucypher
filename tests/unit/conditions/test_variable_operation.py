@@ -19,6 +19,9 @@ OPERATION_TEST_CASES = [
     ("avg", None, [1, 2, 3], 2),
     ("avg", None, [10, 15, 20], 15),
     ("ceil", None, 3.1, 4),
+    ("ethToWei", None, 0.000000000000000001, 1),
+    ("ethToWei", None, 1.5, 1500000000000000000),
+    ("floor", None, -3.9, -4),
     ("floor", None, 3.9, 3),
     ("index", 1, [10, 20, 30], 20),
     ("index", 0, [10, 20, 30], 10),
@@ -41,6 +44,8 @@ OPERATION_TEST_CASES = [
     ("round", 2, 3.1415, 3.14),
     ("sum", None, [1, 2, 3], 6),
     ("sum", None, [1232, 22212, 3231], 26675),
+    ("weiToEth", None, 1000000000000000000, 1),
+    ("weiToEth", None, 1500000000000000000, 1.5),
     # casting
     ("int", None, 3.9, 3),
     ("int", None, "123", 123),

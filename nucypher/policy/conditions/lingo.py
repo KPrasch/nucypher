@@ -1,5 +1,6 @@
 import ast
 import base64
+import decimal
 import json
 import math
 import operator as pyoperator
@@ -8,6 +9,7 @@ from enum import Enum
 from hashlib import md5
 from typing import Any, List, Optional, Tuple, Type, Union
 
+from eth_utils import currency
 from hexbytes import HexBytes
 from marshmallow import (
     Schema,
@@ -294,6 +296,21 @@ _COMPARATOR_FUNCTIONS = {
 }
 
 
+def _eth_to_wei(a, _):
+    try:
+        return currency.to_wei(a, "ether")
+    except decimal.InvalidOperation as e:
+        raise TypeError(f"Invalid value for ethToWei conversion: {a}") from e
+
+
+def _wei_to_eth(a, _):
+    try:
+        return currency.from_wei(a, "ether")
+    except decimal.InvalidOperation as e:
+        raise TypeError(f"Invalid value for weiToEth conversion: {a}") from e
+
+
+# should raise TypeError for invalid inputs
 _OPERATOR_FUNCTIONS = {
     "+=": pyoperator.add,
     "-=": pyoperator.sub,
@@ -307,6 +324,7 @@ _OPERATOR_FUNCTIONS = {
     "abs": lambda a, _: abs(a),
     "avg": lambda a, _: statistics.mean(a),
     "ceil": lambda a, _: math.ceil(a),
+    "ethToWei": _eth_to_wei,
     "floor": lambda a, _: math.floor(a),
     "len": lambda a, _: len(a),
     "max": lambda a, _: max(a),
@@ -314,6 +332,7 @@ _OPERATOR_FUNCTIONS = {
     "min": lambda a, _: min(a),
     "mode": lambda a, _: statistics.mode(a),
     "sum": lambda a, _: sum(a),
+    "weiToEth": _wei_to_eth,
     # casting
     "str": lambda a, _: str(a),
     "int": lambda a, _: int(a),
@@ -325,6 +344,7 @@ _OPERATORS_WITH_NO_VALUE = {
     "abs",
     "avg",
     "ceil",
+    "ethToWei",
     "floor",
     "len",
     "max",
@@ -336,6 +356,7 @@ _OPERATORS_WITH_NO_VALUE = {
     "int",
     "float",
     "bool",
+    "weiToEth",
 }
 
 
