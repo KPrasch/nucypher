@@ -6,7 +6,6 @@ from typing import NamedTuple
 import pytest
 from hexbytes import HexBytes
 
-from nucypher.policy.conditions.context import resolve_any_context_variables
 from nucypher.policy.conditions.exceptions import ReturnValueEvaluationError
 from nucypher.policy.conditions.lingo import (
     ReturnValueTest,
@@ -139,19 +138,46 @@ def test_return_value_test_with_context_variable_cant_run_eval():
 
 def test_return_value_test_with_resolved_context():
     test = ReturnValueTest(comparator="==", value=":foo")
-    context = {":foo": 1234}
+    foo_value = 1234
+    context = {":foo": foo_value}
 
     resolved = test.with_resolved_context(**context)
     assert resolved.comparator == test.comparator
     assert resolved.index == test.index
-    assert resolved.value == resolve_any_context_variables(test.value, **context)
+    assert resolved.value == foo_value
+    assert test.operations is None
+    assert resolved.operations == test.operations
 
+    # context variable in value
     test = ReturnValueTest(comparator="==", value=[42, ":foo"])
-
     resolved = test.with_resolved_context(**context)
     assert resolved.comparator == test.comparator
     assert resolved.index == test.index
-    assert resolved.value == resolve_any_context_variables(test.value, **context)
+    assert resolved.value == [42, foo_value]
+    assert test.operations is None
+    assert resolved.operations == test.operations
+
+    # context variable in operations
+    test = ReturnValueTest(
+        comparator="==",
+        value=[42, ":foo"],
+        operations=[
+            VariableOperation(operation="+=", value=":foo"),
+            VariableOperation(operation="*=", value=":bar"),
+        ],
+    )
+    bar_value = 10**18
+    context[":bar"] = bar_value
+    resolved = test.with_resolved_context(**context)
+    assert resolved.comparator == test.comparator
+    assert resolved.index == test.index
+    assert resolved.value == [42, foo_value]
+    assert test.operations is not None
+    assert len(resolved.operations) == len(test.operations)
+    assert resolved.operations[0].operation == test.operations[0].operation
+    assert resolved.operations[0].value == foo_value
+    assert resolved.operations[1].operation == test.operations[1].operation
+    assert resolved.operations[1].value == bar_value
 
 
 def test_return_value_test_integer():

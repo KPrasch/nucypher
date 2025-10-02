@@ -1,5 +1,6 @@
 import pytest
 
+from nucypher.policy.conditions.exceptions import RequiredContextVariable
 from nucypher.policy.conditions.lingo import (
     _OPERATOR_FUNCTIONS,
     _OPERATORS_WITH_NO_VALUE,
@@ -136,3 +137,23 @@ def test_cascading_operations():
     ]
     result = VariableOperation.calc_from_list(operations, initial)
     assert result == 49
+
+
+def test_context_variable_resolution_in_operations():
+    # various operations with context variables
+    initial = 10
+    context = {":increment": 5, ":multiplier": 3}
+    operations = [
+        VariableOperation(operation="+=", value=":increment"),  # 15
+        VariableOperation(operation="*=", value=":multiplier"),  # 45
+        VariableOperation(operation="-=", value=10),  # 35
+    ]
+
+    with pytest.raises(RequiredContextVariable):
+        VariableOperation.with_resolved_context(
+            operations, context={}
+        )  # missing context variables
+
+    resolved_operations = VariableOperation.with_resolved_context(operations, **context)
+    result = VariableOperation.calc_from_list(resolved_operations, initial)
+    assert result == 35

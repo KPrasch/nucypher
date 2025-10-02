@@ -392,6 +392,27 @@ class VariableOperation(_Serializable):
             result = operation.calc(result)
         return result
 
+    @classmethod
+    def with_resolved_context(
+        cls,
+        operations: List["VariableOperation"],
+        providers: ConditionProviderManager = None,
+        **context,
+    ):
+        resolved_operations = []
+        for operation in operations:
+            resolved_value = (
+                resolve_any_context_variables(
+                    operation.value, providers=providers, **context
+                )
+                if operation.value is not None
+                else None
+            )
+            resolved_operations.append(
+                VariableOperation(operation=operation.operation, value=resolved_value)
+            )
+        return resolved_operations
+
 
 class ConditionVariable(_Serializable):
     class Schema(CamelCaseSchema):
@@ -560,9 +581,12 @@ class SequentialCondition(MultiCondition):
                 break
 
             if condition_variable.operations:
+                resolved_operations = VariableOperation.with_resolved_context(
+                    condition_variable.operations, providers=providers, **inner_context
+                )
                 try:
                     result = VariableOperation.calc_from_list(
-                        condition_variable.operations, result
+                        resolved_operations, result
                     )
                 except Exception as e:
                     raise ConditionEvaluationFailed(
@@ -873,9 +897,20 @@ class ReturnValueTest(_Serializable):
     def with_resolved_context(
         self, providers: Optional[ConditionProviderManager] = None, **context
     ):
-        value = resolve_any_context_variables(self.value, providers, **context)
+        resolved_value = resolve_any_context_variables(self.value, providers, **context)
+
+        resolved_operations = None
+        if self.operations:
+            # make sure context variables are resolved for operations too
+            resolved_operations = VariableOperation.with_resolved_context(
+                self.operations, providers=providers, **context
+            )
+
         return ReturnValueTest(
-            self.comparator, value=value, index=self.index, operations=self.operations
+            self.comparator,
+            value=resolved_value,
+            index=self.index,
+            operations=resolved_operations,
         )
 
 
