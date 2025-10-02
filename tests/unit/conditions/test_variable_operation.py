@@ -2,6 +2,7 @@ import pytest
 
 from nucypher.policy.conditions.lingo import (
     _OPERATOR_FUNCTIONS,
+    _OPERATORS_WITH_NO_VALUE,
     VariableOperation,
 )
 
@@ -64,6 +65,16 @@ def test_invalid_operation():
         VariableOperation(operation="unknown_op", value=2)
 
 
+@pytest.mark.parametrize("operation", [op for op, *_ in OPERATION_TEST_CASES])
+def test_invalid_operation_and_value_combination(operation):
+    if operation in _OPERATORS_WITH_NO_VALUE:
+        with pytest.raises(ValueError, match="No value should be provided"):
+            VariableOperation(operation=operation, value=2)
+    else:
+        with pytest.raises(ValueError, match="A value must be provided"):
+            VariableOperation(operation=operation)
+
+
 def test_all_operations_covered():
     tested_operations = [op for op, *_ in OPERATION_TEST_CASES]
     assert set(tested_operations) == _OPERATOR_FUNCTIONS.keys()
@@ -71,9 +82,8 @@ def test_all_operations_covered():
 
 @pytest.mark.parametrize("operation", [op for op, *_ in OPERATION_TEST_CASES])
 def test_type_errors_in_calc(operation):
-    op = VariableOperation(
-        operation=operation,
-        value=[
+    value = (
+        [
             "random",
             "list",
             "that",
@@ -85,6 +95,11 @@ def test_type_errors_in_calc(operation):
             "operations",
         ],
     )
+
+    if operation in _OPERATORS_WITH_NO_VALUE:
+        op = VariableOperation(operation=operation)
+    else:
+        op = VariableOperation(operation=operation, value=value)
     # Skip type error test for bool and str casting operations because
     # they can handle any input without raising TypeError
     if operation in ["bool", "str"]:

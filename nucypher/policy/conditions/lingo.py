@@ -321,6 +321,23 @@ _OPERATOR_FUNCTIONS = {
     "bool": lambda a, _: bool(a),
 }
 
+_OPERATORS_WITH_NO_VALUE = {
+    "abs",
+    "avg",
+    "ceil",
+    "floor",
+    "len",
+    "max",
+    "median",
+    "min",
+    "mode",
+    "sum",
+    "str",
+    "int",
+    "float",
+    "bool",
+}
+
 
 class VariableOperation(_Serializable):
     class Schema(CamelCaseSchema):
@@ -329,6 +346,23 @@ class VariableOperation(_Serializable):
             validate=OneOf(_OPERATOR_FUNCTIONS, error="Not a permitted operation"),
         )
         value = AnyField(required=False, allow_none=True)
+
+        @validates_schema
+        def validate_operation_and_value(self, data, **kwargs):
+            operation = data["operation"]
+            value = data.get("value")
+            if operation in _OPERATORS_WITH_NO_VALUE:
+                if value is not None:
+                    raise ValidationError(
+                        field_name="value",
+                        message=f'No value should be provided for operation "{operation}"',
+                    )
+            else:
+                if value is None:
+                    raise ValidationError(
+                        field_name="value",
+                        message=f'A value must be provided for operation "{operation}"',
+                    )
 
         @post_load
         def make(self, data, **kwargs):
