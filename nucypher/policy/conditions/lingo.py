@@ -93,7 +93,7 @@ class _ConditionField(fields.Dict):
         return instance
 
 
-# CONDITION = TIME | CONTRACT | RPC | JSON_API | JSON_RPC | JWT | COMPOUND | SEQUENTIAL | IF_THEN_ELSE_CONDITION | ECDSA  | SIGNING_ATTRIBUTE | SIGNING_ABI_ATTRIBUTE
+# CONDITION = TIME | CONTRACT | RPC | JSON | JSON_API | JSON_RPC | JWT | COMPOUND | SEQUENTIAL | IF_THEN_ELSE_CONDITION | ECDSA  | SIGNING_ATTRIBUTE | SIGNING_ABI_ATTRIBUTE
 class ConditionType(Enum):
     """
     Defines the types of conditions that can be evaluated.
@@ -102,6 +102,7 @@ class ConditionType(Enum):
     TIME = "time"
     CONTRACT = "contract"
     RPC = "rpc"
+    JSON = "json"
     JSONAPI = "json-api"
     JSONRPC = "json-rpc"
     JWT = "jwt"
@@ -820,6 +821,7 @@ class ConditionLingo(_Serializable):
         from nucypher.policy.conditions.ecdsa import ECDSACondition
         from nucypher.policy.conditions.evm import ContractCondition, RPCCondition
         from nucypher.policy.conditions.json.api import JsonApiCondition
+        from nucypher.policy.conditions.json.json import JsonCondition
         from nucypher.policy.conditions.json.rpc import JsonRpcCondition
         from nucypher.policy.conditions.jwt import JWTCondition
         from nucypher.policy.conditions.signing.base import (
@@ -838,6 +840,7 @@ class ConditionLingo(_Serializable):
             RPCCondition,
             CompoundCondition,
             ContextVariableCondition,
+            JsonCondition,
             JsonApiCondition,
             JsonRpcCondition,
             JWTCondition,
