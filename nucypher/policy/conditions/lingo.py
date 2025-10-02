@@ -312,6 +312,10 @@ def _wei_to_eth(a, _):
 
 # should raise TypeError for invalid inputs
 _OPERATOR_FUNCTIONS = {
+    # We can add all kinds of operators over time, this is just a base start - given that
+    # we need ethToWei and weiToEth.
+    # Whether this set is too aggressive or not remains to be seen. We can always pare
+    # back on the operators we want to start with.
     "+=": pyoperator.add,
     "-=": pyoperator.sub,
     "*=": pyoperator.mul,
@@ -328,16 +332,14 @@ _OPERATOR_FUNCTIONS = {
     "floor": lambda a, _: math.floor(a),
     "len": lambda a, _: len(a),
     "max": lambda a, _: max(a),
-    "median": lambda a, _: statistics.median(a),
     "min": lambda a, _: min(a),
-    "mode": lambda a, _: statistics.mode(a),
     "sum": lambda a, _: sum(a),
     "weiToEth": _wei_to_eth,
     # casting
-    "str": lambda a, _: str(a),
-    "int": lambda a, _: int(a),
-    "float": lambda a, _: float(a),
     "bool": lambda a, _: bool(a),
+    "float": lambda a, _: float(a),
+    "int": lambda a, _: int(a),
+    "str": lambda a, _: str(a),
 }
 
 _OPERATORS_WITH_NO_VALUE = {
@@ -348,15 +350,14 @@ _OPERATORS_WITH_NO_VALUE = {
     "floor",
     "len",
     "max",
-    "median",
     "min",
-    "mode",
     "sum",
-    "str",
-    "int",
-    "float",
-    "bool",
     "weiToEth",
+    # casting
+    "bool",
+    "float",
+    "int",
+    "str",
 }
 
 

@@ -35,11 +35,8 @@ OPERATION_TEST_CASES = [
     ("len", None, [1, 2, 3, False, 123.0, "six"], 6),
     ("max", None, [1, 2, 3], 3),
     ("max", None, [123, 25, 35], 123),
-    ("median", None, [1, 2, 3], 2),
-    ("median", None, [24, 16, 36, 67], 30),
     ("min", None, [1, 2, 3], 1),
     ("min", None, [123.4, 50.1, 52], 50.1),
-    ("mode", None, [1, 1, 2, 2, 5, 6, 7, 8, 0, 1, 1], 1),
     ("round", 1, 3.1415, 3.1),
     ("round", 2, 3.1415, 3.14),
     ("sum", None, [1, 2, 3], 6),
@@ -47,10 +44,14 @@ OPERATION_TEST_CASES = [
     ("weiToEth", None, 1000000000000000000, 1),
     ("weiToEth", None, 1500000000000000000, 1.5),
     # casting
-    ("int", None, 3.9, 3),
-    ("int", None, "123", 123),
+    ("bool", None, 0, False),
+    ("bool", None, 1, True),
+    ("bool", None, "", False),
+    ("bool", None, "Non-empty string", True),
     ("float", None, 3, 3.0),
     ("float", None, "123.456", 123.456),
+    ("int", None, 3.9, 3),
+    ("int", None, "123", 123),
     ("str", None, 123, "123"),
     ("str", None, 123.456, "123.456"),
     (
@@ -59,10 +60,6 @@ OPERATION_TEST_CASES = [
         "Do not confuse one story for all stories",
         "Do not confuse one story for all stories",
     ),  # -- Anonymous
-    ("bool", None, 0, False),
-    ("bool", None, 1, True),
-    ("bool", None, "", False),
-    ("bool", None, "Non-empty string", True),
 ]
 
 
@@ -114,7 +111,7 @@ def test_type_errors_in_calc(operation):
     with pytest.raises(TypeError):
         if operation in ["int", "float"]:
             op.calc(["some", "list"])
-        elif operation in ["%=", "len", "max", "min", "mode"]:
+        elif operation in ["%=", "len", "max", "min"]:
             # special cases where the functions can handle strings as the initial variable value
             op.calc(10)
         else:
