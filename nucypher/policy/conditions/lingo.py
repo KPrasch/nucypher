@@ -294,10 +294,6 @@ _COMPARATOR_FUNCTIONS = {
 }
 
 
-def _raise_operator_type_error(msg: str):
-    raise TypeError(msg)
-
-
 _OPERATOR_FUNCTIONS = {
     "+=": pyoperator.add,
     "-=": pyoperator.sub,
@@ -305,67 +301,19 @@ _OPERATOR_FUNCTIONS = {
     "/=": pyoperator.truediv,
     "%=": pyoperator.mod,
     "^=": pyoperator.pow,
-    "index": lambda a, b: (
-        a[b]
-        if isinstance(a, list)
-        else _raise_operator_type_error(f"{a} is not a list")
-    ),
-    "round": lambda a, b: (
-        round(a, b)
-        if isinstance(a, (int, float))
-        else _raise_operator_type_error("Invalid input for round")
-    ),
+    "index": lambda a, b: a[b],
+    "round": lambda a, b: round(a, b),
     # operations that don't require 2nd value, keep parameter for simplistic execution consistency
-    "abs": lambda a, _: (
-        abs(a)
-        if isinstance(a, (int, float))
-        else _raise_operator_type_error("Invalid input for abs")
-    ),
-    "avg": lambda a, _: (
-        statistics.mean(a)
-        if isinstance(a, list)
-        else _raise_operator_type_error("Invalid input for avg")
-    ),
-    "ceil": lambda a, _: (
-        math.ceil(a)
-        if isinstance(a, (int, float))
-        else _raise_operator_type_error("Invalid input for ceil")
-    ),
-    "floor": lambda a, _: (
-        math.floor(a)
-        if isinstance(a, (int, float))
-        else _raise_operator_type_error("Invalid input for floor")
-    ),
-    "len": lambda a, _: (
-        len(a)
-        if isinstance(a, (list, dict))
-        else _raise_operator_type_error("Invalid input for len")
-    ),
-    "max": lambda a, _: (
-        max(a)
-        if isinstance(a, list)
-        else _raise_operator_type_error("Invalid input for max")
-    ),
-    "median": lambda a, _: (
-        statistics.median(a)
-        if isinstance(a, list)
-        else _raise_operator_type_error("Invalid input for median")
-    ),
-    "min": lambda a, _: (
-        min(a)
-        if isinstance(a, list)
-        else _raise_operator_type_error("Invalid input for min")
-    ),
-    "mode": lambda a, _: (
-        statistics.mode(a)
-        if isinstance(a, list)
-        else _raise_operator_type_error("Invalid input for mode")
-    ),
-    "sum": lambda a, _: (
-        sum(a)
-        if isinstance(a, list)
-        else _raise_operator_type_error("Invalid input for sum")
-    ),
+    "abs": lambda a, _: abs(a),
+    "avg": lambda a, _: statistics.mean(a),
+    "ceil": lambda a, _: math.ceil(a),
+    "floor": lambda a, _: math.floor(a),
+    "len": lambda a, _: len(a),
+    "max": lambda a, _: max(a),
+    "median": lambda a, _: statistics.median(a),
+    "min": lambda a, _: min(a),
+    "mode": lambda a, _: statistics.mode(a),
+    "sum": lambda a, _: sum(a),
     # casting
     "str": lambda a, _: str(a),
     "int": lambda a, _: int(a),

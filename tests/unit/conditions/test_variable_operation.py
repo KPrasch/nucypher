@@ -93,8 +93,8 @@ def test_type_errors_in_calc(operation):
     with pytest.raises(TypeError):
         if operation in ["int", "float"]:
             op.calc(["some", "list"])
-        elif operation == "%=":
-            # Modulus can handle strings in Python, so misuse it with a number
+        elif operation in ["%=", "len", "max", "min", "mode"]:
+            # special cases where the functions can handle strings as the initial variable value
             op.calc(10)
         else:
             op.calc("initial_value_that_does_not_make_sense")
