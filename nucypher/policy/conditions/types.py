@@ -61,7 +61,7 @@ class ContractConditionDict(RPCConditionDict):
 
 
 class JsonConditionDict(BaseExecConditionDict):
-    data: Any
+    data: str  # Must be a context variable (e.g., ":previousResult")
     query: NotRequired[str]
 
 
