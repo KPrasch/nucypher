@@ -363,6 +363,7 @@ _UNARY_OPERATOR_FUNCTIONS = {
 
 MAX_VARIABLE_OPERATIONS = 5
 
+
 class VariableOperation(_Serializable):
     class Schema(CamelCaseSchema):
         operation = fields.Str(
@@ -872,8 +873,7 @@ class ReturnValueTest(_Serializable):
 
     def _process_data(self, data: Any) -> Any:
         """
-        If an index is specified, return the value at that index in the data if data is list-like.
-        Otherwise, return the data.
+        Convert bytes to hex as needed, including within nested lists/tuples.
         """
         processed_data = data
 
