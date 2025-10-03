@@ -360,6 +360,7 @@ _OPERATORS_WITH_NO_VALUE = {
     "str",
 }
 
+MAX_VARIABLE_OPERATIONS = 5
 
 class VariableOperation(_Serializable):
     class Schema(CamelCaseSchema):
@@ -442,7 +443,13 @@ class ConditionVariable(_Serializable):
         condition = _ConditionField(required=True)
         operations = fields.List(
             fields.Nested(VariableOperation.Schema()),
-            validate=validate.Length(min=1, error="At least one operation required"),
+            validate=[
+                validate.Length(min=1, error="At least one operation required"),
+                validate.Length(
+                    max=MAX_VARIABLE_OPERATIONS,
+                    error=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed",
+                ),
+            ],
             required=False,
         )
 
@@ -788,7 +795,13 @@ class ReturnValueTest(_Serializable):
         )
         operations = fields.List(
             fields.Nested(VariableOperation.Schema()),
-            validate=validate.Length(min=1, error="At least one operation required"),
+            validate=[
+                validate.Length(min=1, error="At least one operation required"),
+                validate.Length(
+                    max=MAX_VARIABLE_OPERATIONS,
+                    error=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed",
+                ),
+            ],
             required=False,
         )
 

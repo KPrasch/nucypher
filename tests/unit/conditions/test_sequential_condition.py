@@ -9,6 +9,7 @@ from nucypher.policy.conditions.exceptions import (
     InvalidCondition,
 )
 from nucypher.policy.conditions.lingo import (
+    MAX_VARIABLE_OPERATIONS,
     ConditionType,
     ConditionVariable,
     OrCompoundCondition,
@@ -200,11 +201,23 @@ def test_sequential_condition(mock_condition_variables):
 
 
 def test_condition_variable_operations_validation(time_condition):
+    # empty operations list
     with pytest.raises(ValueError, match="At least one operation"):
         _ = ConditionVariable(
             var_name="var1",
             condition=time_condition,
             operations=[],
+        )
+
+    # too many operations
+    with pytest.raises(
+        ValueError, match=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed"
+    ):
+        _ = ConditionVariable(
+            var_name="var1",
+            condition=time_condition,
+            operations=[VariableOperation(operation="*=", value=2)]
+            * (MAX_VARIABLE_OPERATIONS + 1),
         )
 
 

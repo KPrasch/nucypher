@@ -8,6 +8,7 @@ from hexbytes import HexBytes
 
 from nucypher.policy.conditions.exceptions import ReturnValueEvaluationError
 from nucypher.policy.conditions.lingo import (
+    MAX_VARIABLE_OPERATIONS,
     ReturnValueTest,
     VariableOperation,
 )
@@ -512,6 +513,18 @@ def test_return_value_test_with_operations():
             comparator="==",
             value=10,
             operations=[],
+        )
+
+    # too many operaitons
+    with pytest.raises(
+        ReturnValueTest.InvalidExpression,
+        match=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed",
+    ):
+        _ = ReturnValueTest(
+            comparator="==",
+            value=10,
+            operations=[VariableOperation(operation="+=", value=2)]
+            * (MAX_VARIABLE_OPERATIONS + 1),
         )
 
     # simple int comparison with operations
