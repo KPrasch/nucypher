@@ -324,7 +324,8 @@ _OPERATOR_FUNCTIONS = {
     "^=": pyoperator.pow,
     "index": lambda a, b: a[b],
     "round": lambda a, b: round(a, b),
-    # operations that don't require 2nd value, keep parameter for simplistic execution consistency
+    # unary operations i.e. don't require 2nd 'b' value to be passed;
+    # keep extra parameter in lambda function for simplistic execution consistency
     "abs": lambda a, _: abs(a),
     "avg": lambda a, _: statistics.mean(a),
     "ceil": lambda a, _: math.ceil(a),
@@ -342,7 +343,7 @@ _OPERATOR_FUNCTIONS = {
     "str": lambda a, _: str(a),
 }
 
-_OPERATORS_WITH_NO_VALUE = {
+_UNARY_OPERATOR_FUNCTIONS = {
     "abs",
     "avg",
     "ceil",
@@ -374,7 +375,7 @@ class VariableOperation(_Serializable):
         def validate_operation_and_value(self, data, **kwargs):
             operation = data["operation"]
             value = data.get("value")
-            if operation in _OPERATORS_WITH_NO_VALUE:
+            if operation in _UNARY_OPERATOR_FUNCTIONS:
                 if value is not None:
                     raise ValidationError(
                         field_name="value",

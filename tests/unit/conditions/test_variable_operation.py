@@ -3,7 +3,7 @@ import pytest
 from nucypher.policy.conditions.exceptions import RequiredContextVariable
 from nucypher.policy.conditions.lingo import (
     _OPERATOR_FUNCTIONS,
-    _OPERATORS_WITH_NO_VALUE,
+    _UNARY_OPERATOR_FUNCTIONS,
     VariableOperation,
 )
 
@@ -70,7 +70,7 @@ def test_invalid_operation():
 
 @pytest.mark.parametrize("operation", [op for op, *_ in OPERATION_TEST_CASES])
 def test_invalid_operation_and_value_combination(operation):
-    if operation in _OPERATORS_WITH_NO_VALUE:
+    if operation in _UNARY_OPERATOR_FUNCTIONS:
         with pytest.raises(ValueError, match="No value should be provided"):
             VariableOperation(operation=operation, value=2)
     else:
@@ -99,7 +99,7 @@ def test_type_errors_in_calc(operation):
         ],
     )
 
-    if operation in _OPERATORS_WITH_NO_VALUE:
+    if operation in _UNARY_OPERATOR_FUNCTIONS:
         op = VariableOperation(operation=operation)
     else:
         op = VariableOperation(operation=operation, value=value)
