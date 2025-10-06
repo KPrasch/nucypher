@@ -154,6 +154,36 @@ def test_cascading_float_operations():
     assert result == 0
 
 
+def test_overloaded_operators():
+    initial = []
+    operations = [
+        VariableOperation(operation="+=", value=["T"]),  # T
+        VariableOperation(operation="+=", value=["A"]),  # TA
+        VariableOperation(operation="+=", value=["C"]),  # TAC
+        VariableOperation(operation="+=", value=["o"]),  # TACo
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == ["T", "A", "C", "o"]
+
+    initial = ""
+    operations = [
+        VariableOperation(operation="+=", value="T"),  # T
+        VariableOperation(operation="+=", value="A"),  # TA
+        VariableOperation(operation="+=", value="C"),  # TAC
+        VariableOperation(operation="+=", value="o"),  # TACo
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == "TACo"
+
+    initial = "TACo"
+    operations = [
+        VariableOperation(operation="*=", value=3),  # TACoTACoTACo
+        VariableOperation(operation="+=", value="!"),  # TACoTACoTACo!
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == "TACoTACoTACo!"
+
+
 def test_context_variable_resolution_in_operations():
     # various operations with context variables
     initial = 10
