@@ -43,6 +43,7 @@ OPERATION_TEST_CASES = [
     ("sum", None, [1232, 22212, 3231], 26675),
     ("weiToEth", None, 1000000000000000000, 1),
     ("weiToEth", None, 1500000000000000000, 1.5),
+    ("weiToEth", None, 1100000000000000000, 1.1),
     # casting
     ("bool", None, 0, False),
     ("bool", None, 1, True),
@@ -139,6 +140,18 @@ def test_cascading_operations():
     ]
     result = VariableOperation.calc_from_list(operations, initial)
     assert result == 49
+
+
+def test_cascading_float_operations():
+    initial = 0
+    operations = [
+        VariableOperation(operation="+=", value=0.1),  # 0.1
+        VariableOperation(operation="+=", value=0.1),  # 0.2
+        VariableOperation(operation="+=", value=0.1),  # 0.3
+        VariableOperation(operation="-=", value=0.3),  # 0
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == 0
 
 
 def test_context_variable_resolution_in_operations():
