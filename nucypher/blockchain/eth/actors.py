@@ -75,6 +75,7 @@ from nucypher.crypto.powers import (
     CryptoPower,
     RitualisticPower,
     ThresholdRequestDecryptingPower,
+    ThresholdSigningPower,
     TransactingPower,
 )
 from nucypher.datastore.ritual import (
@@ -211,6 +212,7 @@ class Operator(BaseActor):
         polygon_endpoint: str,
         pre_payment_method: ContractPayment,
         transacting_power: TransactingPower,
+        threshold_signing_power: ThresholdSigningPower,
         signer: Signer = None,
         crypto_power: CryptoPower = None,
         client_password: str = None,
@@ -235,6 +237,8 @@ class Operator(BaseActor):
                 signer=signer,
                 cache=True,
             )
+
+        self.threshold_signing_power = threshold_signing_power
 
         # We pass the newly instantiated TransactingPower into consume_power_up here, even though it's accessible
         # on the instance itself (being composed in the __init__ of the base class, which we will call shortly)
@@ -1494,7 +1498,7 @@ class Operator(BaseActor):
 
         # sign if the request is authorized (conditions are satisfied)
         message_hash, signature = sign_signature_request_data(
-            request=signing_request, transacting_power=self.transacting_power
+            request=signing_request, transacting_power=self.threshold_signing_power
         )
         response = SignatureResponse(
             _hash=message_hash,

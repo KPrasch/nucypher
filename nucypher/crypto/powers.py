@@ -236,6 +236,10 @@ class TransactingPower(CryptoPowerUp):
         return self._signer.sign_transaction(transaction_dict=transaction_dict)
 
 
+class ThresholdSigningPower(TransactingPower):
+    """A TransactingPower that is dedicated to sign threshold cryptography requests."""
+
+
 class KeyPairBasedPower(CryptoPowerUp):
     confers_public_key = True
     _keypair_class = keypairs.Keypair
