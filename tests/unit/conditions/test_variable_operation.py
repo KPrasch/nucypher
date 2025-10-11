@@ -150,10 +150,10 @@ def test_cascading_operations():
 def test_cascading_float_operations():
     initial = 0
     operations = [
-        VariableOperation(operation="+=", value=0.1),  # 0.1
-        VariableOperation(operation="+=", value=0.1),  # 0.2
-        VariableOperation(operation="+=", value=0.1),  # 0.3
-        VariableOperation(operation="-=", value=0.3),  # 0
+        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.1
+        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.2
+        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.3
+        VariableOperation.from_dict(dict(operation="-=", value=0.3)),  # 0
     ]
     result = VariableOperation.calc_from_list(operations, initial)
     assert result == 0
