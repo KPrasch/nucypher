@@ -296,14 +296,14 @@ _COMPARATOR_FUNCTIONS = {
 }
 
 
-def _eth_to_wei(a, _):
+def _eth_to_wei(a, _) -> int:
     try:
         return currency.to_wei(a, "ether")
     except decimal.InvalidOperation as e:
         raise TypeError(f"Invalid value for ethToWei conversion: {a}") from e
 
 
-def _wei_to_eth(a, _):
+def _wei_to_eth(a, _) -> Union[int, decimal.Decimal]:
     try:
         return currency.from_wei(a, "ether")
     except decimal.InvalidOperation as e:
