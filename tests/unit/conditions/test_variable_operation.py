@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from nucypher.policy.conditions.exceptions import RequiredContextVariable
@@ -7,6 +9,7 @@ from nucypher.policy.conditions.lingo import (
     VariableOperation,
 )
 
+# (Operation, value, initial, expected)
 OPERATION_TEST_CASES = [
     ("+=", 2, 3, 5),
     ("-=", 2, 3, 1),
@@ -21,6 +24,7 @@ OPERATION_TEST_CASES = [
     ("ceil", None, 3.1, 4),
     ("ethToWei", None, 0.000000000000000001, 1),
     ("ethToWei", None, 1.5, 1500000000000000000),
+    ("ethToWei", None, 1.1, 1100000000000000000),
     ("floor", None, -3.9, -4),
     ("floor", None, 3.9, 3),
     ("index", 1, [10, 20, 30], 20),
@@ -43,11 +47,12 @@ OPERATION_TEST_CASES = [
     ("sum", None, [1232, 22212, 3231], 26675),
     ("weiToEth", None, 1000000000000000000, 1),
     ("weiToEth", None, 1500000000000000000, 1.5),
-    ("weiToEth", None, 1100000000000000000, 1.1),
+    ("weiToEth", None, 1100000000000000000, Decimal("1.1")),
     # casting
     ("bool", None, 0, False),
     ("bool", None, 1, True),
     ("bool", None, "", False),
+    ("bool", None, [], False),
     ("bool", None, "Non-empty string", True),
     ("float", None, 3, 3.0),
     ("float", None, "123.456", 123.456),
