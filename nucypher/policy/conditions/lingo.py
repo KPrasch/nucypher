@@ -1,6 +1,5 @@
 import ast
 import base64
-import decimal
 import json
 import math
 import operator as pyoperator
@@ -9,7 +8,6 @@ from enum import Enum
 from hashlib import md5
 from typing import Any, List, Optional, Tuple, Type, Union
 
-from eth_utils import currency
 from hexbytes import HexBytes
 from marshmallow import (
     Schema,
@@ -44,6 +42,8 @@ from nucypher.policy.conditions.types import ConditionDict, Lingo
 from nucypher.policy.conditions.utils import (
     CamelCaseSchema,
     ConditionProviderManager,
+    _eth_to_wei,
+    _wei_to_eth,
     check_and_convert_any_big_ints,
     check_and_convert_big_int_string_to_int,
 )
@@ -294,20 +294,6 @@ _COMPARATOR_FUNCTIONS = {
         pyoperator.contains(container, item)
     ),
 }
-
-
-def _eth_to_wei(a, _) -> int:
-    try:
-        return currency.to_wei(a, "ether")
-    except decimal.InvalidOperation as e:
-        raise TypeError(f"Invalid value for ethToWei conversion: {a}") from e
-
-
-def _wei_to_eth(a, _) -> Union[int, decimal.Decimal]:
-    try:
-        return currency.from_wei(a, "ether")
-    except decimal.InvalidOperation as e:
-        raise TypeError(f"Invalid value for weiToEth conversion: {a}") from e
 
 
 # should raise TypeError for invalid inputs
