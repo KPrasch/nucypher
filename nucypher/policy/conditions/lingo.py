@@ -1,5 +1,6 @@
 import ast
 import base64
+import decimal
 import json
 import math
 import operator as pyoperator
@@ -357,6 +358,16 @@ class VariableOperation(_Serializable):
             validate=OneOf(_OPERATOR_FUNCTIONS, error="Not a permitted operation"),
         )
         value = AnyField(required=False, allow_none=True)
+
+        @pre_load
+        def convert_floats_to_decimal(self, data, **kwargs):
+            value = data.get("value")
+
+            # convert float to Decimal to avoid precision issues
+            if value is not None and isinstance(value, float):
+                data["value"] = decimal.Decimal(str(value))
+
+            return data
 
         @validates_schema
         def validate_operation_and_value(self, data, **kwargs):
@@ -847,7 +858,7 @@ class ReturnValueTest(_Serializable):
             raise self.InvalidExpression(f"{e}")
 
     @classmethod
-    def _sanitize_value(cls, value):
+    def _sanitize_value(cls, value) -> Any:
         try:
             return ast.literal_eval(str(value))
         except Exception:
