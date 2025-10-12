@@ -16,7 +16,6 @@ OPERATION_TEST_CASES = [
     ("*=", 2, 3, 6),
     ("/=", 2, 6, 3.0),
     ("%=", 2, 5, 1),
-    ("^=", 2, 3, 9),
     ("abs", None, -3, 3),
     ("abs", None, 3, 3),
     ("avg", None, [1, 2, 3], 2),
@@ -140,11 +139,11 @@ def test_cascading_operations():
         VariableOperation(operation="/=", value=4),  # 6
         VariableOperation(operation="+=", value=10),  # 16
         VariableOperation(operation="%=", value=9),  # 7
-        VariableOperation(operation="^=", value=2),  # 49
-        VariableOperation(operation="abs"),  # 49
+        VariableOperation(operation="abs"),  # 7
+        VariableOperation(operation="ethToWei"),  # 7000000000000000000
     ]
     result = VariableOperation.calc_from_list(operations, initial)
-    assert result == 49
+    assert result == 7000000000000000000
 
 
 def test_cascading_float_operations():
