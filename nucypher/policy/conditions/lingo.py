@@ -5,6 +5,7 @@ import json
 import math
 import operator as pyoperator
 import statistics
+from decimal import localcontext
 from enum import Enum
 from hashlib import md5
 from typing import Any, List, Optional, Tuple, Type, Union
@@ -351,22 +352,21 @@ MAX_VARIABLE_OPERATIONS = 5
 
 
 class VariableOperation(_Serializable):
+    """
+    An operation to be performed on a variable value.
+
+    Evaluation of VariableOperation should always be done via `calc_from_list()` to ensure
+    floating precision if utilized is always maintained, even for evaluation of single operation.
+    `_calc()` should never be called directly.
+
+    There is a limit to floating point precision for operations.
+    """
     class Schema(CamelCaseSchema):
         operation = fields.Str(
             required=True,
             validate=OneOf(_OPERATOR_FUNCTIONS, error="Not a permitted operation"),
         )
         value = AnyField(required=False, allow_none=True)
-
-        @pre_load
-        def convert_floats_to_decimal(self, data, **kwargs):
-            value = data.get("value")
-
-            # convert float to Decimal to avoid precision issues
-            if value is not None and isinstance(value, float):
-                data["value"] = decimal.Decimal(str(value))
-
-            return data
 
         @validates_schema
         def validate_operation_and_value(self, data, **kwargs):
@@ -391,14 +391,26 @@ class VariableOperation(_Serializable):
 
     def __init__(self, operation: str, value: Any = None):
         self.operation = operation
-        self.value = value
-        super().__init__()
+        self.value = self._convert_floats_to_decimal(value)
 
+        super().__init__()
         self._validate()
 
-    def calc(self, variable_value: Any):
+    @classmethod
+    def _convert_floats_to_decimal(cls, value: Any) -> Any:
         """
-        Calculate the result of the operation on the variable value.
+        Convert float values to Decimal to avoid precision issues.
+        """
+        if value is not None and isinstance(value, float):
+            return decimal.Decimal(str(value))
+
+        return value
+
+    def _calc(self, variable_value: Any):
+        """
+        Calculates the result of the operation on the variable value.
+
+        This should never be called directly; use `calc_from_list()` instead.
         """
         operation_function = _OPERATOR_FUNCTIONS[self.operation]
         return operation_function(variable_value, self.value)
@@ -406,11 +418,30 @@ class VariableOperation(_Serializable):
     @classmethod
     def calc_from_list(cls, operations: List["VariableOperation"], variable_value: Any):
         """
-        Calculate the result of a list of operations on the variable value.
+        Calculates the result of a list of operations on the variable value.
         """
-        result = variable_value
-        for operation in operations:
-            result = operation.calc(result)
+        if len(operations) < 1:
+            raise ValueError(
+                "At least one operation is required to perform calculations"
+            )
+
+        with localcontext() as ctx:
+            # large precision to avoid any float precision issues during calcs
+            # (same used for wei conversion)
+            ctx.prec = 999
+
+            # convert initial variable value to decimal if float
+            result = cls._convert_floats_to_decimal(variable_value)
+            for operation in operations:
+                result = operation._calc(result)
+
+        if isinstance(result, decimal.Decimal):
+            # Decimal is really internal, and isn't JSON serializable, so
+            # convert back to float; loses precision after ~17 digits
+            # d = Decimal('12345678901234567890.123456789012345678')
+            # f = float(d)
+            # print(f)  # 1.2345678901234567e+19  (~17 digits of precision)
+            return float(result)
         return result
 
     @classmethod

@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 import pytest
 
 from nucypher.policy.conditions.exceptions import RequiredContextVariable
@@ -46,7 +44,7 @@ OPERATION_TEST_CASES = [
     ("sum", None, [1232, 22212, 3231], 26675),
     ("weiToEth", None, 1000000000000000000, 1),
     ("weiToEth", None, 1500000000000000000, 1.5),
-    ("weiToEth", None, 1100000000000000000, Decimal("1.1")),
+    ("weiToEth", None, 1100000000000000000, 1.1),
     # casting
     ("bool", None, 0, False),
     ("bool", None, 1, True),
@@ -88,6 +86,11 @@ def test_all_operations_covered():
     assert set(tested_operations) == _OPERATOR_FUNCTIONS.keys()
 
 
+def test_variable_operation_list_empty():
+    with pytest.raises(ValueError):
+        VariableOperation.calc_from_list([], 10)
+
+
 @pytest.mark.parametrize("operation", [op for op, *_ in OPERATION_TEST_CASES])
 def test_type_errors_in_calc(operation):
     value = (
@@ -115,18 +118,20 @@ def test_type_errors_in_calc(operation):
 
     with pytest.raises(TypeError):
         if operation in ["int", "float"]:
-            op.calc(["some", "list"])
+            variable_value = ["some", "list"]
         elif operation in ["%=", "len", "max", "min"]:
             # special cases where the functions can handle strings as the initial variable value
-            op.calc(10)
+            variable_value = 10
         else:
-            op.calc("initial_value_that_does_not_make_sense")
+            variable_value = "initial_value_that_does_not_make_sense"
+
+        VariableOperation.calc_from_list([op], variable_value)
 
 
 @pytest.mark.parametrize("operation,value,initial,expected", OPERATION_TEST_CASES)
 def test_variable_operation_calc(operation, value, initial, expected):
     op = VariableOperation(operation=operation, value=value)
-    result = op.calc(initial)
+    result = VariableOperation.calc_from_list([op], initial)
     assert result == expected
 
 
@@ -149,13 +154,35 @@ def test_cascading_operations():
 def test_cascading_float_operations():
     initial = 0
     operations = [
-        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.1
-        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.2
-        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.3
-        VariableOperation.from_dict(dict(operation="-=", value=0.3)),  # 0
+        VariableOperation(operation="+=", value=0.1),  # 0.1
+        VariableOperation(operation="+=", value=0.1),  # 0.2
+        VariableOperation(operation="+=", value=0.1),  # 0.3
+        VariableOperation(operation="-=", value=0.3),  # 0
     ]
     result = VariableOperation.calc_from_list(operations, initial)
     assert result == 0
+
+    # test where initial is value is a float
+    initial = 0.123
+    operations = [
+        VariableOperation(operation="-=", value=0.1),  # 0.023
+        VariableOperation(operation="-=", value=0.02),  # 0.003
+        VariableOperation(operation="-=", value=0.003),  # 0
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == 0
+
+    # test where final result is a float
+    initial = 0.123
+    operations = [
+        VariableOperation(operation="+=", value=0.0001),  # 0.1231
+        VariableOperation(operation="+=", value=0.0009),  # 0.124
+        VariableOperation(operation="+=", value=0.00001),  # 0.12401
+        VariableOperation(operation="+=", value=0.0000011),  # 0.1240111
+        VariableOperation(operation="-=", value=0.0000001),  # 0.1240110
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == 0.124011
 
 
 def test_overloaded_operators():

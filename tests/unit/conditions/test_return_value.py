@@ -551,6 +551,28 @@ def test_return_value_test_with_operations():
     assert not test.eval("")  # bool("") == False
 
 
+def test_return_value_test_to_from_wei():
+    test = ReturnValueTest(
+        comparator="==",
+        value=1.1,
+        operations=[
+            VariableOperation(operation="weiToEth"),
+        ],
+    )
+    assert test.eval(1100000000000000000)
+    assert not test.eval(1100000000000001000)  # only so much precision in float
+
+    test = ReturnValueTest(
+        comparator="==",
+        value=1100000000000000000,
+        operations=[
+            VariableOperation(operation="ethToWei"),
+        ],
+    )
+    assert test.eval(1.1)
+    assert not test.eval(1.100000000000001)  # only so much precision in float
+
+
 def test_return_value_test_with_failed_operation():
     test = ReturnValueTest(
         comparator="==",
