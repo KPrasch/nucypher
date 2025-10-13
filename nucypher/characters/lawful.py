@@ -787,6 +787,7 @@ class Ursula(Teacher, Character, Operator):
         DecryptingPower,
         RitualisticPower,
         ThresholdRequestDecryptingPower,
+        ThresholdSigningPower,
         # TLSHostingPower  # Still considered a default for Ursula, but needs the host context
     ]
 
@@ -813,7 +814,6 @@ class Ursula(Teacher, Character, Operator):
         operator_address: Optional[ChecksumAddress] = None,
         client_password: Optional[str] = None,
         transacting_power: Optional[TransactingPower] = None,
-        threshold_signing_power: Optional[ThresholdSigningPower] = None,
         eth_endpoint: Optional[str] = None,
         polygon_endpoint: Optional[str] = None,
         condition_blockchain_endpoints: Optional[Dict[int, List[str]]] = None,
@@ -860,7 +860,9 @@ class Ursula(Teacher, Character, Operator):
                     client_password=client_password,
                     condition_blockchain_endpoints=condition_blockchain_endpoints,
                     transacting_power=transacting_power,
-                    threshold_signing_power=threshold_signing_power,
+                    threshold_signing_power=self._crypto_power.power_ups(
+                        ThresholdSigningPower
+                    ),
                 )
 
             except Exception:

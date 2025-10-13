@@ -224,6 +224,7 @@ class SigningCoordinator:
     class SigningCohortParticipant:
         provider: ChecksumAddress
         operator: ChecksumAddress
+        signerAddress: ChecksumAddress
         signature: bytes = bytes()
 
         @classmethod
@@ -231,5 +232,6 @@ class SigningCoordinator:
             return cls(
                 provider=ChecksumAddress(data[0]),
                 operator=ChecksumAddress(data[1]),
-                signature=bytes(data[2]),
+                signerAddress=ChecksumAddress(data[2]),
+                signature=bytes(data[3]),
             )

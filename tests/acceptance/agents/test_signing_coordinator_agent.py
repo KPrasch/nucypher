@@ -7,7 +7,7 @@ from web3 import Web3
 
 from nucypher.blockchain.eth.agents import SigningCoordinatorAgent
 from nucypher.blockchain.eth.models import SigningCoordinator
-from nucypher.crypto.powers import TransactingPower
+from nucypher.crypto.powers import ThresholdSigningPower, TransactingPower
 
 
 @pytest.fixture(scope="module")
@@ -39,6 +39,16 @@ def transacting_powers(accounts, cohort_operators):
     return [
         TransactingPower(account=ursula, signer=accounts.get_account_signer(ursula))
         for ursula in cohort_operators
+    ]
+
+
+@pytest.fixture(scope="module")
+def signing_powers(accounts, cohort_operators):
+    return [
+        ThresholdSigningPower(
+            account=signer_address, signer=accounts.get_account_signer(signer_address)
+        )
+        for signer_address in accounts.unassigned_accounts[: len(cohort_operators)]
     ]
 
 
@@ -114,6 +124,7 @@ def test_post_signature(
     accounts,
     agent,
     transacting_powers,
+    signing_powers,
     authority,
     cohort_providers,
     cohort_operators,
@@ -132,16 +143,17 @@ def test_post_signature(
 
     txs = []
     signatures = []
-    for transacting_power in transacting_powers:
+    for i, transacting_power in enumerate(transacting_powers):
         data = encode(["uint32", "address"], [cohort_id, authority])
         digest = Web3.keccak(data)
-        _message_hash, signature = transacting_power.sign_message_eip191(
+        _message_hash, signature = signing_powers[i].sign_message_eip191(
             digest, standardize=False
         )
         async_tx = agent.post_signature(
             cohort_id=cohort_id,
             signature=signature,
             transacting_power=transacting_power,
+            threshold_signing_power=signing_powers[i],
             async_tx_hooks=mock_async_hooks,
         )
         signatures.append(signature)
@@ -201,6 +213,9 @@ def test_post_signature(
     deployed_multisig = nucypher_dependency.ThresholdSigningMultisig.at(
         threshold_signing_multisig_clone_factory.getCloneAddress(cohort_id)
     )
-    assert deployed_multisig.getSigners() == cohort_operators
+    assert (
+        deployed_multisig.getSigners()
+        == accounts.unassigned_accounts[: len(cohort_operators)]
+    )
     assert deployed_multisig.threshold() == len(cohort_operators) // 2 + 1
     assert deployed_multisig.owner() == signing_coordinator_child.address

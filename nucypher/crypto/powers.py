@@ -29,6 +29,7 @@ from nucypher_core.umbral import PublicKey, SecretKey, SecretKeyFactory, generat
 
 from nucypher.blockchain.eth.decorators import validate_checksum_address
 from nucypher.blockchain.eth.signers.base import Signer
+from nucypher.blockchain.eth.signers.software import InMemorySigner
 from nucypher.crypto import keypairs
 from nucypher.crypto.ferveo import dkg
 from nucypher.crypto.keypairs import (
@@ -238,6 +239,29 @@ class TransactingPower(CryptoPowerUp):
 
 class ThresholdSigningPower(TransactingPower):
     """A TransactingPower that is dedicated to sign threshold cryptography requests."""
+
+    def __init__(
+        self,
+        account: ChecksumAddress = None,
+        signer: Signer = None,
+        password: str = None,
+        cache: bool = False,
+    ):
+
+        if signer:
+            TransactingPower.__init__(
+                self,
+                account=account,
+                signer=signer,
+                password=password,
+                cache=cache,
+            )
+        else:
+            blob = (
+                SecretKey.random().to_be_bytes()
+            )  # __skf.make_secret(info)[:32] # TODO
+            signer = InMemorySigner(private_key=blob)
+            TransactingPower.__init__(self, account=signer.accounts[0], signer=signer)
 
 
 class KeyPairBasedPower(CryptoPowerUp):

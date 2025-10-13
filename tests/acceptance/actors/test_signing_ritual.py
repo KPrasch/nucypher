@@ -171,9 +171,9 @@ def test_get_signers(
     cohort_multisig = get_cohort_multisig(
         cohort_id, nucypher_dependency, signing_coordinator_child
     )
-    operator_addresses = [u.operator_address for u in cohort]
+    signing_addresses = [u.threshold_signing_power.account for u in cohort]
 
-    assert cohort_multisig.getSigners() == operator_addresses
+    assert cohort_multisig.getSigners() == signing_addresses
     assert cohort_multisig.threshold() == len(cohort) - 1
     assert cohort_multisig.owner() == signing_coordinator_child.address
 

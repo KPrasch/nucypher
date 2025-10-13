@@ -1215,7 +1215,7 @@ class Operator(BaseActor):
                 )
 
             self.log.info(
-                f"{self.transacting_power.account[:8]} resubmitted a new async tx {async_tx.id} "
+                f"{self.threshold_signing_power.account[:8]} resubmitted a new async tx {async_tx.id} "
                 f"of type {tx_type} for signing ritual #{phase_id.ritual_id}."
             )
 
@@ -1245,7 +1245,7 @@ class Operator(BaseActor):
             # This is a normal state, as the node may have already submitted a signature
             # for this cohort, and it's not necessary to submit another one. Carry on.
             self.log.debug(
-                f"Node {self.transacting_power.account} has already posted a signature for cohort {cohort_id}."
+                f"Node {self.threshold_signing_power.account} has already posted a signature for cohort {cohort_id}."
             )
             return False
 
@@ -1279,7 +1279,7 @@ class Operator(BaseActor):
         )
         if async_tx:
             self.log.info(
-                f"Active signing ritual in progress: {self.transacting_power.account} has submitted tx "
+                f"Active signing ritual in progress: {self.threshold_signing_power.account} has submitted tx "
                 f"for cohort #{cohort_id}, post signature phase, (final: {async_tx.final})."
             )
             return async_tx
@@ -1290,7 +1290,7 @@ class Operator(BaseActor):
         data_hash = self.signing_coordinator_agent.get_signing_cohort_data_hash(
             cohort_id
         )
-        _hash, signature = self.transacting_power.sign_message_eip191(
+        _hash, signature = self.threshold_signing_power.sign_message_eip191(
             data_hash, standardize=False
         )
 
@@ -1301,6 +1301,7 @@ class Operator(BaseActor):
             cohort_id=cohort_id,
             signature=signature,
             transacting_power=self.transacting_power,
+            threshold_signing_power=self.threshold_signing_power,
             async_tx_hooks=async_tx_hooks,
         )
         self.signing_storage.store_ritual_phase_async_tx(
@@ -1502,6 +1503,7 @@ class Operator(BaseActor):
         )
         response = SignatureResponse(
             _hash=message_hash,
+            signer=self.threshold_signing_power.account,
             signature=signature,
             signature_type=signing_request.signature_type,
         )

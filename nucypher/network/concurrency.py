@@ -185,8 +185,8 @@ class SigningRequestClient(NetworkRequestClient):
                 )
                 if response.status_code == HTTPStatus.OK:
                     response = SignatureResponse.from_bytes(response.content)
-                    operator_address = node_or_sprout.operator_address
-                    return operator_address, response
+                    signer_address = response.signer
+                    return signer_address, response
 
             except Exception as e:
                 message = f"Node {ursula_address} raised {e}"
@@ -205,8 +205,8 @@ class SigningRequestClient(NetworkRequestClient):
             stagger_timeout=stagger_timeout,
         )
 
-        # sort successes by operator address
-        # successes is of type Dict[ChecksumAddress, Tuple[ChecksumAddress, ThresholdSignatureResponse]]
+        # sort successes by signer address
+        # successes is of type Dict[ChecksumAddress, Tuple[ChecksumAddress, SignatureResponse]]
         successes = OrderedDict(sorted(successes.items(), key=lambda item: item[1][0]))
 
         return successes, failures
