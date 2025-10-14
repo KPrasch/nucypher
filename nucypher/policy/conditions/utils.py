@@ -1,7 +1,9 @@
+import decimal
 import re
 from http import HTTPStatus
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from eth_utils import currency
 from marshmallow import Schema, post_dump
 from marshmallow.exceptions import SCHEMA
 from web3 import HTTPProvider, Web3
@@ -23,6 +25,20 @@ from nucypher.policy.conditions.types import ContextDict, Lingo
 from nucypher.utilities.logging import Logger
 
 __LOGGER = Logger("condition-eval")
+
+
+def _eth_to_wei(a, _) -> int:
+    try:
+        return currency.to_wei(a, "ether")
+    except decimal.InvalidOperation as e:
+        raise TypeError(f"Invalid value for ethToWei conversion: {a}") from e
+
+
+def _wei_to_eth(a, _) -> Union[int, decimal.Decimal]:
+    try:
+        return currency.from_wei(a, "ether")
+    except decimal.InvalidOperation as e:
+        raise TypeError(f"Invalid value for weiToEth conversion: {a}") from e
 
 
 class ConditionProviderManager:

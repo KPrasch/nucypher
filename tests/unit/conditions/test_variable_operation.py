@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from nucypher.policy.conditions.exceptions import RequiredContextVariable
@@ -7,6 +9,7 @@ from nucypher.policy.conditions.lingo import (
     VariableOperation,
 )
 
+# (Operation, value, initial, expected)
 OPERATION_TEST_CASES = [
     ("+=", 2, 3, 5),
     ("-=", 2, 3, 1),
@@ -21,6 +24,7 @@ OPERATION_TEST_CASES = [
     ("ceil", None, 3.1, 4),
     ("ethToWei", None, 0.000000000000000001, 1),
     ("ethToWei", None, 1.5, 1500000000000000000),
+    ("ethToWei", None, 1.1, 1100000000000000000),
     ("floor", None, -3.9, -4),
     ("floor", None, 3.9, 3),
     ("index", 1, [10, 20, 30], 20),
@@ -43,10 +47,12 @@ OPERATION_TEST_CASES = [
     ("sum", None, [1232, 22212, 3231], 26675),
     ("weiToEth", None, 1000000000000000000, 1),
     ("weiToEth", None, 1500000000000000000, 1.5),
+    ("weiToEth", None, 1100000000000000000, Decimal("1.1")),
     # casting
     ("bool", None, 0, False),
     ("bool", None, 1, True),
     ("bool", None, "", False),
+    ("bool", None, [], False),
     ("bool", None, "Non-empty string", True),
     ("float", None, 3, 3.0),
     ("float", None, "123.456", 123.456),
@@ -139,6 +145,48 @@ def test_cascading_operations():
     ]
     result = VariableOperation.calc_from_list(operations, initial)
     assert result == 49
+
+
+def test_cascading_float_operations():
+    initial = 0
+    operations = [
+        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.1
+        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.2
+        VariableOperation.from_dict(dict(operation="+=", value=0.1)),  # 0.3
+        VariableOperation.from_dict(dict(operation="-=", value=0.3)),  # 0
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == 0
+
+
+def test_overloaded_operators():
+    initial = []
+    operations = [
+        VariableOperation(operation="+=", value=["T"]),  # T
+        VariableOperation(operation="+=", value=["A"]),  # TA
+        VariableOperation(operation="+=", value=["C"]),  # TAC
+        VariableOperation(operation="+=", value=["o"]),  # TACo
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == ["T", "A", "C", "o"]
+
+    initial = ""
+    operations = [
+        VariableOperation(operation="+=", value="T"),  # T
+        VariableOperation(operation="+=", value="A"),  # TA
+        VariableOperation(operation="+=", value="C"),  # TAC
+        VariableOperation(operation="+=", value="o"),  # TACo
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == "TACo"
+
+    initial = "TACo"
+    operations = [
+        VariableOperation(operation="*=", value=3),  # TACoTACoTACo
+        VariableOperation(operation="+=", value="!"),  # TACoTACoTACo!
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == "TACoTACoTACo!"
 
 
 def test_context_variable_resolution_in_operations():

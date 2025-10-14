@@ -9,7 +9,6 @@ from enum import Enum
 from hashlib import md5
 from typing import Any, List, Optional, Tuple, Type, Union
 
-from eth_utils import currency
 from hexbytes import HexBytes
 from marshmallow import (
     Schema,
@@ -44,6 +43,8 @@ from nucypher.policy.conditions.types import ConditionDict, Lingo
 from nucypher.policy.conditions.utils import (
     CamelCaseSchema,
     ConditionProviderManager,
+    _eth_to_wei,
+    _wei_to_eth,
     check_and_convert_any_big_ints,
     check_and_convert_big_int_string_to_int,
 )
@@ -296,20 +297,6 @@ _COMPARATOR_FUNCTIONS = {
 }
 
 
-def _eth_to_wei(a, _):
-    try:
-        return currency.to_wei(a, "ether")
-    except decimal.InvalidOperation as e:
-        raise TypeError(f"Invalid value for ethToWei conversion: {a}") from e
-
-
-def _wei_to_eth(a, _):
-    try:
-        return currency.from_wei(a, "ether")
-    except decimal.InvalidOperation as e:
-        raise TypeError(f"Invalid value for weiToEth conversion: {a}") from e
-
-
 # should raise TypeError for invalid inputs
 _OPERATOR_FUNCTIONS = {
     # We can add all kinds of operators over time, this is just a base start - given that
@@ -371,6 +358,16 @@ class VariableOperation(_Serializable):
             validate=OneOf(_OPERATOR_FUNCTIONS, error="Not a permitted operation"),
         )
         value = AnyField(required=False, allow_none=True)
+
+        @pre_load
+        def convert_floats_to_decimal(self, data, **kwargs):
+            value = data.get("value")
+
+            # convert float to Decimal to avoid precision issues
+            if value is not None and isinstance(value, float):
+                data["value"] = decimal.Decimal(str(value))
+
+            return data
 
         @validates_schema
         def validate_operation_and_value(self, data, **kwargs):
@@ -861,7 +858,7 @@ class ReturnValueTest(_Serializable):
             raise self.InvalidExpression(f"{e}")
 
     @classmethod
-    def _sanitize_value(cls, value):
+    def _sanitize_value(cls, value) -> Any:
         try:
             return ast.literal_eval(str(value))
         except Exception:
