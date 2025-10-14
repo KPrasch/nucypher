@@ -56,7 +56,7 @@ def _convert_any_floats_to_decimal(value: Union[Any, List[Any], Dict[Any, Any]])
 
 
 def _convert_any_decimals_to_floats(
-    value: Union[Any, List[Any], Dict[Any, Any]]
+    value: Union[Any, List[Any], Dict[Any, Any]],
 ) -> Any:
     """
     Convert decimal values back to float.

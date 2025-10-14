@@ -344,6 +344,7 @@ class VariableOperation(_Serializable):
 
     There is a limit to floating point precision for operations.
     """
+
     class Schema(CamelCaseSchema):
         operation = fields.Str(
             required=True,
