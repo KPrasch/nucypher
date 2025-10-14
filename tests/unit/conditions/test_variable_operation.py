@@ -88,11 +88,11 @@ def test_all_operations_covered():
 
 def test_variable_operation_list_empty():
     with pytest.raises(ValueError):
-        VariableOperation.calc_from_list([], 10)
+        VariableOperation.evaluate_operations([], 10)
 
 
 @pytest.mark.parametrize("operation", [op for op, *_ in OPERATION_TEST_CASES])
-def test_type_errors_in_calc(operation):
+def test_type_errors_in_evaluation(operation):
     value = (
         [
             "random",
@@ -125,13 +125,13 @@ def test_type_errors_in_calc(operation):
         else:
             variable_value = "initial_value_that_does_not_make_sense"
 
-        VariableOperation.calc_from_list([op], variable_value)
+        VariableOperation.evaluate_operations([op], variable_value)
 
 
 @pytest.mark.parametrize("operation,value,initial,expected", OPERATION_TEST_CASES)
-def test_variable_operation_calc(operation, value, initial, expected):
+def test_variable_operation_evaluation(operation, value, initial, expected):
     op = VariableOperation(operation=operation, value=value)
-    result = VariableOperation.calc_from_list([op], initial)
+    result = VariableOperation.evaluate_operations([op], initial)
     assert result == expected
 
 
@@ -147,7 +147,7 @@ def test_cascading_operations():
         VariableOperation(operation="abs"),  # 7
         VariableOperation(operation="ethToWei"),  # 7000000000000000000
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 7000000000000000000
 
 
@@ -159,7 +159,7 @@ def test_float_operations_and_precision():
         VariableOperation(operation="+=", value=0.1),  # 0.3
         VariableOperation(operation="-=", value=0.3),  # 0
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 0
 
     # test where initial is value is a float
@@ -169,7 +169,7 @@ def test_float_operations_and_precision():
         VariableOperation(operation="-=", value=0.02),  # 0.003
         VariableOperation(operation="-=", value=0.003),  # 0
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 0
 
     # test where final result is a float
@@ -181,7 +181,7 @@ def test_float_operations_and_precision():
         VariableOperation(operation="+=", value=0.0000011),  # 0.1240111
         VariableOperation(operation="-=", value=0.0000001),  # 0.1240110
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 0.124011
 
     # test sum of floats
@@ -189,7 +189,7 @@ def test_float_operations_and_precision():
     operations = [
         VariableOperation(operation="sum"),  # 1.0576
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 1.0576
 
     # index from list then subsequent float operations
@@ -199,7 +199,7 @@ def test_float_operations_and_precision():
         VariableOperation(operation="+=", value=0.245),  # 0.368
         VariableOperation(operation="+=", value=0.6896),  # 1.0576
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 1.0576
 
     # index from dict then subsequent float operations
@@ -214,7 +214,7 @@ def test_float_operations_and_precision():
         VariableOperation(operation="+=", value=0.245),  # 0.368
         VariableOperation(operation="+=", value=0.6896),  # 1.0576
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 1.0576
 
 
@@ -226,7 +226,7 @@ def test_overloaded_operators():
         VariableOperation(operation="+=", value=["C"]),  # TAC
         VariableOperation(operation="+=", value=["o"]),  # TACo
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == ["T", "A", "C", "o"]
 
     initial = ""
@@ -236,7 +236,7 @@ def test_overloaded_operators():
         VariableOperation(operation="+=", value="C"),  # TAC
         VariableOperation(operation="+=", value="o"),  # TACo
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == "TACo"
 
     initial = "TACo"
@@ -244,7 +244,7 @@ def test_overloaded_operators():
         VariableOperation(operation="*=", value=3),  # TACoTACoTACo
         VariableOperation(operation="+=", value="!"),  # TACoTACoTACo!
     ]
-    result = VariableOperation.calc_from_list(operations, initial)
+    result = VariableOperation.evaluate_operations(operations, initial)
     assert result == "TACoTACoTACo!"
 
 
@@ -264,5 +264,5 @@ def test_context_variable_resolution_in_operations():
         )  # missing context variables
 
     resolved_operations = VariableOperation.with_resolved_context(operations, **context)
-    result = VariableOperation.calc_from_list(resolved_operations, initial)
+    result = VariableOperation.evaluate_operations(resolved_operations, initial)
     assert result == 35

@@ -356,9 +356,9 @@ class VariableOperation(_Serializable):
     """
     An operation to be performed on a variable value.
 
-    Evaluation of VariableOperation should always be done via `calc_from_list()` to ensure
+    Evaluation of VariableOperation should always be done via `evaluate_operations()` to ensure
     floating precision if utilized is always maintained, even for evaluation of single operation.
-    `_calc()` should never be called directly.
+    `_evaluate()` should never be called directly.
 
     There is a limit to floating point precision for operations.
     """
@@ -398,17 +398,19 @@ class VariableOperation(_Serializable):
         self._validate()
 
 
-    def _calc(self, variable_value: Any):
+    def _evaluate(self, variable_value: Any):
         """
         Calculates the result of the operation on the variable value.
 
-        This should never be called directly; use `calc_from_list()` instead.
+        This should never be called directly; use `evaluate_operations()` instead.
         """
         operation_function = _OPERATOR_FUNCTIONS[self.operation]
         return operation_function(variable_value, self.value)
 
     @classmethod
-    def calc_from_list(cls, operations: List["VariableOperation"], variable_value: Any):
+    def evaluate_operations(
+        cls, operations: List["VariableOperation"], variable_value: Any
+    ):
         """
         Calculates the result of a list of operations on the variable value.
         """
@@ -425,7 +427,7 @@ class VariableOperation(_Serializable):
             # convert initial variable value to decimal if float
             result = _convert_any_floats_to_decimal(variable_value)
             for operation in operations:
-                result = operation._calc(result)
+                result = operation._evaluate(result)
 
         return _convert_any_decimals_to_floats(result)
 
@@ -628,7 +630,7 @@ class SequentialCondition(MultiCondition):
                     condition_variable.operations, providers=providers, **inner_context
                 )
                 try:
-                    result = VariableOperation.calc_from_list(
+                    result = VariableOperation.evaluate_operations(
                         resolved_operations, result
                     )
                 except Exception as e:
@@ -921,7 +923,7 @@ class ReturnValueTest(_Serializable):
         # perform any additional operations before comparison
         if self.operations:
             try:
-                data = VariableOperation.calc_from_list(self.operations, data)
+                data = VariableOperation.evaluate_operations(self.operations, data)
             except Exception as e:
                 raise ReturnValueEvaluationError(
                     f"Error performing operations on returned data: {e}"
