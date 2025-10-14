@@ -92,20 +92,17 @@ def test_variable_operation_list_empty():
 
 @pytest.mark.parametrize("operation", [op for op, *_ in OPERATION_TEST_CASES])
 def test_type_errors_in_evaluation(operation):
-    value = (
-        [
-            "random",
-            "list",
-            "that",
-            "doesn't",
-            "make",
-            "sense",
-            "for",
-            "most",
-            "operations",
-        ],
-    )
-
+    value = [
+        "random",
+        "list",
+        "that",
+        "doesn't",
+        "make",
+        "sense",
+        "for",
+        "most",
+        "operations",
+    ]
     if VariableOperation._is_unary_operation(operation):
         op = VariableOperation(operation=operation)
     else:

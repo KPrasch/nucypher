@@ -515,7 +515,7 @@ def test_return_value_test_with_operations():
             operations=[],
         )
 
-    # too many operaitons
+    # too many operations
     with pytest.raises(
         ReturnValueTest.InvalidExpression,
         match=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed",
