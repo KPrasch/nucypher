@@ -151,7 +151,7 @@ def test_cascading_operations():
     assert result == 7000000000000000000
 
 
-def test_cascading_float_operations():
+def test_float_operations_and_precision():
     initial = 0
     operations = [
         VariableOperation(operation="+=", value=0.1),  # 0.1
@@ -183,6 +183,39 @@ def test_cascading_float_operations():
     ]
     result = VariableOperation.calc_from_list(operations, initial)
     assert result == 0.124011
+
+    # test sum of floats
+    initial = [0.123, 0.245, 0.6896]
+    operations = [
+        VariableOperation(operation="sum"),  # 1.0576
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == 1.0576
+
+    # index from list then subsequent float operations
+    initial = [0, 1, 2, 0.123]
+    operations = [
+        VariableOperation(operation="index", value=3),  # 0.123
+        VariableOperation(operation="+=", value=0.245),  # 0.368
+        VariableOperation(operation="+=", value=0.6896),  # 1.0576
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == 1.0576
+
+    # index from dict then subsequent float operations
+    initial = {
+        "index_0": 0,
+        "index_1": 1,
+        "index_2": 2,
+        "index_3": 0.123,
+    }
+    operations = [
+        VariableOperation(operation="index", value="index_3"),  # 0.123
+        VariableOperation(operation="+=", value=0.245),  # 0.368
+        VariableOperation(operation="+=", value=0.6896),  # 1.0576
+    ]
+    result = VariableOperation.calc_from_list(operations, initial)
+    assert result == 1.0576
 
 
 def test_overloaded_operators():

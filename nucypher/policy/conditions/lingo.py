@@ -1,6 +1,5 @@
 import ast
 import base64
-import decimal
 import json
 import math
 import operator as pyoperator
@@ -44,6 +43,8 @@ from nucypher.policy.conditions.types import ConditionDict, Lingo
 from nucypher.policy.conditions.utils import (
     CamelCaseSchema,
     ConditionProviderManager,
+    _convert_any_decimals_to_floats,
+    _convert_any_floats_to_decimal,
     _eth_to_wei,
     _wei_to_eth,
     check_and_convert_any_big_ints,
@@ -391,20 +392,11 @@ class VariableOperation(_Serializable):
 
     def __init__(self, operation: str, value: Any = None):
         self.operation = operation
-        self.value = self._convert_floats_to_decimal(value)
+        self.value = _convert_any_floats_to_decimal(value)
 
         super().__init__()
         self._validate()
 
-    @classmethod
-    def _convert_floats_to_decimal(cls, value: Any) -> Any:
-        """
-        Convert float values to Decimal to avoid precision issues.
-        """
-        if value is not None and isinstance(value, float):
-            return decimal.Decimal(str(value))
-
-        return value
 
     def _calc(self, variable_value: Any):
         """
@@ -431,18 +423,11 @@ class VariableOperation(_Serializable):
             ctx.prec = 999
 
             # convert initial variable value to decimal if float
-            result = cls._convert_floats_to_decimal(variable_value)
+            result = _convert_any_floats_to_decimal(variable_value)
             for operation in operations:
                 result = operation._calc(result)
 
-        if isinstance(result, decimal.Decimal):
-            # Decimal is really internal, and isn't JSON serializable, so
-            # convert back to float; loses precision after ~17 digits
-            # d = Decimal('12345678901234567890.123456789012345678')
-            # f = float(d)
-            # print(f)  # 1.2345678901234567e+19  (~17 digits of precision)
-            return float(result)
-        return result
+        return _convert_any_decimals_to_floats(result)
 
     @classmethod
     def with_resolved_context(
