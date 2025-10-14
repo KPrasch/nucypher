@@ -27,18 +27,18 @@ from nucypher.utilities.logging import Logger
 __LOGGER = Logger("condition-eval")
 
 
-def _eth_to_wei(a, _) -> int:
+def _eth_to_wei(value) -> int:
     try:
-        return currency.to_wei(a, "ether")
+        return currency.to_wei(value, "ether")
     except decimal.InvalidOperation as e:
-        raise TypeError(f"Invalid value for ethToWei conversion: {a}") from e
+        raise TypeError(f"Invalid value for ethToWei conversion: {value}") from e
 
 
-def _wei_to_eth(a, _) -> Union[int, decimal.Decimal]:
+def _wei_to_eth(value) -> Union[int, decimal.Decimal]:
     try:
-        return currency.from_wei(a, "ether")
+        return currency.from_wei(value, "ether")
     except decimal.InvalidOperation as e:
-        raise TypeError(f"Invalid value for weiToEth conversion: {a}") from e
+        raise TypeError(f"Invalid value for weiToEth conversion: {value}") from e
 
 
 def _convert_any_floats_to_decimal(value: Union[Any, List[Any], Dict[Any, Any]]) -> Any:

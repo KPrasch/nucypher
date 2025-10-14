@@ -7,6 +7,7 @@ import statistics
 from decimal import localcontext
 from enum import Enum
 from hashlib import md5
+from inspect import signature
 from typing import Any, List, Optional, Tuple, Type, Union
 
 from hexbytes import HexBytes
@@ -313,40 +314,21 @@ _OPERATOR_FUNCTIONS = {
     "index": lambda a, b: a[b],
     "round": lambda a, b: round(a, b),
     # unary operations i.e. don't require 2nd 'b' value to be passed;
-    # keep extra parameter in lambda function for simplistic execution consistency
-    "abs": lambda a, _: abs(a),
-    "avg": lambda a, _: statistics.mean(a),
-    "ceil": lambda a, _: math.ceil(a),
+    "abs": lambda a: abs(a),
+    "avg": lambda a: statistics.mean(a),
+    "ceil": lambda a: math.ceil(a),
     "ethToWei": _eth_to_wei,
-    "floor": lambda a, _: math.floor(a),
-    "len": lambda a, _: len(a),
-    "max": lambda a, _: max(a),
-    "min": lambda a, _: min(a),
-    "sum": lambda a, _: sum(a),
+    "floor": lambda a: math.floor(a),
+    "len": lambda a: len(a),
+    "max": lambda a: max(a),
+    "min": lambda a: min(a),
+    "sum": lambda a: sum(a),
     "weiToEth": _wei_to_eth,
     # casting
-    "bool": lambda a, _: bool(a),
-    "float": lambda a, _: float(a),
-    "int": lambda a, _: int(a),
-    "str": lambda a, _: str(a),
-}
-
-_UNARY_OPERATOR_FUNCTIONS = {
-    "abs",
-    "avg",
-    "ceil",
-    "ethToWei",
-    "floor",
-    "len",
-    "max",
-    "min",
-    "sum",
-    "weiToEth",
-    # casting
-    "bool",
-    "float",
-    "int",
-    "str",
+    "bool": lambda a: bool(a),
+    "float": lambda a: float(a),
+    "int": lambda a: int(a),
+    "str": lambda a: str(a),
 }
 
 MAX_VARIABLE_OPERATIONS = 5
@@ -373,18 +355,17 @@ class VariableOperation(_Serializable):
         def validate_operation_and_value(self, data, **kwargs):
             operation = data["operation"]
             value = data.get("value")
-            if operation in _UNARY_OPERATOR_FUNCTIONS:
+            if VariableOperation._is_unary_operation(operation):
                 if value is not None:
                     raise ValidationError(
                         field_name="value",
                         message=f'No value should be provided for operation "{operation}"',
                     )
-            else:
-                if value is None:
-                    raise ValidationError(
-                        field_name="value",
-                        message=f'A value must be provided for operation "{operation}"',
-                    )
+            elif value is None:
+                raise ValidationError(
+                    field_name="value",
+                    message=f'A value must be provided for operation "{operation}"',
+                )
 
         @post_load
         def make(self, data, **kwargs):
@@ -397,6 +378,10 @@ class VariableOperation(_Serializable):
         super().__init__()
         self._validate()
 
+    @classmethod
+    def _is_unary_operation(cls, operation: str) -> bool:
+        operation_fn = _OPERATOR_FUNCTIONS[operation]
+        return len(signature(operation_fn).parameters) == 1
 
     def _evaluate(self, variable_value: Any):
         """
@@ -405,7 +390,10 @@ class VariableOperation(_Serializable):
         This should never be called directly; use `evaluate_operations()` instead.
         """
         operation_function = _OPERATOR_FUNCTIONS[self.operation]
-        return operation_function(variable_value, self.value)
+        if self._is_unary_operation(self.operation):
+            return operation_function(variable_value)
+        else:
+            return operation_function(variable_value, self.value)
 
     @classmethod
     def evaluate_operations(
