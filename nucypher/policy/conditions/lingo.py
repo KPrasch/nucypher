@@ -374,7 +374,8 @@ class VariableOperation(_Serializable):
 
     def __init__(self, operation: str, value: Any = None):
         self.operation = operation
-        self.value = _convert_any_floats_to_decimal(value)
+        # don't convert value in constructor since serialization used for validation
+        self.value = value
 
         super().__init__()
         self._validate()
@@ -394,7 +395,9 @@ class VariableOperation(_Serializable):
         if self._is_unary_operation(self.operation):
             return operation_function(variable_value)
         else:
-            return operation_function(variable_value, self.value)
+            # convert value
+            op_parameter = _convert_any_floats_to_decimal(self.value)
+            return operation_function(variable_value, op_parameter)
 
     @classmethod
     def evaluate_operations(

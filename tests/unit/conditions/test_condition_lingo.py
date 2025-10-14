@@ -91,7 +91,11 @@ def lingo_with_all_condition_types(get_random_checksum_address):
                 {
                     "operation": "*=",
                     "value": 1,
-                }
+                },
+                {
+                    "operation": "-=",
+                    "value": 5.5,
+                },
             ],
         },
     }
