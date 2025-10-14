@@ -975,7 +975,7 @@ def test_signing_restriction_based_points_value_from_rest_endpoint(
                 condition=json_condition,
                 operations=[
                     VariableOperation(operation="sum"),
-                    VariableOperation(operation="*=", value=10**18),  # convert to wei
+                    VariableOperation(operation="ethToWei"),  # convert to wei
                 ],
             ),
             ConditionVariable(var_name="signingAbi", condition=signing_abi_condition),
