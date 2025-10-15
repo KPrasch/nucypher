@@ -1,14 +1,14 @@
 import sys
 
+# Our python support is [3.10 - 3.13]
 if sys.version_info >= (3, 11):
     # Necessary because of `NotRequired` import - https://peps.python.org/pep-0655/
     from typing import Literal, NotRequired, TypedDict
-elif sys.version_info >= (3, 8):
+else:
+    # v3.10
     from typing import Literal
 
     from typing_extensions import NotRequired, TypedDict
-else:
-    from typing_extensions import Literal, NotRequired, TypedDict
 
 from typing import Any, Dict, List, Union
 
@@ -27,11 +27,18 @@ ContextDict = Dict[str, Any]
 ComparatorLiteral = Literal["==", "!=", ">", "<", ">=", "<="]
 
 
+# VariableOperation
+class VariableOperation(TypedDict):
+    operation: str
+    value: NotRequired[Any]
+
+
 # Return Value Test
 class ReturnValueTestDict(TypedDict):
     comparator: ComparatorLiteral
     value: Any
-    key: NotRequired[Union[str, int]]
+    index: NotRequired[int]
+    operations: NotRequired[List[VariableOperation]]
 
 
 # Conditions
@@ -120,6 +127,7 @@ class CompoundConditionDict(_Condition):
 class ConditionVariableDict(TypedDict):
     varName: str
     condition: "ConditionDict"
+    operations: NotRequired[List[VariableOperation]]
 
 
 #

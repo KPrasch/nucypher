@@ -1,9 +1,13 @@
 import ast
 import base64
 import json
+import math
 import operator as pyoperator
+import statistics
+from decimal import localcontext
 from enum import Enum
 from hashlib import md5
+from inspect import signature
 from typing import Any, List, Optional, Tuple, Type, Union
 
 from hexbytes import HexBytes
@@ -31,6 +35,7 @@ from nucypher.policy.conditions.context import (
     resolve_any_context_variables,
 )
 from nucypher.policy.conditions.exceptions import (
+    ConditionEvaluationFailed,
     InvalidCondition,
     InvalidConditionLingo,
     ReturnValueEvaluationError,
@@ -39,6 +44,10 @@ from nucypher.policy.conditions.types import ConditionDict, Lingo
 from nucypher.policy.conditions.utils import (
     CamelCaseSchema,
     ConditionProviderManager,
+    _convert_any_decimals_to_floats,
+    _convert_any_floats_to_decimal,
+    _eth_to_wei,
+    _wei_to_eth,
     check_and_convert_any_big_ints,
     check_and_convert_big_int_string_to_int,
 )
@@ -291,18 +300,182 @@ _COMPARATOR_FUNCTIONS = {
 }
 
 
+# should raise TypeError for invalid inputs
+_OPERATOR_FUNCTIONS = {
+    # We can add all kinds of operators over time, this is just a base start - given that
+    # we need ethToWei and weiToEth.
+    # Whether this set is too aggressive or not remains to be seen. We can always pare
+    # back on the operators we want to start with.
+    "+=": pyoperator.add,
+    "-=": pyoperator.sub,
+    "*=": pyoperator.mul,
+    "/=": pyoperator.truediv,
+    "%=": pyoperator.mod,
+    "index": lambda a, b: a[b],
+    "round": lambda a, b: round(a, b),
+    # unary operations i.e. don't require 2nd 'b' value to be passed;
+    "abs": lambda a: abs(a),
+    "avg": lambda a: statistics.mean(a),
+    "ceil": lambda a: math.ceil(a),
+    "ethToWei": _eth_to_wei,
+    "floor": lambda a: math.floor(a),
+    "len": lambda a: len(a),
+    "max": lambda a: max(a),
+    "min": lambda a: min(a),
+    "sum": lambda a: sum(a),
+    "weiToEth": _wei_to_eth,
+    # casting
+    "bool": lambda a: bool(a),
+    "float": lambda a: float(a),
+    "int": lambda a: int(a),
+    "str": lambda a: str(a),
+}
+
+MAX_VARIABLE_OPERATIONS = 5
+
+
+class VariableOperation(_Serializable):
+    """
+    An operation to be performed on a variable value.
+
+    Evaluation of VariableOperation should always be done via `evaluate_operations()` to ensure
+    floating precision if utilized is always maintained, even for evaluation of single operation.
+    `_evaluate()` should never be called directly.
+
+    There is a limit to floating point precision for operations.
+    """
+
+    class Schema(CamelCaseSchema):
+        operation = fields.Str(
+            required=True,
+            validate=OneOf(_OPERATOR_FUNCTIONS, error="Not a permitted operation"),
+        )
+        value = AnyField(required=False, allow_none=True)
+
+        @validates_schema
+        def validate_operation_and_value(self, data, **kwargs):
+            operation = data["operation"]
+            value = data.get("value")
+            if VariableOperation._is_unary_operation(operation):
+                if value is not None:
+                    raise ValidationError(
+                        field_name="value",
+                        message=f'No value should be provided for operation "{operation}"',
+                    )
+            elif value is None:
+                raise ValidationError(
+                    field_name="value",
+                    message=f'A value must be provided for operation "{operation}"',
+                )
+
+        @post_load
+        def make(self, data, **kwargs):
+            return VariableOperation(**data)
+
+    def __init__(self, operation: str, value: Any = None):
+        self.operation = operation
+        # don't convert value in constructor since serialization used for validation
+        self.value = value
+
+        super().__init__()
+        self._validate()
+
+    @classmethod
+    def _is_unary_operation(cls, operation: str) -> bool:
+        operation_fn = _OPERATOR_FUNCTIONS[operation]
+        return len(signature(operation_fn).parameters) == 1
+
+    def _evaluate(self, variable_value: Any):
+        """
+        Calculates the result of the operation on the variable value.
+
+        This should never be called directly; use `evaluate_operations()` instead.
+        """
+        operation_function = _OPERATOR_FUNCTIONS[self.operation]
+        if self._is_unary_operation(self.operation):
+            return operation_function(variable_value)
+        else:
+            # convert value
+            op_parameter = _convert_any_floats_to_decimal(self.value)
+            return operation_function(variable_value, op_parameter)
+
+    @classmethod
+    def evaluate_operations(
+        cls, operations: List["VariableOperation"], variable_value: Any
+    ):
+        """
+        Calculates the result of a list of operations on the variable value.
+        """
+        if len(operations) < 1:
+            raise ValueError(
+                "At least one operation is required to perform calculations"
+            )
+
+        with localcontext() as ctx:
+            # large precision to avoid any float precision issues during calcs
+            # (same used for wei conversion)
+            ctx.prec = 999
+
+            # convert initial variable value to decimal if float
+            result = _convert_any_floats_to_decimal(variable_value)
+            for operation in operations:
+                result = operation._evaluate(result)
+
+        return _convert_any_decimals_to_floats(result)
+
+    @classmethod
+    def with_resolved_context(
+        cls,
+        operations: List["VariableOperation"],
+        providers: ConditionProviderManager = None,
+        **context,
+    ):
+        resolved_operations = []
+        for operation in operations:
+            resolved_value = (
+                resolve_any_context_variables(
+                    operation.value, providers=providers, **context
+                )
+                if operation.value is not None
+                else None
+            )
+            resolved_operations.append(
+                VariableOperation(operation=operation.operation, value=resolved_value)
+            )
+        return resolved_operations
+
+
 class ConditionVariable(_Serializable):
     class Schema(CamelCaseSchema):
         var_name = fields.Str(required=True)
         condition = _ConditionField(required=True)
+        operations = fields.List(
+            fields.Nested(VariableOperation.Schema()),
+            validate=[
+                validate.Length(min=1, error="At least one operation required"),
+                validate.Length(
+                    max=MAX_VARIABLE_OPERATIONS,
+                    error=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed",
+                ),
+            ],
+            required=False,
+        )
 
         @post_load
         def make(self, data, **kwargs):
             return ConditionVariable(**data)
 
-    def __init__(self, var_name: str, condition: Condition):
+    def __init__(
+        self,
+        var_name: str,
+        condition: Condition,
+        operations: Optional[List[VariableOperation]] = None,
+    ):
         self.var_name = var_name
         self.condition = condition
+        self.operations = operations
+
+        self._validate()
 
 
 class SequentialCondition(MultiCondition):
@@ -316,6 +489,7 @@ class SequentialCondition(MultiCondition):
             "condition": {
                 CONDITION
             }
+            "operations": [VARIABLE_OPERATION*] (Optional)
         }
 
         SEQUENTIAL_CONDITION = {
@@ -442,6 +616,20 @@ class SequentialCondition(MultiCondition):
             if not latest_success:
                 # short circuit due to failed condition
                 break
+
+            if condition_variable.operations:
+                resolved_operations = VariableOperation.with_resolved_context(
+                    condition_variable.operations, providers=providers, **inner_context
+                )
+                try:
+                    result = VariableOperation.evaluate_operations(
+                        resolved_operations, result
+                    )
+                except Exception as e:
+                    raise ConditionEvaluationFailed(
+                        f"Error performing operations on result of condition variable "
+                        f"'{condition_variable.var_name}': {e}"
+                    )
 
             inner_context[f":{condition_variable.var_name}"] = result
 
@@ -613,6 +801,17 @@ class ReturnValueTest(_Serializable):
             ),
             allow_none=True,
         )
+        operations = fields.List(
+            fields.Nested(VariableOperation.Schema()),
+            validate=[
+                validate.Length(min=1, error="At least one operation required"),
+                validate.Length(
+                    max=MAX_VARIABLE_OPERATIONS,
+                    error=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed",
+                ),
+            ],
+            required=False,
+        )
 
         @validates_schema
         def validate_comparator_and_value(self, data, **kwargs):
@@ -631,7 +830,13 @@ class ReturnValueTest(_Serializable):
         def make(self, data, **kwargs):
             return ReturnValueTest(**data)
 
-    def __init__(self, comparator: str, value: Any, index: int = None):
+    def __init__(
+        self,
+        comparator: str,
+        value: Any,
+        index: Optional[int] = None,
+        operations: Optional[List[VariableOperation]] = None,
+    ):
         if not is_context_variable(value):
             # adjust stored value to be JSON serializable
             if isinstance(value, (tuple, set)):
@@ -654,6 +859,7 @@ class ReturnValueTest(_Serializable):
         self.comparator = comparator
         self.value = value
         self.index = index
+        self.operations = operations
 
         try:
             self._validate()
@@ -661,7 +867,7 @@ class ReturnValueTest(_Serializable):
             raise self.InvalidExpression(f"{e}")
 
     @classmethod
-    def _sanitize_value(cls, value):
+    def _sanitize_value(cls, value) -> Any:
         try:
             return ast.literal_eval(str(value))
         except Exception:
@@ -671,31 +877,15 @@ class ReturnValueTest(_Serializable):
     def __handle_potential_bytes(data: Any) -> Any:
         return HexBytes(data).hex() if isinstance(data, bytes) else data
 
-    def _process_data(self, data: Any, index: Optional[int]) -> Any:
+    def _process_data(self, data: Any) -> Any:
         """
-        If an index is specified, return the value at that index in the data if data is list-like.
-        Otherwise, return the data.
+        Convert bytes to hex as needed, including within nested lists/tuples.
         """
         processed_data = data
 
-        # try to get indexed entry first
-        if index is not None:
-            if not isinstance(processed_data, (list, tuple)):
-                raise ReturnValueEvaluationError(
-                    f"Index: {index} and Value: {processed_data} are not compatible types."
-                )
-            try:
-                processed_data = data[index]
-            except IndexError:
-                raise ReturnValueEvaluationError(
-                    f"Index '{index}' not found in returned data."
-                )
-
         if isinstance(processed_data, (list, tuple)):
             # convert any bytes in list to hex (include nested lists/tuples); no additional indexing
-            processed_data = [
-                self._process_data(data=item, index=None) for item in processed_data
-            ]
+            processed_data = [self._process_data(data=item) for item in processed_data]
             return processed_data
 
         # convert bytes to hex if necessary
@@ -709,7 +899,29 @@ class ReturnValueTest(_Serializable):
                 f"for condition evaluation."
             )
 
-        processed_data = self._process_data(data, self.index)
+        # check for index
+        if self.index is not None:
+            if not isinstance(data, (list, tuple)):
+                raise ReturnValueEvaluationError(
+                    f"Index: {self.index} and Value: {data} are not compatible types."
+                )
+            try:
+                data = data[self.index]
+            except IndexError:
+                raise ReturnValueEvaluationError(
+                    f"Index '{self.index}' not found in returned data."
+                )
+
+        # perform any additional operations before comparison
+        if self.operations:
+            try:
+                data = VariableOperation.evaluate_operations(self.operations, data)
+            except Exception as e:
+                raise ReturnValueEvaluationError(
+                    f"Error performing operations on returned data: {e}"
+                )
+
+        processed_data = self._process_data(data)
         left_operand = self._sanitize_value(processed_data)
 
         comparator_function = _COMPARATOR_FUNCTIONS.get(self.comparator)
@@ -727,8 +939,21 @@ class ReturnValueTest(_Serializable):
     def with_resolved_context(
         self, providers: Optional[ConditionProviderManager] = None, **context
     ):
-        value = resolve_any_context_variables(self.value, providers, **context)
-        return ReturnValueTest(self.comparator, value=value, index=self.index)
+        resolved_value = resolve_any_context_variables(self.value, providers, **context)
+
+        resolved_operations = None
+        if self.operations:
+            # make sure context variables are resolved for operations too
+            resolved_operations = VariableOperation.with_resolved_context(
+                self.operations, providers=providers, **context
+            )
+
+        return ReturnValueTest(
+            self.comparator,
+            value=resolved_value,
+            index=self.index,
+            operations=resolved_operations,
+        )
 
 
 class ConditionLingo(_Serializable):

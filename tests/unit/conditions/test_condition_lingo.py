@@ -87,6 +87,16 @@ def lingo_with_all_condition_types(get_random_checksum_address):
         "returnValueTest": {
             "comparator": "==",
             "value": 2,
+            "operations": [
+                {
+                    "operation": "*=",
+                    "value": 1,
+                },
+                {
+                    "operation": "-=",
+                    "value": 5.5,
+                },
+            ],
         },
     }
     json_rpc_condition = {
@@ -113,6 +123,12 @@ def lingo_with_all_condition_types(get_random_checksum_address):
             {
                 "varName": "timeValue",
                 "condition": time_condition,
+                "operations": [
+                    {
+                        "operation": "+=",
+                        "value": 100_000,
+                    }
+                ],
             },
             {
                 "varName": "rpcValue",
@@ -160,6 +176,11 @@ def lingo_with_all_condition_types(get_random_checksum_address):
         "returnValueTest": {
             "comparator": "==",
             "value": 19,
+            "operations": [
+                {
+                    "operation": "sum",
+                }
+            ],
         },
     }
     if_then_else_condition = {

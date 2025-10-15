@@ -1,7 +1,9 @@
+import decimal
 import re
 from http import HTTPStatus
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from eth_utils import currency
 from marshmallow import Schema, post_dump
 from marshmallow.exceptions import SCHEMA
 from web3 import HTTPProvider, Web3
@@ -23,6 +25,62 @@ from nucypher.policy.conditions.types import ContextDict, Lingo
 from nucypher.utilities.logging import Logger
 
 __LOGGER = Logger("condition-eval")
+
+
+def _eth_to_wei(value) -> int:
+    try:
+        return currency.to_wei(value, "ether")
+    except decimal.InvalidOperation as e:
+        raise TypeError(f"Invalid value for ethToWei conversion: {value}") from e
+
+
+def _wei_to_eth(value) -> Union[int, decimal.Decimal]:
+    try:
+        return currency.from_wei(value, "ether")
+    except decimal.InvalidOperation as e:
+        raise TypeError(f"Invalid value for weiToEth conversion: {value}") from e
+
+
+def _convert_any_floats_to_decimal(value: Union[Any, List[Any], Dict[Any, Any]]) -> Any:
+    """
+    Convert float values to Decimal to avoid precision issues.
+    """
+    if isinstance(value, list):
+        return [_convert_any_floats_to_decimal(item) for item in value]
+    elif isinstance(value, dict):
+        return {k: _convert_any_floats_to_decimal(v) for k, v in value.items()}
+    elif isinstance(value, float):
+        return decimal.Decimal(str(value))
+    else:
+        return value
+
+
+def _convert_any_decimals_to_floats(
+    value: Union[Any, List[Any], Dict[Any, Any]],
+) -> Any:
+    """
+    Convert decimal values back to float.
+
+    - Decimal is really internal
+    - Conditions don't use Decimal for comparison
+    - Can't use Decimal with ast.literal_eval for evaluation of conditions
+    - Decimal isn't JSON serializable if reused as a ConditionVariable
+
+    so convert back to float; loses precision after ~17 digits:
+        >>> from decimal import Decimal
+        >>> d = Decimal('12345678901234567890.123456789012345678')
+        >>> f = float(d)
+        >>> print(f)
+        1.2345678901234567e+19
+    """
+    if isinstance(value, list):
+        return [_convert_any_decimals_to_floats(item) for item in value]
+    elif isinstance(value, dict):
+        return {k: _convert_any_decimals_to_floats(v) for k, v in value.items()}
+    elif isinstance(value, decimal.Decimal):
+        return float(value)
+    else:
+        return value
 
 
 class ConditionProviderManager:

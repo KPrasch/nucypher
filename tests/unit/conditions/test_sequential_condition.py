@@ -4,12 +4,17 @@ from web3.exceptions import Web3Exception
 from nucypher.policy.conditions.base import (
     Condition,
 )
-from nucypher.policy.conditions.exceptions import InvalidCondition
+from nucypher.policy.conditions.exceptions import (
+    ConditionEvaluationFailed,
+    InvalidCondition,
+)
 from nucypher.policy.conditions.lingo import (
+    MAX_VARIABLE_OPERATIONS,
     ConditionType,
     ConditionVariable,
     OrCompoundCondition,
     SequentialCondition,
+    VariableOperation,
 )
 from nucypher.policy.conditions.utils import ConditionProviderManager
 
@@ -191,6 +196,203 @@ def test_sequential_condition(mock_condition_variables):
     )
     assert result is True
     assert value == [1, 1 * 2, 1 * 2 * 3, 1 * 2 * 3 * 4]
+    # only a copy of the context is modified internally
+    assert len(original_context) == 0, "original context remains unchanged"
+
+
+def test_condition_variable_operations_validation(time_condition):
+    # empty operations list
+    with pytest.raises(ValueError, match="At least one operation"):
+        _ = ConditionVariable(
+            var_name="var1",
+            condition=time_condition,
+            operations=[],
+        )
+
+    # too many operations
+    with pytest.raises(
+        ValueError, match=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed"
+    ):
+        _ = ConditionVariable(
+            var_name="var1",
+            condition=time_condition,
+            operations=[VariableOperation(operation="*=", value=2)]
+            * (MAX_VARIABLE_OPERATIONS + 1),
+        )
+
+
+@pytest.mark.usefixtures("mock_skip_schema_validation")
+def test_sequential_condition_variable_with_operations(
+    mocker, mock_condition_variables
+):
+    var_1, var_2, var_3, var_4 = mock_condition_variables
+
+    var_1_factor = 10
+    my_var_1 = ConditionVariable(
+        var_name=var_1.var_name,
+        condition=var_1.condition,
+        operations=[VariableOperation(operation="*=", value=var_1_factor)],
+    )
+
+    var_2_factor = 11
+    my_var_2 = ConditionVariable(
+        var_name=var_2.var_name,
+        condition=var_2.condition,
+        operations=[VariableOperation(operation="*=", value=var_2_factor)],
+    )
+
+    var_3_factor = 12
+    my_var_3 = ConditionVariable(
+        var_name=var_3.var_name,
+        condition=var_3.condition,
+        operations=[VariableOperation(operation="*=", value=var_3_factor)],
+    )
+
+    var_4_factor = 13
+    my_var_4 = ConditionVariable(
+        var_name=var_4.var_name,
+        condition=var_4.condition,
+        operations=[VariableOperation(operation="*=", value=var_4_factor)],
+    )
+
+    def cond_5_verify(providers: ConditionProviderManager, **context):
+        # condition variables values modified by operations and stored in context
+        assert (
+            context[f":{var_1.var_name}"] == var_1.condition.verify()[1] * var_1_factor
+        )
+        assert (
+            context[f":{var_2.var_name}"] == var_2.condition.verify()[1] * var_2_factor
+        )
+        assert (
+            context[f":{var_3.var_name}"] == var_3.condition.verify()[1] * var_3_factor
+        )
+        assert (
+            context[f":{var_4.var_name}"] == var_4.condition.verify()[1] * var_4_factor
+        )
+        return True, 5
+
+    cond_5 = mocker.Mock(spec=Condition)
+    cond_5.verify.side_effect = cond_5_verify
+    cond_5.to_dict.return_value = {"value": 5}
+    my_var_5 = ConditionVariable(
+        var_name="var5",
+        condition=cond_5,
+    )
+
+    sequential_condition = SequentialCondition(
+        condition_variables=[my_var_1, my_var_2, my_var_3, my_var_4, my_var_5],
+    )
+
+    original_context = dict()
+    result, value = sequential_condition.verify(
+        providers=ConditionProviderManager({}), **original_context
+    )
+    assert result is True
+    # value include only original condition values not modified condition variable values
+    assert value == [1, 2, 3, 4, 5]
+    # only a copy of the context is modified internally
+    assert len(original_context) == 0, "original context remains unchanged"
+
+
+@pytest.mark.usefixtures("mock_skip_schema_validation")
+def test_sequential_condition_variable_with_operations_with_context_variables(
+    mocker, mock_condition_variables
+):
+    var_1, var_2, var_3, var_4 = mock_condition_variables
+
+    original_context = {}
+
+    var_1_factor = 10
+    original_context[":var_1_factor"] = var_1_factor
+    my_var_1 = ConditionVariable(
+        var_name=var_1.var_name,
+        condition=var_1.condition,
+        operations=[VariableOperation(operation="*=", value=":var_1_factor")],
+    )
+
+    var_2_factor = 11
+    original_context[":var_2_factor"] = var_2_factor
+    my_var_2 = ConditionVariable(
+        var_name=var_2.var_name,
+        condition=var_2.condition,
+        operations=[VariableOperation(operation="*=", value=":var_2_factor")],
+    )
+
+    var_3_factor = 12
+    original_context[":var_3_factor"] = var_3_factor
+    my_var_3 = ConditionVariable(
+        var_name=var_3.var_name,
+        condition=var_3.condition,
+        operations=[VariableOperation(operation="*=", value=":var_3_factor")],
+    )
+
+    var_4_factor = 13
+    original_context[":var_4_factor"] = var_4_factor
+    my_var_4 = ConditionVariable(
+        var_name=var_4.var_name,
+        condition=var_4.condition,
+        operations=[VariableOperation(operation="*=", value=":var_4_factor")],
+    )
+
+    def cond_5_verify(providers: ConditionProviderManager, **context):
+        # condition variables values modified by operations and stored in context
+        assert (
+            context[f":{var_1.var_name}"] == var_1.condition.verify()[1] * var_1_factor
+        )
+        assert (
+            context[f":{var_2.var_name}"] == var_2.condition.verify()[1] * var_2_factor
+        )
+        assert (
+            context[f":{var_3.var_name}"] == var_3.condition.verify()[1] * var_3_factor
+        )
+        assert (
+            context[f":{var_4.var_name}"] == var_4.condition.verify()[1] * var_4_factor
+        )
+        return True, 5
+
+    cond_5 = mocker.Mock(spec=Condition)
+    cond_5.verify.side_effect = cond_5_verify
+    cond_5.to_dict.return_value = {"value": 5}
+    my_var_5 = ConditionVariable(
+        var_name="var5",
+        condition=cond_5,
+    )
+
+    sequential_condition = SequentialCondition(
+        condition_variables=[my_var_1, my_var_2, my_var_3, my_var_4, my_var_5],
+    )
+
+    result, value = sequential_condition.verify(
+        providers=ConditionProviderManager({}), **original_context
+    )
+    assert result is True
+    # value include only original condition values not modified condition variable values
+    assert value == [1, 2, 3, 4, 5]
+    # only a copy of the context is modified internally
+    assert len(original_context) == 4, "original context remains unchanged"
+
+
+@pytest.mark.usefixtures("mock_skip_schema_validation")
+def test_sequential_condition_variable_with_failed_operation(mock_condition_variables):
+    var_1, var_2, var_3, var_4 = mock_condition_variables
+
+    my_var_1 = ConditionVariable(
+        var_name=var_1.var_name,
+        condition=var_1.condition,
+        operations=[
+            VariableOperation(operation="index", value=4)
+        ],  # invalid for int result; will fail
+    )
+
+    sequential_condition = SequentialCondition(
+        condition_variables=[my_var_1, var_2, var_3, var_4],
+    )
+
+    original_context = dict()
+    with pytest.raises(ConditionEvaluationFailed):
+        _ = sequential_condition.verify(
+            providers=ConditionProviderManager({}), **original_context
+        )
     # only a copy of the context is modified internally
     assert len(original_context) == 0, "original context remains unchanged"
 

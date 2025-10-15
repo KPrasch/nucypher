@@ -6,9 +6,12 @@ from typing import NamedTuple
 import pytest
 from hexbytes import HexBytes
 
-from nucypher.policy.conditions.context import resolve_any_context_variables
 from nucypher.policy.conditions.exceptions import ReturnValueEvaluationError
-from nucypher.policy.conditions.lingo import ReturnValueTest
+from nucypher.policy.conditions.lingo import (
+    MAX_VARIABLE_OPERATIONS,
+    ReturnValueTest,
+    VariableOperation,
+)
 
 
 def test_return_value_test_schema():
@@ -136,19 +139,46 @@ def test_return_value_test_with_context_variable_cant_run_eval():
 
 def test_return_value_test_with_resolved_context():
     test = ReturnValueTest(comparator="==", value=":foo")
-    context = {":foo": 1234}
+    foo_value = 1234
+    context = {":foo": foo_value}
 
     resolved = test.with_resolved_context(**context)
     assert resolved.comparator == test.comparator
     assert resolved.index == test.index
-    assert resolved.value == resolve_any_context_variables(test.value, **context)
+    assert resolved.value == foo_value
+    assert test.operations is None
+    assert resolved.operations == test.operations
 
+    # context variable in value
     test = ReturnValueTest(comparator="==", value=[42, ":foo"])
-
     resolved = test.with_resolved_context(**context)
     assert resolved.comparator == test.comparator
     assert resolved.index == test.index
-    assert resolved.value == resolve_any_context_variables(test.value, **context)
+    assert resolved.value == [42, foo_value]
+    assert test.operations is None
+    assert resolved.operations == test.operations
+
+    # context variable in operations
+    test = ReturnValueTest(
+        comparator="==",
+        value=[42, ":foo"],
+        operations=[
+            VariableOperation(operation="+=", value=":foo"),
+            VariableOperation(operation="*=", value=":bar"),
+        ],
+    )
+    bar_value = 10**18
+    context[":bar"] = bar_value
+    resolved = test.with_resolved_context(**context)
+    assert resolved.comparator == test.comparator
+    assert resolved.index == test.index
+    assert resolved.value == [42, foo_value]
+    assert test.operations is not None
+    assert len(resolved.operations) == len(test.operations)
+    assert resolved.operations[0].operation == test.operations[0].operation
+    assert resolved.operations[0].value == foo_value
+    assert resolved.operations[1].operation == test.operations[1].operation
+    assert resolved.operations[1].value == bar_value
 
 
 def test_return_value_test_integer():
@@ -371,12 +401,26 @@ def test_return_value_json_serialization(test_value):
                 if comparator not in ["in", "!in"]
             ]
         )
+
     test = ReturnValueTest(comparator=comparator, value=test_value)
     reloaded = schema.loads(test.to_json())
     assert (test.comparator == reloaded.comparator) and (
         test.value == reloaded.value
     ), f"test for '{comparator} {test_value}'"
 
+    # with operations
+    test = ReturnValueTest(
+        comparator=comparator,
+        value=test_value,
+        operations=[VariableOperation(operation="int")],
+    )
+    reloaded = schema.loads(test.to_json())
+    assert test.comparator == reloaded.comparator
+    assert test.value == reloaded.value
+    assert len(test.operations) == len(reloaded.operations)
+    for op1, op2 in zip(test.operations, reloaded.operations):
+        assert op1.operation == op2.operation
+        assert op1.value == op2.value
 
 def test_return_value_non_json_serializable_adjustments():
     # bytes
@@ -458,3 +502,86 @@ def test_return_value_test_in_and_not_in_comparator_invalid_types():
                 match=f'not a valid type for "{comparator}"',
             ):
                 _ = ReturnValueTest(comparator=comparator, value=value)
+
+
+def test_return_value_test_with_operations():
+    # empty operations
+    with pytest.raises(
+        ReturnValueTest.InvalidExpression, match="At least one operation required"
+    ):
+        _ = ReturnValueTest(
+            comparator="==",
+            value=10,
+            operations=[],
+        )
+
+    # too many operations
+    with pytest.raises(
+        ReturnValueTest.InvalidExpression,
+        match=f"Maximum of {MAX_VARIABLE_OPERATIONS} operations allowed",
+    ):
+        _ = ReturnValueTest(
+            comparator="==",
+            value=10,
+            operations=[VariableOperation(operation="+=", value=2)]
+            * (MAX_VARIABLE_OPERATIONS + 1),
+        )
+
+    # simple int comparison with operations
+    test = ReturnValueTest(
+        comparator="==",
+        value=10,
+        operations=[
+            VariableOperation(operation="+=", value=5),
+            VariableOperation(operation="-=", value=3),
+        ],
+    )
+    assert test.eval(8)  # (8 + 5) - 3 == 10
+    assert not test.eval(7)
+
+    # bool comparison with operations
+    test = ReturnValueTest(
+        comparator="==",
+        value=True,
+        operations=[
+            VariableOperation(operation="bool"),
+        ],
+    )
+    assert test.eval("Non-empty string")  # bool("Non-empty string") == True
+    assert not test.eval("")  # bool("") == False
+
+
+def test_return_value_test_to_from_wei():
+    test = ReturnValueTest(
+        comparator="==",
+        value=1.1,
+        operations=[
+            VariableOperation(operation="weiToEth"),
+        ],
+    )
+    assert test.eval(1100000000000000000)
+    assert not test.eval(1100000000000001000)  # only so much precision in float
+
+    test = ReturnValueTest(
+        comparator="==",
+        value=1100000000000000000,
+        operations=[
+            VariableOperation(operation="ethToWei"),
+        ],
+    )
+    assert test.eval(1.1)
+    assert not test.eval(1.100000000000001)  # only so much precision in float
+
+
+def test_return_value_test_with_failed_operation():
+    test = ReturnValueTest(
+        comparator="==",
+        value=10,
+        operations=[
+            VariableOperation(
+                operation="index", value=10
+            ),  # invalid for int result; will fail
+        ],
+    )
+    with pytest.raises(ReturnValueEvaluationError):
+        assert test.eval(8)

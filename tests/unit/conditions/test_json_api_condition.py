@@ -9,7 +9,11 @@ from nucypher.policy.conditions.exceptions import (
 )
 from nucypher.policy.conditions.json.api import JsonApiCondition
 from nucypher.policy.conditions.json.auth import AuthorizationType
-from nucypher.policy.conditions.lingo import ConditionLingo, ReturnValueTest
+from nucypher.policy.conditions.lingo import (
+    ConditionLingo,
+    ReturnValueTest,
+    VariableOperation,
+)
 
 
 def test_json_api_condition_initialization():
@@ -415,7 +419,7 @@ def test_json_api_condition_from_lingo_expression_with_authorization():
     assert condition.to_dict() == lingo_dict
 
 
-def test_ambiguous_json_path_multiple_results(mocker):
+def test_json_path_multiple_results(mocker):
     mock_response = mocker.Mock(status_code=200)
     mock_response.json.return_value = {"store": {"book": [{"price": 1}, {"price": 2}]}}
 
@@ -427,5 +431,31 @@ def test_ambiguous_json_path_multiple_results(mocker):
         return_value_test=ReturnValueTest("==", 1),
     )
 
-    with pytest.raises(JsonRequestException, match="Ambiguous JSONPath query"):
-        condition.verify()
+    result, value = condition.verify()
+    assert result is False
+    assert value == [1, 2]
+
+    # verify multiple values
+    condition = JsonApiCondition(
+        endpoint="https://api.example.com/data",
+        query="$.store.book[*].price",
+        return_value_test=ReturnValueTest("==", [1, 2]),
+    )
+
+    result, value = condition.verify()
+    assert result is True
+    assert value == [1, 2]
+
+    # use variable operation for multiple values
+    condition = JsonApiCondition(
+        endpoint="https://api.example.com/data",
+        query="$.store.book[*].price",
+        return_value_test=ReturnValueTest(
+            operations=[VariableOperation(operation="index", value=1)],
+            comparator="==",
+            value=2,
+        ),
+    )
+    result, value = condition.verify()
+    assert result is True
+    assert value == [1, 2]

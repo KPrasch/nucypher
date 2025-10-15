@@ -31,10 +31,7 @@ def query_json_data(data: Any, query: Optional[str], **context) -> Any:
     from jsonpath_ng.ext import parse
 
     from nucypher.policy.conditions.context import resolve_any_context_variables
-    from nucypher.policy.conditions.exceptions import (
-        ConditionEvaluationFailed,
-        JsonRequestException,
-    )
+    from nucypher.policy.conditions.exceptions import ConditionEvaluationFailed
 
     resolved_query = resolve_any_context_variables(query, **context)
     logger = Logger(__name__)
@@ -53,11 +50,8 @@ def query_json_data(data: Any, query: Optional[str], **context) -> Any:
         ) from jsonpath_err
 
     if len(matches) > 1:
-        message = (
-            f"Ambiguous JSONPath query - multiple matches found for: {resolved_query}"
-        )
-        logger.info(message)
-        raise JsonRequestException(message)
+        result = [match.value for match in matches]
+    else:
+        result = matches[0].value
 
-    result = matches[0].value
     return result
