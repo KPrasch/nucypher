@@ -1,16 +1,18 @@
 import math
 from collections import OrderedDict
 from http import HTTPStatus
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from eth_typing import ChecksumAddress
 from nucypher_core import (
     EncryptedThresholdDecryptionRequest,
     EncryptedThresholdDecryptionResponse,
+    PackedUserOperationSignatureRequest,
+    SignatureResponse,
+    UserOperationSignatureRequest,
 )
 
 from nucypher.network.client import ThresholdAccessControlClient
-from nucypher.network.signing import BaseSignatureRequest, SignatureResponse
 from nucypher.utilities.concurrency import BatchValueFactory, WorkerPool
 
 
@@ -155,7 +157,10 @@ class SigningRequestClient(NetworkRequestClient):
 
     def gather_signatures(
         self,
-        signing_requests: Dict[ChecksumAddress, BaseSignatureRequest],
+        signing_requests: Dict[
+            ChecksumAddress,
+            Union[PackedUserOperationSignatureRequest, UserOperationSignatureRequest],
+        ],
         threshold: int,
         timeout: int = NetworkRequestClient.DEFAULT_TIMEOUT,
         stagger_timeout: int = NetworkRequestClient.DEFAULT_STAGGER_TIMEOUT,

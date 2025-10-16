@@ -1,20 +1,20 @@
 import pytest
 import pytest_twisted
 from hexbytes import HexBytes
+from nucypher_core import (
+    AAVersion,
+    PackedUserOperation,
+    PackedUserOperationSignatureRequest,
+    UserOperation,
+    UserOperationSignatureRequest,
+)
 
 from nucypher.blockchain.eth.models import SigningCoordinator
 from nucypher.characters.lawful import Ursula
-from nucypher.network.signing import (
-    PackedUserOperationSignatureRequest,
-    UserOperationSignatureRequest,
-)
 from nucypher.policy.conditions.auth.evm import EIP1271Auth
 from nucypher.policy.conditions.lingo import ConditionLingo, ReturnValueTest
 from nucypher.policy.conditions.signing.base import SigningObjectAttributeCondition
-from nucypher.utilities.erc4337_utils import (
-    AAVersion,
-    PackedUserOperation,
-)
+from nucypher.utilities.erc4337_utils import sign_packed_user_operation
 from tests.utils.erc4337 import create_erc20_transfer, create_eth_transfer
 
 
@@ -242,8 +242,12 @@ def test_signing_request_fulfilment(
         cohort_id, nucypher_dependency, signing_coordinator_child
     )
 
-    expected_hash, _ = PackedUserOperation.from_user_operation(test_user_op).sign(
-        ritual_initiator.transacting_power, AAVersion.V08, chain.chain_id
+    packed_user_op = PackedUserOperation.from_user_operation(test_user_op)
+    expected_hash, _ = sign_packed_user_operation(
+        packed_user_op,
+        ritual_initiator.transacting_power,
+        AAVersion.V08,
+        chain.chain_id,
     )
 
     aggregated_signature = b""
@@ -300,8 +304,9 @@ def test_user_op_signing_request_eth_transfer(
     assert eth_transfer_op.nonce == 1
     assert len(eth_transfer_op.call_data) > 0  # Should have encoded call data
 
-    expected_hash, _ = PackedUserOperation.from_user_operation(eth_transfer_op).sign(
-        ritual_initiator.transacting_power, aa_version, chain.chain_id
+    packed_user_op = PackedUserOperation.from_user_operation(eth_transfer_op)
+    expected_hash, _ = sign_packed_user_operation(
+        packed_user_op, ritual_initiator.transacting_power, aa_version, chain.chain_id
     )
 
     # Test signing the ETH transfer operation
@@ -382,8 +387,9 @@ def test_user_op_signing_request_erc20_transfer(
     assert erc20_transfer_op.nonce == 2
     assert len(erc20_transfer_op.call_data) > 0  # Should have encoded call data
 
-    expected_hash, _ = PackedUserOperation.from_user_operation(erc20_transfer_op).sign(
-        ritual_initiator.transacting_power, aa_version, chain.chain_id
+    packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
+    expected_hash, _ = sign_packed_user_operation(
+        packed_user_op, ritual_initiator.transacting_power, aa_version, chain.chain_id
     )
 
     # Test signing the ERC20 transfer operation
@@ -460,8 +466,8 @@ def test_packed_user_op_signing_request(
     )
 
     packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
-    expected_hash, _ = packed_user_op.sign(
-        ritual_initiator.transacting_power, aa_version, chain.chain_id
+    expected_hash, _ = sign_packed_user_operation(
+        packed_user_op, ritual_initiator.transacting_power, aa_version, chain.chain_id
     )
 
     # Test signing the ERC20 transfer operation
@@ -547,8 +553,8 @@ def test_signing_request_with_signing_object_attribute_condition(
     )
 
     packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
-    expected_hash, _ = packed_user_op.sign(
-        ritual_initiator.transacting_power, aa_version, chain.chain_id
+    expected_hash, _ = sign_packed_user_operation(
+        packed_user_op, ritual_initiator.transacting_power, aa_version, chain.chain_id
     )
 
     multisig = get_cohort_multisig(
@@ -617,11 +623,15 @@ def test_signing_request_with_signing_object_attribute_condition(
 
     print("===================== SIGNING SUCCESSFUL =====================")
 
-    erc20_transfer_op.call_data = (
-        b"1234"  # Modify call_data to fail attribute condition
+    # Modify call_data to fail attribute condition
+    erc20_transfer_op_failed_call_data = UserOperation(
+        sender=erc20_transfer_op.sender,
+        nonce=erc20_transfer_op.nonce,
+        call_data=b"1234",  # Modify call_data to fail attribute condition
     )
+
     failure_user_op_erc20_signing_request = UserOperationSignatureRequest(
-        user_op=erc20_transfer_op,
+        user_op=erc20_transfer_op_failed_call_data,
         aa_version=aa_version,
         chain_id=chain.chain_id,
         cohort_id=cohort_id,

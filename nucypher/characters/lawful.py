@@ -39,12 +39,15 @@ from nucypher_core import (
     MessageKit,
     NodeMetadata,
     NodeMetadataPayload,
+    PackedUserOperationSignatureRequest,
     ReencryptionResponse,
     SessionStaticKey,
     SessionStaticSecret,
+    SignatureResponse,
     ThresholdDecryptionRequest,
     ThresholdMessageKit,
     TreasureMap,
+    UserOperationSignatureRequest,
     encrypt_for_dkg,
 )
 from nucypher_core.ferveo import (
@@ -112,7 +115,6 @@ from nucypher.network.nodes import NodeSprout, Teacher
 from nucypher.network.protocols import parse_node_uri
 from nucypher.network.retrieval import PRERetrievalClient
 from nucypher.network.server import ProxyRESTServer, make_rest_app
-from nucypher.network.signing import BaseSignatureRequest, SignatureResponse
 from nucypher.policy.conditions.lingo import ConditionLingo
 from nucypher.policy.conditions.types import Lingo
 from nucypher.policy.kits import PolicyMessageKit
@@ -678,7 +680,9 @@ class Bob(Character):
 
     def request_threshold_signatures(
         self,
-        signing_request: BaseSignatureRequest,
+        signing_request: Union[
+            PackedUserOperationSignatureRequest, UserOperationSignatureRequest
+        ],
         ursulas: List["Ursula"] = None,
         timeout: int = SigningRequestClient.DEFAULT_TIMEOUT,
     ) -> List[SignatureResponse]:

@@ -1,8 +1,8 @@
 from eth_utils import to_checksum_address
 from hexbytes import HexBytes
+from nucypher_core import UserOperation
 
 from nucypher.utilities.abi import encode_human_readable_call
-from nucypher.utilities.erc4337_utils import UserOperation
 
 
 def encode_function_call(signature: str, args: list) -> HexBytes:

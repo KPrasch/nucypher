@@ -14,9 +14,12 @@ from eth_typing import ChecksumAddress
 from nucypher_core import (
     EncryptedThresholdDecryptionRequest,
     EncryptedThresholdDecryptionResponse,
+    PackedUserOperationSignatureRequest,
     SessionStaticKey,
+    SignatureResponse,
     ThresholdDecryptionRequest,
     ThresholdDecryptionResponse,
+    UserOperationSignatureRequest,
 )
 from nucypher_core.ferveo import (
     AggregatedTranscript,
@@ -84,10 +87,10 @@ from nucypher.datastore.ritual import (
     SigningRitualStorage,
 )
 from nucypher.network.signing import (
-    BaseSignatureRequest,
-    SignatureResponse,
+    get_signature_request_object,
     sign_signature_request_data,
 )
+from nucypher.policy.conditions.signing.base import SIGNING_CONDITION_OBJECT_CONTEXT_VAR
 from nucypher.policy.conditions.utils import (
     ConditionProviderManager,
     evaluate_condition_lingo,
@@ -1464,7 +1467,10 @@ class Operator(BaseActor):
         return encrypted_response
 
     def handle_signing_request(
-        self, signing_request: BaseSignatureRequest
+        self,
+        signing_request: Union[
+            UserOperationSignatureRequest, PackedUserOperationSignatureRequest
+        ],
     ) -> SignatureResponse:
 
         if not self.signing_coordinator_agent.is_cohort_active(
@@ -1494,8 +1500,14 @@ class Operator(BaseActor):
             )
 
         condition_lingo = json.loads(condition_string)
+
+        # add signing object to context
+        context = signing_request.context or dict()
+        context[SIGNING_CONDITION_OBJECT_CONTEXT_VAR] = get_signature_request_object(
+            signing_request
+        )
         evaluate_condition_lingo(
-            condition_lingo, self.condition_provider_manager, signing_request.context
+            condition_lingo, self.condition_provider_manager, context
         )
 
         # sign if the request is authorized (conditions are satisfied)
@@ -1503,8 +1515,7 @@ class Operator(BaseActor):
             request=signing_request, transacting_power=self.threshold_signing_power
         )
         response = SignatureResponse(
-            _hash=message_hash,
-            signer=self.threshold_signing_power.account,
+            hash=message_hash,
             signature=signature,
             signature_type=signing_request.signature_type,
         )

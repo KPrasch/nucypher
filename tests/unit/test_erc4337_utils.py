@@ -1,4 +1,3 @@
-import os
 from unittest.mock import Mock
 
 import pytest
@@ -6,14 +5,15 @@ from eth_account import Account
 from eth_account.messages import _hash_eip191_message, encode_typed_data
 from eth_utils import keccak
 from hexbytes import HexBytes
-
-from nucypher.blockchain.eth.constants import NULL_ADDRESS
-from nucypher.policy.conditions.utils import camel_case_to_snake
-from nucypher.utilities.erc4337_utils import (
+from nucypher_core import (
     AAVersion,
-    EntryPointContracts,
     PackedUserOperation,
     UserOperation,
+)
+
+from nucypher.policy.conditions.utils import camel_case_to_snake
+from nucypher.utilities.erc4337_utils import (
+    sign_packed_user_operation,
 )
 from tests.utils.erc4337 import (
     create_contract_call,
@@ -23,6 +23,7 @@ from tests.utils.erc4337 import (
     encode_function_call,
 )
 
+ENTRYPOINT_V08 = "0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108"
 
 class TestPackedUserOperation:
     """Test suite for PackedUserOperation class"""
@@ -45,7 +46,6 @@ class TestPackedUserOperation:
             paymaster_verification_gas_limit=50000,
             paymaster_post_op_gas_limit=30000,
             paymaster_data=b"My whole life is consistent - SGA",
-            signature=b"\xde\xad\xbe\xef",
         )
 
     @pytest.fixture
@@ -71,7 +71,6 @@ class TestPackedUserOperation:
         assert sample_user_op.paymaster_verification_gas_limit == 50000
         assert sample_user_op.paymaster_post_op_gas_limit == 30000
         assert sample_user_op.paymaster_data == b"My whole life is consistent - SGA"
-        assert sample_user_op.signature == b"\xde\xad\xbe\xef"
 
     def test_minimal_user_operation_initialization(self, minimal_user_op):
         """Test PackedUserOperation initialization with minimal fields"""
@@ -89,7 +88,6 @@ class TestPackedUserOperation:
         assert minimal_user_op.paymaster_verification_gas_limit == 0
         assert minimal_user_op.paymaster_post_op_gas_limit == 0
         assert minimal_user_op.paymaster_data == b""
-        assert minimal_user_op.signature == b""
 
     def test_serialization(self, sample_user_op, minimal_user_op):
         for user_op in [sample_user_op, minimal_user_op]:
@@ -120,10 +118,8 @@ class TestPackedUserOperation:
                 deserialized_op.paymaster_post_op_gas_limit
                 == user_op.paymaster_post_op_gas_limit
             )
-            assert deserialized_op.paymaster_data == user_op.paymaster_data
-            assert deserialized_op.signature == user_op.signature
 
-            assert user_op == deserialized_op
+            assert bytes(user_op) == bytes(deserialized_op)
 
     def test_packed_user_op_serialization(self, sample_user_op, minimal_user_op):
         for user_op in [sample_user_op, minimal_user_op]:
@@ -143,10 +139,9 @@ class TestPackedUserOperation:
             assert (
                 deserialized_op.paymaster_and_data == packed_user_op.paymaster_and_data
             )
-            assert deserialized_op.signature == packed_user_op.signature
 
-            assert packed_user_op == deserialized_op
-            assert packed_user_op != user_op
+            assert bytes(packed_user_op) == bytes(deserialized_op)
+            assert bytes(packed_user_op) != bytes(user_op)
 
     def test_packed_user_op_account_gas_limits(self, sample_user_op):
         """Test _pack_account_gas_limits method"""
@@ -179,49 +174,16 @@ class TestPackedUserOperation:
     def test_get_init_code(
         self, get_random_checksum_address, sample_user_op, minimal_user_op
     ):
-        # no factory or factory data
-        init_code = PackedUserOperation._pack_init_code(None, b"")
-        assert init_code == b""
-
-        # factory as zero address, no factory data
-        init_code = PackedUserOperation._pack_init_code(NULL_ADDRESS, b"")
-        assert init_code == b""
-
-        # factory as zero address, w/ factory data (should never happen but we still handle this case)
-        init_code = PackedUserOperation._pack_init_code(NULL_ADDRESS, os.urandom(15))
-        assert init_code == b""
-
-        # factory as 0x str, no factory data (should never happen but we still handle this case)
-        factory = "0x"
-        init_code = PackedUserOperation._pack_init_code(factory, b"")
-        assert init_code == b""
-
-        # factory as 0x str, w/ factory data (should never happen but we still handle this case)
-        factory = "0x"
-        init_code = PackedUserOperation._pack_init_code(factory, os.urandom(15))
-        assert init_code == b""
-
-        # factory, no factory data
-        factory = get_random_checksum_address()
-        init_code = PackedUserOperation._pack_init_code(factory, b"")
-        assert init_code == bytes(HexBytes(factory))
-
-        # factory, factory data
-        factory = get_random_checksum_address()
-        factory_data = os.urandom(23)
-        init_code = PackedUserOperation._pack_init_code(factory, factory_data)
-        assert init_code == bytes(HexBytes(factory)) + factory_data
-
-        # when generating from user operations
+        # from sample user op
         packed_user_op = PackedUserOperation.from_user_operation(sample_user_op)
-        assert packed_user_op.init_code == (
-            bytes(HexBytes(sample_user_op.factory)) + sample_user_op.factory_data
+        assert (
+            packed_user_op.init_code
+            == bytes(HexBytes(sample_user_op.factory)) + sample_user_op.factory_data
         )
 
-        packed_user_op_minimal = PackedUserOperation.from_user_operation(
-            minimal_user_op
-        )
-        assert packed_user_op_minimal.init_code == b""
+        # from minimal user op
+        packed_user_op = PackedUserOperation.from_user_operation(minimal_user_op)
+        assert packed_user_op.init_code == b""
 
     def test_packed_user_op_methods(self, sample_user_op):
         """Test the pack method returns correct dictionary structure"""
@@ -237,7 +199,6 @@ class TestPackedUserOperation:
         assert (
             packed_user_op.pre_verification_gas == sample_user_op.pre_verification_gas
         )
-        assert packed_user_op.signature == sample_user_op.signature
 
         # Verify packed fields
         assert (
@@ -286,9 +247,7 @@ class TestPackedUserOperation:
         assert domain["version"] == "1"
         assert domain["chainId"] == chain_id
         assert domain["verifyingContract"] == (
-            EntryPointContracts.ENTRYPOINT_V08
-            if aa_version != AAVersion.MDT
-            else packed_user_op.sender
+            ENTRYPOINT_V08 if aa_version != AAVersion.MDT else packed_user_op.sender
         )
 
         # Verify primary type
@@ -333,22 +292,15 @@ class TestPackedUserOperation:
 
         # Sign the packed user operation
         packed_user_op = PackedUserOperation.from_user_operation(sample_user_op)
-        message_hash, signature = packed_user_op.sign(
-            mock_transacting_power, aa_version, chain_id
+        message_hash, signature = sign_packed_user_operation(
+            packed_user_op, mock_transacting_power, aa_version, chain_id
         )
-
-        # Verify signature was set
-        assert packed_user_op.signature == signature
-        assert len(packed_user_op.signature) == 65  # Standard ECDSA signature length
 
         # Verify the signature is valid by reconstructing the message
         eip712_struct = packed_user_op.to_eip712_struct(aa_version, chain_id)
-        # Temporarily clear signature for verification
-        original_signature = packed_user_op.signature
-        packed_user_op.signature = b""
 
         msg = encode_typed_data(full_message=eip712_struct)
-        recovered_address = Account.recover_message(msg, signature=original_signature)
+        recovered_address = Account.recover_message(msg, signature=signature)
         expected_address = account.address
 
         assert recovered_address == expected_address
@@ -623,7 +575,6 @@ class TestERC4337Compatibility:
             "paymaster_verification_gas_limit",
             "paymaster_post_op_gas_limit",
             "paymaster_data",
-            "signature",
         ]
 
         for field in required_fields:
@@ -643,7 +594,6 @@ class TestERC4337Compatibility:
             "preVerificationGas",
             "gasFees",
             "paymasterAndData",
-            "signature",
         }
 
         for field in expected_keys:
@@ -660,7 +610,6 @@ class TestERC4337Compatibility:
         assert isinstance(packed_user_op.pre_verification_gas, int)
         assert isinstance(packed_user_op.gas_fees, bytes)
         assert isinstance(packed_user_op.paymaster_and_data, bytes)
-        assert isinstance(packed_user_op.signature, bytes)
 
         # Verify packed field lengths
         assert len(packed_user_op.account_gas_limits) == 32
@@ -678,7 +627,7 @@ class TestERC4337Compatibility:
         assert domain["name"] == "ERC4337"
         assert domain["version"] == "1"
         assert domain["chainId"] == chain_id
-        assert domain["verifyingContract"] == EntryPointContracts.ENTRYPOINT_V08
+        assert domain["verifyingContract"] == ENTRYPOINT_V08
 
         # Verify types structure
         types = eip712_struct["types"]
@@ -737,7 +686,6 @@ class TestERC4337Compatibility:
             paymaster_verification_gas_limit=50000,
             paymaster_post_op_gas_limit=30000,
             paymaster_data=b"\xab\xcd",
-            signature=b"\xde\xad\xbe\xef",
         )
 
 
@@ -770,11 +718,10 @@ class TestErrorHandling:
 
         # Should work even with empty initial signature
         packed_user_op = PackedUserOperation.from_user_operation(user_op)
-        message_hash, signature = packed_user_op.sign(
-            mock_transacting_power, AAVersion.V08, chain_id
+        message_hash, signature = sign_packed_user_operation(
+            packed_user_op, mock_transacting_power, AAVersion.V08, chain_id
         )
-        assert len(packed_user_op.signature) == 65
-        assert signature == packed_user_op.signature
+        assert len(signature) == 65
         assert message_hash == _hash_eip191_message(
             encode_typed_data(
                 full_message=packed_user_op.to_eip712_struct(AAVersion.V08, chain_id)
