@@ -41,7 +41,7 @@ def query_json_data(data: Any, query: Optional[str], **context) -> Any:
         matches = expression.find(data)
         if not matches:
             message = f"No matches found for the JSONPath query: {resolved_query}"
-            logger.info(message)
+            logger.debug(message)
             raise ConditionEvaluationFailed(message)
     except (JsonPathLexerError, JsonPathParserError) as jsonpath_err:
         logger.error(f"JSONPath error occurred: {jsonpath_err}")
