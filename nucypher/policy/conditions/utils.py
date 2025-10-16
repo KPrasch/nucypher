@@ -255,7 +255,7 @@ def evaluate_condition_lingo(
         log.warn(message)
 
     if error:
-        log.info(error.message)  # log error message
+        log.warn(error.message)  # log error message
         raise error
 
 
