@@ -130,7 +130,7 @@ def print_signing_result(
 ):
     print("\n-----")
     print(f"UserOperation sender: {user_op.sender}")
-    print(f"UserOperation nonce: {user_op.nonce}")
+    print(f"UserOperation nonce : {user_op.nonce}")
 
     hash_set = set([r.hash.hex() for r in signature_responses])
     assert len(hash_set) == 1, f"Expected one message hash, got {len(hash_set)}"

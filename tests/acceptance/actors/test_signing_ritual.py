@@ -194,9 +194,6 @@ def test_signing_request_fulfilment(
 ):
     bob.start_learning_loop(now=True)
 
-    # Create a UserOperation for testing (instead of EIP191)
-    from tests.utils.erc4337 import create_eth_transfer
-
     test_user_op = create_eth_transfer(
         sender=accounts[0].address,
         nonce=1,
