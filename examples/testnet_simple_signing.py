@@ -181,7 +181,6 @@ def main():
 
     print("--------- Threshold Signing Bob ---------")
 
-    # known authorized encryptor for ritual
     bob = Bob(
         domain=DOMAIN,
         eth_endpoint=ETH_ENDPOINT,
