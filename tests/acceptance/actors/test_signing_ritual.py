@@ -5,7 +5,6 @@ from hexbytes import HexBytes
 from nucypher.blockchain.eth.models import SigningCoordinator
 from nucypher.characters.lawful import Ursula
 from nucypher.network.signing import (
-    EIP191SignatureRequest,
     PackedUserOperationSignatureRequest,
     UserOperationSignatureRequest,
 )
@@ -195,10 +194,23 @@ def test_signing_request_fulfilment(
 ):
     bob.start_learning_loop(now=True)
 
-    signing_request = EIP191SignatureRequest(
-        data=b"Test data for signing",
-        cohort_id=cohort_id,
+    test_user_op = create_eth_transfer(
+        sender=accounts[0].address,
+        nonce=1,
+        to=accounts[1].address,
+        value=1000000000000000000,  # 1 ETH in wei
+        verification_gas_limit=100000,
+        call_gas_limit=100000,
+        pre_verification_gas=21000,
+        max_priority_fee_per_gas=1000000000,
+        max_fee_per_gas=2000000000,
+    )
+
+    signing_request = UserOperationSignatureRequest(
+        user_op=test_user_op,
+        aa_version=AAVersion.V08,
         chain_id=chain.chain_id,
+        cohort_id=cohort_id,
         context=None,
     )
 
@@ -207,9 +219,9 @@ def test_signing_request_fulfilment(
         _ = yield bob.request_threshold_signatures(
             signing_request=signing_request,
         )
-    print("===================== SIGNING FAILED =====================")
+    print("===================== SIGNING FAILED (AS EXPECTED) =====================")
 
-    print("==================== TEST EIP-191 SIGNING REQUEST ====================")
+    print("==================== SET CONDITION AND TEST SIGNING ====================")
     # set condition for cohort and chain
     on_chain_condition_lingo = ConditionLingo(time_condition)
     signing_coordinator_agent.set_signing_cohort_conditions(
@@ -230,15 +242,16 @@ def test_signing_request_fulfilment(
         cohort_id, nucypher_dependency, signing_coordinator_child
     )
 
-    message_hash = None
+    expected_hash, _ = PackedUserOperation.from_user_operation(test_user_op).sign(
+        ritual_initiator.transacting_power, AAVersion.V08, chain.chain_id
+    )
+
     aggregated_signature = b""
     for r in responses:
-        if message_hash is None:
-            message_hash = r.hash
-        assert message_hash == r.hash, "All hashes must be the same"
+        assert expected_hash == r.hash, "All hashes must be the same"
         aggregated_signature += r.signature
 
-    result = multisig.isValidSignature(message_hash, aggregated_signature)
+    result = multisig.isValidSignature(expected_hash, aggregated_signature)
 
     assert (
         result == EIP1271Auth.MAGIC_VALUE_BYTES
