@@ -451,7 +451,7 @@ def test_sequential_condition_discord_json_message_processing():
                 var_name="amount1",
                 condition=amount_json_condition,
                 operations=[
-                    # ethToWei can covert value from string
+                    # ethToWei can convert value from string
                     VariableOperation(operation="ethToWei"),
                 ],
             ),
