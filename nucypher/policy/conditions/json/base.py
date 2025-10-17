@@ -17,10 +17,7 @@ from nucypher.policy.conditions.exceptions import (
     JsonRequestException,
 )
 from nucypher.policy.conditions.json.auth import AuthorizationType
-from nucypher.policy.conditions.json.utils import (
-    process_result_for_condition_eval,
-    query_json_data,
-)
+from nucypher.policy.conditions.json.utils import query_json_data
 from nucypher.policy.conditions.lingo import ExecutionCallCondition
 from nucypher.utilities.logging import Logger
 
@@ -136,10 +133,8 @@ class BaseJsonRequestCondition(ExecutionCallCondition, ABC):
         Verifies the JSON condition.
         """
         result = self.execution_call.execute(**context)
-        result_for_eval = process_result_for_condition_eval(result)
-
         resolved_return_value_test = self.return_value_test.with_resolved_context(
             **context
         )
-        eval_result = resolved_return_value_test.eval(result_for_eval)  # test
+        eval_result = resolved_return_value_test.eval(result)  # test
         return eval_result, result
