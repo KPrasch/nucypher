@@ -480,6 +480,8 @@ class ConditionVariable(_Serializable):
 
 
 class SequentialCondition(MultiCondition):
+    MAX_NUM_CONDITIONS = 10
+
     """
     A series of conditions that are evaluated in a specific order, where the result of one
     condition can be used in subsequent conditions.
