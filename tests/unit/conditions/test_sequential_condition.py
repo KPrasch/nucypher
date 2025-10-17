@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from web3.exceptions import Web3Exception
 
@@ -8,15 +10,18 @@ from nucypher.policy.conditions.exceptions import (
     ConditionEvaluationFailed,
     InvalidCondition,
 )
+from nucypher.policy.conditions.json.json import JsonCondition
 from nucypher.policy.conditions.lingo import (
     MAX_VARIABLE_OPERATIONS,
     ConditionType,
     ConditionVariable,
     OrCompoundCondition,
+    ReturnValueTest,
     SequentialCondition,
     VariableOperation,
 )
-from nucypher.policy.conditions.utils import ConditionProviderManager
+from nucypher.policy.conditions.utils import ConditionProviderManager, _eth_to_wei
+from nucypher.policy.conditions.var import ContextVariableCondition
 
 
 @pytest.fixture(scope="function")
@@ -397,6 +402,108 @@ def test_sequential_condition_variable_with_failed_operation(mock_condition_vari
         )
     # only a copy of the context is modified internally
     assert len(original_context) == 0, "original context remains unchanged"
+
+
+def test_sequential_condition_discord_json_message_processing():
+    mock_discord_message_json = {
+        "app_permissions": "12345",
+        "application_id": "98765",
+        "data": {
+            "id": "1384813344221040750",
+            "name": "tip",
+            "options": [
+                {"name": "amount", "type": 3, "value": "0.0001"},
+                {
+                    "name": "recipient",
+                    "type": 3,
+                    "value": "0xA87722643685B38D37ecc7637ACA9C1E09c8C5e1",
+                },
+            ],
+            "type": 1,
+        },
+        "token": "abcdefg1234567hijklmnop890",
+        "type": 2,
+        "version": 1,
+    }
+
+    amount_json_condition = JsonCondition(
+        data=":discord_message",
+        query="$.data.options[?(@.name=='amount')].value",
+        return_value_test=ReturnValueTest(
+            operations=[
+                VariableOperation(operation="float"),
+            ],
+            comparator=">",
+            value=0,
+        ),
+    )
+    recipient_json_condition = JsonCondition(
+        data=":discord_message",
+        query="$.data.options[?(@.name=='recipient')].value",
+        return_value_test=ReturnValueTest(
+            comparator="!=",
+            value="0x0",
+        ),
+    )
+    sequential_condition = SequentialCondition(
+        condition_variables=[
+            ConditionVariable(
+                var_name="amount1",
+                condition=amount_json_condition,
+                operations=[
+                    # ethToWei can covert value from string
+                    VariableOperation(operation="ethToWei"),
+                ],
+            ),
+            # amount2 is redundant, but we check that casting to float works on string value
+            ConditionVariable(
+                var_name="amount2",
+                condition=amount_json_condition,
+                operations=[
+                    VariableOperation(operation="float"),
+                    VariableOperation(operation="ethToWei"),
+                ],
+            ),
+            ConditionVariable(
+                var_name="recipient",
+                condition=recipient_json_condition,
+            ),
+            ConditionVariable(
+                var_name="amount1Check",
+                condition=ContextVariableCondition(
+                    context_variable=":amount1",
+                    return_value_test=ReturnValueTest(
+                        comparator="==", value=_eth_to_wei(0.0001)
+                    ),
+                ),
+            ),
+            ConditionVariable(
+                var_name="amount2Check",
+                condition=ContextVariableCondition(
+                    context_variable=":amount2",
+                    return_value_test=ReturnValueTest(
+                        comparator="==", value=":amount1"
+                    ),
+                ),
+            ),
+            ConditionVariable(
+                var_name="recipientCheck",
+                condition=ContextVariableCondition(
+                    context_variable=":recipient",
+                    return_value_test=ReturnValueTest(
+                        comparator="==",
+                        value="0xA87722643685B38D37ecc7637ACA9C1E09c8C5e1",
+                    ),
+                ),
+            ),
+        ]
+    )
+
+    context = {":discord_message": json.dumps(mock_discord_message_json)}
+    result, value = sequential_condition.verify(
+        providers=ConditionProviderManager({}), **context
+    )
+    assert result is True
 
 
 @pytest.mark.usefixtures("mock_skip_schema_validation")
