@@ -68,8 +68,10 @@ def test_invalid_sequential_condition(rpc_condition, time_condition):
         )
 
     # too many variables
-    too_many_variables = [var_1, var_2, var_1, var_2]
-    too_many_variables.extend(too_many_variables)  # duplicate list length
+    too_many_variables = [
+        *(var_1,) * SequentialCondition.MAX_NUM_CONDITIONS,
+        var_2,
+    ]  # one too many
     assert len(too_many_variables) > SequentialCondition.MAX_NUM_CONDITIONS
     with pytest.raises(InvalidCondition, match="Maximum of"):
         _ = SequentialCondition(
