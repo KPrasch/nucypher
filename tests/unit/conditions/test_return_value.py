@@ -242,6 +242,24 @@ def test_return_value_test_string():
     assert not test.eval('"foo"')
     assert test.eval('"bar"')
 
+    test = ReturnValueTest(comparator="==", value="'foo\"bar'")
+    assert test.eval('foo"bar')
+
+    test = ReturnValueTest(comparator="==", value='"foo\'bar"')
+    assert test.eval("foo'bar")
+
+    # double quote
+    test = ReturnValueTest(comparator="==", value='"\'"')
+    assert test.eval("'")
+
+    # single quote
+    test = ReturnValueTest(comparator="==", value="'\"'")
+    assert test.eval('"')
+
+    # empty string
+    test = ReturnValueTest(comparator="==", value='""')
+    assert test.eval("")
+
     # mixing types works because the value is evaluated as an int, not a string
     test = ReturnValueTest(
         comparator="==", value="0xaDD9D957170dF6F33982001E4c22eCCdd5539118"

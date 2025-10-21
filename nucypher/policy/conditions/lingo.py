@@ -900,21 +900,19 @@ class ReturnValueTest(_Serializable):
         # if 0x prefixed hex string, leave as is
         if data.startswith("0x") and is_hexstr(data):
             return data
-
         # check if string is already primitive type, leave as is
-        if ReturnValueTest.__string_already_primitive_type(data):
+        elif ReturnValueTest.__string_already_primitive_type(data):
             return data
-
         # check if already quoted; if not, quote it
-        if not (
+        elif len(data) <= 1 or not (
             (data.startswith("'") and data.endswith("'"))
             or (data.startswith('"') and data.endswith('"'))
         ):
             quote_type_to_use = '"' if "'" in data else "'"
             return f"{quote_type_to_use}{data}{quote_type_to_use}"
-
-        # leave as is
-        return data
+        else:
+            # leave as is
+            return data
 
     def _process_data(self, data: Any, top_level_call: bool = True) -> Any:
         """
