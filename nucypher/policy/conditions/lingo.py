@@ -916,7 +916,7 @@ class ReturnValueTest(_Serializable):
         # leave as is
         return data
 
-    def _process_data(self, data: Any, call_level: int = 0) -> Any:
+    def _process_data(self, data: Any, top_level_call: bool = True) -> Any:
         """
         Process data for use with literal eval. Recursively processes data as needed.
         Steps:
@@ -929,24 +929,21 @@ class ReturnValueTest(_Serializable):
         if isinstance(data, (list, tuple)):
             # convert any bytes in list to hex (include nested lists/tuples); no additional indexing
             processed_data = [
-                self._process_data(data=item, call_level=call_level + 1)
-                for item in data
+                self._process_data(data=item, top_level_call=False) for item in data
             ]
             return processed_data
-
-        # convert bytes to hex if necessary
-        if isinstance(data, bytes):
+        elif isinstance(data, bytes):
+            # convert bytes to hex if necessary
             processed_data = self.__process_bytes(data)
             return processed_data
-
-        if isinstance(data, str):
+        elif isinstance(data, str):
             # only process strings at the top level call (i.e. don't need to process strings within lists/tuples)
-            if call_level > 0:
+            if not top_level_call:
                 return data
 
             return self.__process_string(data)
-
-        return data
+        else:
+            return data
 
     def eval(self, data) -> bool:
         if is_context_variable(self.value):
