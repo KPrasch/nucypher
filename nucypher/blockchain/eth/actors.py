@@ -279,14 +279,6 @@ class Operator(BaseActor):
             blockchain_endpoint=eth_endpoint,
         )
 
-        # track active onchain rituals
-        self.ritual_tracker = dkg.DkgRitualTracker(
-            operator=self,
-        )
-        self.signing_ritual_tracker = signing.SigningRitualTracker(
-            operator=self,
-        )
-
         self.publish_finalization = (
             publish_finalization  # publish the DKG final key if True
         )
@@ -304,6 +296,14 @@ class Operator(BaseActor):
 
         self.dkg_storage = DKGRitualStorage()
         self.signing_storage = SigningRitualStorage()
+
+        # track active onchain rituals
+        self.ritual_tracker = dkg.DkgRitualTracker(
+            operator=self,
+        )
+        self.signing_ritual_tracker = signing.SigningRitualTracker(
+            operator=self,
+        )
 
     def set_provider_public_key(self) -> Union[TxReceipt, None]:
         # TODO: Here we're assuming there is one global key per node. See nucypher/#3167
