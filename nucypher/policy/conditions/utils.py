@@ -198,7 +198,7 @@ def evaluate_condition_lingo(
     # Evaluate
     try:
         if condition_lingo:
-            log.info(f"Evaluating access conditions {condition_lingo}")
+            log.debug(f"Evaluating access conditions {condition_lingo}")
             lingo = ConditionLingo.from_dict(condition_lingo)
             result = lingo.eval(providers=providers, **context)
             if not result:
@@ -255,7 +255,7 @@ def evaluate_condition_lingo(
         log.warn(message)
 
     if error:
-        log.info(error.message)  # log error message
+        log.warn(error.message)  # log error message
         raise error
 
 

@@ -1,7 +1,5 @@
 from typing import Any, Optional
 
-from nucypher.utilities.logging import Logger
-
 
 def process_result_for_condition_eval(result: Any):
     # strings that are not already quoted will cause a problem for literal_eval
@@ -34,17 +32,14 @@ def query_json_data(data: Any, query: Optional[str], **context) -> Any:
     from nucypher.policy.conditions.exceptions import ConditionEvaluationFailed
 
     resolved_query = resolve_any_context_variables(query, **context)
-    logger = Logger(__name__)
 
     try:
         expression = parse(resolved_query)
         matches = expression.find(data)
         if not matches:
             message = f"No matches found for the JSONPath query: {resolved_query}"
-            logger.info(message)
             raise ConditionEvaluationFailed(message)
     except (JsonPathLexerError, JsonPathParserError) as jsonpath_err:
-        logger.error(f"JSONPath error occurred: {jsonpath_err}")
         raise ConditionEvaluationFailed(
             f"JSONPath error: {jsonpath_err}"
         ) from jsonpath_err
