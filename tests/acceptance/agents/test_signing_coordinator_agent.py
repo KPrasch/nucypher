@@ -45,9 +45,7 @@ def transacting_powers(accounts, cohort_operators):
 @pytest.fixture(scope="module")
 def signing_powers(accounts, cohort_operators):
     return [
-        ThresholdSigningPower(
-            account=signer_address, signer=accounts.get_account_signer(signer_address)
-        )
+        ThresholdSigningPower(signer=accounts.get_account_signer(signer_address))
         for signer_address in accounts.unassigned_accounts[: len(cohort_operators)]
     ]
 
