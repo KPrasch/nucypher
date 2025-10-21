@@ -533,11 +533,9 @@ class Keystore:
             power = power_class(secret_key_factory=child_skf, *power_args, **power_kwargs)
 
         elif issubclass(power_class, ThresholdSigningPower):
-            blob = __skf.make_secret(info)[:32]  # TODO
+            blob = __skf.make_secret(info)[: ThresholdSigningPower.KEY_SIZE]
             signer = InMemorySigner(private_key=blob)
-            power = power_class(
-                account=signer.accounts[0], signer=signer, *power_args, **power_kwargs
-            )
+            power = power_class(signer=signer, *power_args, **power_kwargs)
 
         else:
             failure_message = f"{power_class.__name__} is an invalid type for deriving a CryptoPower."

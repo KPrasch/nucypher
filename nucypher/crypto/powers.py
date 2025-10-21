@@ -54,6 +54,10 @@ class NoDecryptingPower(PowerUpError):
 class NoTransactingPower(PowerUpError):
     pass
 
+
+class NoThresholdSigningPower(PowerUpError):
+    pass
+
 class NoRitualisticPower(PowerUpError):
     pass
 
@@ -238,30 +242,18 @@ class TransactingPower(CryptoPowerUp):
 
 
 class ThresholdSigningPower(TransactingPower):
-    """A TransactingPower that is dedicated to sign threshold cryptography requests."""
+    """A power that is dedicated to sign threshold cryptography requests."""
+
+    KEY_SIZE = 32  # must be 32 bytes long
+    not_found_error = NoThresholdSigningPower
 
     def __init__(
         self,
-        account: ChecksumAddress = None,
-        signer: Signer = None,
-        password: str = None,
-        cache: bool = False,
+        signer: InMemorySigner = None,
     ):
-
-        if signer:
-            TransactingPower.__init__(
-                self,
-                account=account,
-                signer=signer,
-                password=password,
-                cache=cache,
-            )
-        else:
-            blob = (
-                SecretKey.random().to_be_bytes()
-            )  # __skf.make_secret(info)[:32] # TODO
-            signer = InMemorySigner(private_key=blob)
-            TransactingPower.__init__(self, account=signer.accounts[0], signer=signer)
+        if not signer:
+            signer = InMemorySigner()
+        super().__init__(account=signer.accounts[0], signer=signer)
 
 
 class KeyPairBasedPower(CryptoPowerUp):

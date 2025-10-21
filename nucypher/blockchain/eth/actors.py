@@ -212,7 +212,6 @@ class Operator(BaseActor):
         polygon_endpoint: str,
         pre_payment_method: ContractPayment,
         transacting_power: TransactingPower,
-        threshold_signing_power: ThresholdSigningPower,
         signer: Signer = None,
         crypto_power: CryptoPower = None,
         client_password: str = None,
@@ -237,8 +236,6 @@ class Operator(BaseActor):
                 signer=signer,
                 cache=True,
             )
-
-        self.threshold_signing_power = threshold_signing_power
 
         # We pass the newly instantiated TransactingPower into consume_power_up here, even though it's accessible
         # on the instance itself (being composed in the __init__ of the base class, which we will call shortly)
@@ -283,6 +280,9 @@ class Operator(BaseActor):
             publish_finalization  # publish the DKG final key if True
         )
 
+        self.threshold_signing_power = crypto_power.power_ups(
+            ThresholdSigningPower
+        )  # used to sign threshold signing requests
         self.ritual_power = crypto_power.power_ups(
             RitualisticPower
         )  # ferveo material contained within

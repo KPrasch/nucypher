@@ -860,9 +860,6 @@ class Ursula(Teacher, Character, Operator):
                     client_password=client_password,
                     condition_blockchain_endpoints=condition_blockchain_endpoints,
                     transacting_power=transacting_power,
-                    threshold_signing_power=self._crypto_power.power_ups(
-                        ThresholdSigningPower
-                    ),
                 )
 
             except Exception:
