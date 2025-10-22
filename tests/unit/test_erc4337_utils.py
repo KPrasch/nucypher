@@ -16,6 +16,7 @@ from nucypher.utilities.erc4337_utils import (
     sign_packed_user_operation,
 )
 from tests.utils.erc4337 import (
+    COMMON_REQUIRED_USER_OP_GAS_VALUES,
     create_contract_call,
     create_erc20_approve,
     create_erc20_transfer,
@@ -52,7 +53,10 @@ class TestPackedUserOperation:
     def minimal_user_op(self):
         """Create a minimal PackedUserOperation for testing"""
         return UserOperation(
-            sender="0x1234567890123456789012345678901234567890", nonce=0
+            sender="0x1234567890123456789012345678901234567890",
+            nonce=0,
+            call_data=b"",
+            **COMMON_REQUIRED_USER_OP_GAS_VALUES,
         )
 
     def test_user_operation_initialization(self, sample_user_op):
@@ -76,14 +80,29 @@ class TestPackedUserOperation:
         """Test PackedUserOperation initialization with minimal fields"""
         assert minimal_user_op.sender == "0x1234567890123456789012345678901234567890"
         assert minimal_user_op.nonce == 0
+        assert minimal_user_op.call_data == b""
+        assert (
+            minimal_user_op.verification_gas_limit
+            == COMMON_REQUIRED_USER_OP_GAS_VALUES["verification_gas_limit"]
+        )
+        assert (
+            minimal_user_op.call_gas_limit
+            == COMMON_REQUIRED_USER_OP_GAS_VALUES["call_gas_limit"]
+        )
+        assert (
+            minimal_user_op.pre_verification_gas
+            == COMMON_REQUIRED_USER_OP_GAS_VALUES["pre_verification_gas"]
+        )
+        assert (
+            minimal_user_op.max_priority_fee_per_gas
+            == COMMON_REQUIRED_USER_OP_GAS_VALUES["max_priority_fee_per_gas"]
+        )
+        assert (
+            minimal_user_op.max_fee_per_gas
+            == COMMON_REQUIRED_USER_OP_GAS_VALUES["max_fee_per_gas"]
+        )
         assert minimal_user_op.factory is None
         assert minimal_user_op.factory_data == b""
-        assert minimal_user_op.call_data == b""
-        assert minimal_user_op.verification_gas_limit == 0
-        assert minimal_user_op.call_gas_limit == 0
-        assert minimal_user_op.pre_verification_gas == 0
-        assert minimal_user_op.max_priority_fee_per_gas == 0
-        assert minimal_user_op.max_fee_per_gas == 0
         assert minimal_user_op.paymaster is None
         assert minimal_user_op.paymaster_verification_gas_limit == 0
         assert minimal_user_op.paymaster_post_op_gas_limit == 0
@@ -315,8 +334,12 @@ class TestPackedUserOperation:
         user_op = UserOperation(
             sender="0x1234567890123456789012345678901234567890",
             nonce=0,
-            verification_gas_limit=max_uint128,
+            call_data=b"",
             call_gas_limit=max_uint128,
+            verification_gas_limit=max_uint128,
+            pre_verification_gas=0,
+            max_fee_per_gas=0,
+            max_priority_fee_per_gas=0,
         )
 
         packed_user_op = PackedUserOperation.from_user_operation(user_op)
@@ -326,8 +349,12 @@ class TestPackedUserOperation:
         user_op_zero = UserOperation(
             sender="0x1234567890123456789012345678901234567890",
             nonce=0,
-            verification_gas_limit=0,
+            call_data=b"",
             call_gas_limit=0,
+            verification_gas_limit=0,
+            pre_verification_gas=0,
+            max_fee_per_gas=0,
+            max_priority_fee_per_gas=0,
         )
 
         packed_user_op = PackedUserOperation.from_user_operation(user_op_zero)
@@ -340,6 +367,10 @@ class TestPackedUserOperation:
         user_op = UserOperation(
             sender="0x1234567890123456789012345678901234567890",
             nonce=0,
+            call_data=b"",
+            call_gas_limit=0,
+            verification_gas_limit=0,
+            pre_verification_gas=0,
             max_priority_fee_per_gas=max_uint128,
             max_fee_per_gas=max_uint128,
         )
@@ -347,21 +378,19 @@ class TestPackedUserOperation:
         packed_user_op = PackedUserOperation.from_user_operation(user_op)
         assert len(packed_user_op.gas_fees) == 32
 
-    def test_oversized_gas_limits(self):
-        """Test handling of gas limit values"""
-        # Test with maximum values that can fit in the packing format (uint128 each)
-        max_uint128 = (2**128) - 1
-
+        # Test zeros
         user_op = UserOperation(
             sender="0x1234567890123456789012345678901234567890",
-            nonce=1,
-            verification_gas_limit=max_uint128,  # Should work
-            call_gas_limit=max_uint128,  # Should work
+            nonce=0,
+            call_data=b"",
+            call_gas_limit=0,
+            verification_gas_limit=0,
+            pre_verification_gas=0,
+            max_priority_fee_per_gas=0,
+            max_fee_per_gas=0,
         )
-
-        # Should be able to pack without error
         packed_user_op = PackedUserOperation.from_user_operation(user_op)
-        assert len(packed_user_op.account_gas_limits) == 32
+        assert packed_user_op.gas_fees == b"\x00" * 32
 
 
 class TestEncodeFunctionCall:
@@ -556,7 +585,10 @@ class TestERC4337Compatibility:
     def test_user_operation_fields_match_spec(self):
         """Test that UserOperation fields match ERC-4337 specification"""
         user_op = UserOperation(
-            sender="0x1234567890123456789012345678901234567890", nonce=1
+            sender="0x1234567890123456789012345678901234567890",
+            nonce=1,
+            call_data=b"",
+            **COMMON_REQUIRED_USER_OP_GAS_VALUES,
         )
 
         # Verify all required fields exist according to ERC-4337
@@ -654,7 +686,10 @@ class TestERC4337Compatibility:
         """Test that addresses are properly checksummed"""
         # Test with non-checksummed address
         user_op = UserOperation(
-            sender="0x1234567890123456789012345678901234567890", nonce=1
+            sender="0x1234567890123456789012345678901234567890",
+            nonce=1,
+            call_data=b"",
+            **COMMON_REQUIRED_USER_OP_GAS_VALUES,
         )
 
         # All helper functions should handle address checksumming
@@ -696,7 +731,10 @@ class TestErrorHandling:
         """Test signing with empty initial signature using transacting power"""
 
         user_op = UserOperation(
-            sender="0x1234567890123456789012345678901234567890", nonce=1
+            sender="0x1234567890123456789012345678901234567890",
+            nonce=1,
+            call_data=b"",
+            **COMMON_REQUIRED_USER_OP_GAS_VALUES,
         )
 
         # Create a test private key and account

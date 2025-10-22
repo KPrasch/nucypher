@@ -15,7 +15,11 @@ from nucypher.policy.conditions.auth.evm import EIP1271Auth
 from nucypher.policy.conditions.lingo import ConditionLingo, ReturnValueTest
 from nucypher.policy.conditions.signing.base import SigningObjectAttributeCondition
 from nucypher.utilities.erc4337_utils import sign_packed_user_operation
-from tests.utils.erc4337 import create_erc20_transfer, create_eth_transfer
+from tests.utils.erc4337 import (
+    COMMON_REQUIRED_USER_OP_GAS_VALUES,
+    create_erc20_transfer,
+    create_eth_transfer,
+)
 
 
 @pytest.fixture(scope="module")
@@ -628,6 +632,7 @@ def test_signing_request_with_signing_object_attribute_condition(
         sender=erc20_transfer_op.sender,
         nonce=erc20_transfer_op.nonce,
         call_data=b"1234",  # Modify call_data to fail attribute condition
+        **COMMON_REQUIRED_USER_OP_GAS_VALUES,
     )
 
     failure_user_op_erc20_signing_request = UserOperationSignatureRequest(

@@ -157,7 +157,6 @@ def create_sample_user_operation() -> UserOperation:
         pre_verification_gas=21000,
         max_fee_per_gas=2000000000,
         max_priority_fee_per_gas=1000000000,
-        signature=b"",  # Will be filled by threshold signing
     )
 
 
