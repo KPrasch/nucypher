@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 from eth_account import Account
 from eth_account.messages import _hash_eip191_message, encode_typed_data
-from eth_utils import keccak
+from eth_utils import keccak, to_bytes
 from hexbytes import HexBytes
 from nucypher_core import (
     AAVersion,
@@ -11,6 +11,7 @@ from nucypher_core import (
     UserOperation,
 )
 
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.policy.conditions.utils import camel_case_to_snake
 from nucypher.utilities.erc4337_utils import (
     sign_packed_user_operation,
@@ -25,6 +26,43 @@ from tests.utils.erc4337 import (
 )
 
 ENTRYPOINT_V08 = "0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108"
+
+
+def _expected_pack_account_gas_limits(
+    call_gas_limit: int, verification_gas_limit: int
+) -> bytes:
+    combined = (verification_gas_limit << 128) | call_gas_limit
+    return combined.to_bytes(32, byteorder="big")
+
+
+def _expected_pack_gas_fees(max_fee_per_gas: int, max_priority_fee_per_gas) -> bytes:
+    combined = (max_priority_fee_per_gas << 128) | max_fee_per_gas
+    return combined.to_bytes(32, byteorder="big")
+
+
+def _expected_pack_paymaster_and_data(
+    paymaster: str,
+    paymaster_verification_gas_limit: int,
+    paymaster_post_op_gas_limit: int,
+    paymaster_data: bytes,
+) -> bytes:
+    if not paymaster:
+        return b""
+    paymaster_bytes = to_bytes(hexstr=paymaster)
+    verification_bytes = paymaster_verification_gas_limit.to_bytes(16, byteorder="big")
+    post_op_bytes = paymaster_post_op_gas_limit.to_bytes(16, byteorder="big")
+    return paymaster_bytes + verification_bytes + post_op_bytes + paymaster_data
+
+
+def _expected_pack_init_code(factory: str, factory_data: bytes) -> bytes:
+    if not factory:
+        return b""
+
+    factory_bytes = to_bytes(hexstr=factory)
+    if not factory_bytes or factory_bytes == bytes(HexBytes(NULL_ADDRESS)):
+        return b""
+
+    return factory_bytes + factory_data
 
 class TestPackedUserOperation:
     """Test suite for PackedUserOperation class"""
@@ -220,23 +258,20 @@ class TestPackedUserOperation:
         )
 
         # Verify packed fields
-        assert (
-            packed_user_op.account_gas_limits
-            == PackedUserOperation._pack_account_gas_limits(
-                sample_user_op.call_gas_limit, sample_user_op.verification_gas_limit
-            )
+        assert packed_user_op.account_gas_limits == _expected_pack_account_gas_limits(
+            sample_user_op.call_gas_limit, sample_user_op.verification_gas_limit
         )
-        assert packed_user_op.gas_fees == PackedUserOperation._pack_gas_fees(
+        assert packed_user_op.gas_fees == _expected_pack_gas_fees(
             sample_user_op.max_fee_per_gas, sample_user_op.max_priority_fee_per_gas
         )
-        assert (
-            packed_user_op.paymaster_and_data
-            == PackedUserOperation._pack_paymaster_and_data(
-                sample_user_op.paymaster,
-                sample_user_op.paymaster_verification_gas_limit,
-                sample_user_op.paymaster_post_op_gas_limit,
-                sample_user_op.paymaster_data,
-            )
+        assert packed_user_op.paymaster_and_data == _expected_pack_paymaster_and_data(
+            sample_user_op.paymaster,
+            sample_user_op.paymaster_verification_gas_limit,
+            sample_user_op.paymaster_post_op_gas_limit,
+            sample_user_op.paymaster_data,
+        )
+        assert packed_user_op.init_code == _expected_pack_init_code(
+            sample_user_op.factory, sample_user_op.factory_data
         )
 
     @pytest.mark.parametrize("aa_version", [AAVersion.V08, AAVersion.MDT])
