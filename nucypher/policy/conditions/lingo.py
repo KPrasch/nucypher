@@ -4,12 +4,13 @@ import json
 import math
 import operator as pyoperator
 import statistics
-from decimal import localcontext
+from decimal import Decimal, InvalidOperation, localcontext
 from enum import Enum
 from hashlib import md5
 from inspect import signature
 from typing import Any, List, Optional, Tuple, Type, Union
 
+from eth_utils import is_hexstr
 from hexbytes import HexBytes
 from marshmallow import (
     Schema,
@@ -479,6 +480,8 @@ class ConditionVariable(_Serializable):
 
 
 class SequentialCondition(MultiCondition):
+    MAX_NUM_CONDITIONS = 10
+
     """
     A series of conditions that are evaluated in a specific order, where the result of one
     condition can be used in subsequent conditions.
@@ -874,22 +877,71 @@ class ReturnValueTest(_Serializable):
             raise cls.InvalidExpression(f'"{value}" is not a permitted value.')
 
     @staticmethod
-    def __handle_potential_bytes(data: Any) -> Any:
-        return HexBytes(data).hex() if isinstance(data, bytes) else data
+    def __process_bytes(data: bytes) -> str:
+        return HexBytes(data).hex()  # convert bytes to hex string
 
-    def _process_data(self, data: Any) -> Any:
-        """
-        Convert bytes to hex as needed, including within nested lists/tuples.
-        """
-        processed_data = data
+    @staticmethod
+    def __string_already_primitive_type(data: str) -> bool:
+        # check if boolean string
+        if data in ["True", "False"]:
+            return True
 
-        if isinstance(processed_data, (list, tuple)):
+        # check if int or float as string
+        try:
+            _ = Decimal(data)
+            return True
+        except InvalidOperation:
+            pass
+
+        return False
+
+    @staticmethod
+    def __process_string(data: str) -> str:
+        # if 0x prefixed hex string, leave as is
+        if data.startswith("0x") and is_hexstr(data):
+            return data
+        # check if string is already primitive type, leave as is
+        elif ReturnValueTest.__string_already_primitive_type(data):
+            return data
+        # check if already quoted; if not, quote it
+        elif len(data) <= 1 or not (
+            (data.startswith("'") and data.endswith("'"))
+            or (data.startswith('"') and data.endswith('"'))
+        ):
+            quote_type_to_use = '"' if "'" in data else "'"
+            return f"{quote_type_to_use}{data}{quote_type_to_use}"
+        else:
+            # leave as is
+            return data
+
+    def _process_data(self, data: Any, top_level_call: bool = True) -> Any:
+        """
+        Process data for use with literal eval. Recursively processes data as needed.
+        Steps:
+        1. Convert bytes to hex as needed, including within nested lists/tuples.
+        2. Hex strings remain as is
+        3. Strings that are already primitive types (int, float, bool) remain as is
+        4. Convert non-hex strings to quoted strings at top level only i.e. individual string values
+        (literal eval can only compare quoted strings); strings within data structures are fine
+        """
+        if isinstance(data, (list, tuple)):
             # convert any bytes in list to hex (include nested lists/tuples); no additional indexing
-            processed_data = [self._process_data(data=item) for item in processed_data]
+            processed_data = [
+                self._process_data(data=item, top_level_call=False) for item in data
+            ]
             return processed_data
+        elif isinstance(data, bytes):
+            # convert bytes to hex if necessary
+            processed_data = self.__process_bytes(data)
+            return processed_data
+        elif isinstance(data, str):
+            # only process strings at the top level call (i.e. don't need to process strings within lists/tuples)
+            if not top_level_call:
+                return data
 
-        # convert bytes to hex if necessary
-        return self.__handle_potential_bytes(processed_data)
+            return self.__process_string(data)
+        else:
+            return data
 
     def eval(self, data) -> bool:
         if is_context_variable(self.value):

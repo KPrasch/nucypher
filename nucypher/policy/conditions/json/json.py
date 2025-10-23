@@ -10,10 +10,7 @@ from nucypher.policy.conditions.context import (
 )
 from nucypher.policy.conditions.exceptions import InvalidCondition
 from nucypher.policy.conditions.json.base import JSONPathField
-from nucypher.policy.conditions.json.utils import (
-    process_result_for_condition_eval,
-    query_json_data,
-)
+from nucypher.policy.conditions.json.utils import query_json_data
 from nucypher.policy.conditions.lingo import ConditionType, ReturnValueTest
 
 
@@ -80,13 +77,10 @@ class JsonCondition(Condition):
         # Apply JSONPath query
         result = query_json_data(resolved_data, self.query, **context)
 
-        # Process result for evaluation (handles string quoting)
-        result_for_eval = process_result_for_condition_eval(result)
-
         # Evaluate against return value test
         resolved_return_value_test = self.return_value_test.with_resolved_context(
             **context
         )
-        eval_result = resolved_return_value_test.eval(result_for_eval)
+        eval_result = resolved_return_value_test.eval(result)
 
         return eval_result, result
