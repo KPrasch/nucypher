@@ -1,7 +1,7 @@
 from typing import Tuple
 
 from hexbytes import HexBytes
-from nucypher_core import AAVersion, PackedUserOperation
+from nucypher_core import PackedUserOperation
 
 from nucypher.crypto.powers import TransactingPower
 
@@ -9,7 +9,7 @@ from nucypher.crypto.powers import TransactingPower
 def sign_packed_user_operation(
     packed_user_op: PackedUserOperation,
     transacting_power: TransactingPower,
-    aa_version: AAVersion,
+    aa_version: str,
     chain_id: int,
 ) -> Tuple[HexBytes, HexBytes]:
     """Sign a PackedUserOperation using the provided transacting power."""
