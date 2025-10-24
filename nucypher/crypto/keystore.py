@@ -48,7 +48,7 @@ _DELEGATING_INFO = __INFO_BASE + b"delegating"
 _RITUALISTIC_INFO = __INFO_BASE + b"ritualistic"
 _THRESHOLD_REQUEST_DECRYPTING_INFO = __INFO_BASE + b"threshold_request_decrypting"
 _TLS_INFO = __INFO_BASE + b"tls"
-_THRESHOLD_SIGNING_INFO = __INFO_BASE + b"threshold_signing"
+_THRESHOLD_SIGNING_INFO = __INFO_BASE + b"threshold_signing_ecdsa"
 
 # Wrapping key
 _SALT_SIZE = 32

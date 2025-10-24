@@ -43,10 +43,18 @@ def transacting_powers(accounts, cohort_operators):
 
 
 @pytest.fixture(scope="module")
-def signing_powers(accounts, cohort_operators):
+def signers(accounts, cohort_operators):
+    return [
+        signer_address
+        for signer_address in accounts.unassigned_accounts[: len(cohort_operators)]
+    ]
+
+
+@pytest.fixture(scope="module")
+def signing_powers(accounts, signers):
     return [
         ThresholdSigningPower(signer=accounts.get_account_signer(signer_address))
-        for signer_address in accounts.unassigned_accounts[: len(cohort_operators)]
+        for signer_address in signers
     ]
 
 
@@ -131,6 +139,7 @@ def test_post_signature(
     mock_async_hooks,
     nucypher_dependency,
     signing_coordinator_child,
+    signers,
 ):
     cohort_id = agent.number_of_cohorts() - 1
 
@@ -211,9 +220,6 @@ def test_post_signature(
     deployed_multisig = nucypher_dependency.ThresholdSigningMultisig.at(
         threshold_signing_multisig_clone_factory.getCloneAddress(cohort_id)
     )
-    assert (
-        deployed_multisig.getSigners()
-        == accounts.unassigned_accounts[: len(cohort_operators)]
-    )
+    assert deployed_multisig.getSigners() == signers
     assert deployed_multisig.threshold() == len(cohort_operators) // 2 + 1
     assert deployed_multisig.owner() == signing_coordinator_child.address

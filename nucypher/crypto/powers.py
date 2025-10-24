@@ -244,7 +244,7 @@ class TransactingPower(CryptoPowerUp):
 class ThresholdSigningPower(TransactingPower):
     """A power that is dedicated to sign threshold cryptography requests."""
 
-    KEY_SIZE = 32  # must be 32 bytes long
+    KEY_SIZE = 32  # must be 32 bytes long (ECDSA-specific)
     not_found_error = NoThresholdSigningPower
 
     def __init__(
