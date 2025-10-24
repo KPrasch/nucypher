@@ -165,7 +165,7 @@ class SigningRequestClient(NetworkRequestClient):
         timeout: int = NetworkRequestClient.DEFAULT_TIMEOUT,
         stagger_timeout: int = NetworkRequestClient.DEFAULT_STAGGER_TIMEOUT,
     ) -> Tuple[
-        Dict[ChecksumAddress, Tuple[ChecksumAddress, SignatureResponse]],
+        Dict[ChecksumAddress, SignatureResponse],
         Dict[ChecksumAddress, str],
     ]:
         self._ensure_ursula_availability(
@@ -189,8 +189,8 @@ class SigningRequestClient(NetworkRequestClient):
                     timeout=timeout,
                 )
                 if response.status_code == HTTPStatus.OK:
-                    response = SignatureResponse.from_bytes(response.content)
-                    return response
+                    signature_response = SignatureResponse.from_bytes(response.content)
+                    return signature_response
 
             except Exception as e:
                 message = f"Node {ursula_address} raised {e}"

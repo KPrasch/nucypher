@@ -325,11 +325,16 @@ def test_user_op_signing_request_eth_transfer(
         signing_request=eth_signing_request,
     )
 
+    signer_addresses = set(u.threshold_signing_power.account for u in cohort)
+
     # Verify ETH transfer signatures
     assert len(responses) >= signing_cohort.threshold
     aggregated_signature = b""
     for r in responses:
         assert expected_hash == r.hash, "All hashes must be the same"
+        assert r.signer in signer_addresses
+        # remove to ensure uniqueness of signers
+        signer_addresses.remove(r.signer)
         aggregated_signature += r.signature
 
     multisig = get_cohort_multisig(

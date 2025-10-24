@@ -1515,6 +1515,7 @@ class Operator(BaseActor):
             request=signing_request, transacting_power=self.threshold_signing_power
         )
         response = SignatureResponse(
+            signer=self.threshold_signing_power.account,
             hash=message_hash,
             signature=signature,
             signature_type=signing_request.signature_type,
