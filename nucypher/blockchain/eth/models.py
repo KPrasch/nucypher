@@ -223,15 +223,11 @@ class SigningCoordinator:
     @dataclass
     class SigningCohortParticipant:
         provider: ChecksumAddress
-        operator: ChecksumAddress
         signerAddress: ChecksumAddress
-        signature: bytes = bytes()
 
         @classmethod
         def from_data(cls, data: list):
             return cls(
                 provider=ChecksumAddress(data[0]),
-                operator=ChecksumAddress(data[1]),
-                signerAddress=ChecksumAddress(data[2]),
-                signature=bytes(data[3]),
+                signerAddress=ChecksumAddress(data[1]),
             )

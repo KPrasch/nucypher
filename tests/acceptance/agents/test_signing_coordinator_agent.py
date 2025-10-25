@@ -151,7 +151,10 @@ def test_post_signature(
     txs = []
     signatures = []
     for i, transacting_power in enumerate(transacting_powers):
-        data = encode(["uint32", "address"], [cohort_id, authority])
+        data = encode(
+            ["uint32", "address", "address"],
+            [cohort_id, authority, cohort_operators[i]],
+        )
         digest = Web3.keccak(data)
         _message_hash, signature = signing_powers[i].sign_message_eip191(
             digest, standardize=False
@@ -160,7 +163,6 @@ def test_post_signature(
             cohort_id=cohort_id,
             signature=signature,
             transacting_power=transacting_power,
-            threshold_signing_power=signing_powers[i],
             async_tx_hooks=mock_async_hooks,
         )
         signatures.append(signature)
@@ -180,6 +182,7 @@ def test_post_signature(
         event = post_signature_events[0]
         assert event["args"]["cohortId"] == cohort_id
         assert event["args"]["provider"] == cohort_providers[i]
+        assert event["args"]["signer"] == signers[i]
         assert event["args"]["signature"] == signatures[i]
 
     # ensure relevant hooks are called (once for each tx) OR not called (failure ones)
@@ -204,8 +207,7 @@ def test_post_signature(
     signing_cohort = agent.get_signing_cohort(cohort_id)
     for i, signer in enumerate(signing_cohort.signers):
         assert signer.provider == cohort_providers[i]
-        assert signer.operator == cohort_operators[i]
-        assert signer.signature == signatures[i]
+        assert signer.signerAddress == signers[i]
 
     # check deployed multisigs
     assert (

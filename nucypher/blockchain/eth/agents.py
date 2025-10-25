@@ -65,7 +65,7 @@ from nucypher.config.constants import (
     NUCYPHER_ENVVAR_STAKING_PROVIDERS_PAGINATION_SIZE,
     NUCYPHER_ENVVAR_STAKING_PROVIDERS_PAGINATION_SIZE_LIGHT_NODE,
 )
-from nucypher.crypto.powers import ThresholdSigningPower, TransactingPower
+from nucypher.crypto.powers import TransactingPower
 from nucypher.policy.conditions.lingo import ConditionLingo
 from nucypher.utilities.logging import Logger
 
@@ -1095,8 +1095,12 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         return receipt
 
     @contract_api(CONTRACT_CALL)
-    def get_signing_cohort_data_hash(self, cohort_id: int) -> bytes:
-        result = self.contract.functions.getSigningCohortDataHash(cohort_id).call()
+    def get_signing_cohort_data_hash(
+        self, cohort_id: int, operator_address: ChecksumAddress
+    ) -> bytes:
+        result = self.contract.functions.getSigningCohortDataHash(
+            cohort_id, operator_address
+        ).call()
         return result
 
     @contract_api(CONTRACT_CALL)
@@ -1110,14 +1114,11 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         cohort_id: int,
         signature: bytes,
         transacting_power: TransactingPower,
-        threshold_signing_power: ThresholdSigningPower,
         async_tx_hooks: BlockchainInterface.AsyncTxHooks,
     ) -> AsyncTx:
         # See sprints/#145
         contract_function: ContractFunction = (
-            self.contract.functions.postSigningCohortSignature(
-                cohort_id, threshold_signing_power.account, signature
-            )
+            self.contract.functions.postSigningCohortSignature(cohort_id, signature)
         )
         async_tx = self.blockchain.send_async_transaction(
             contract_function=contract_function,

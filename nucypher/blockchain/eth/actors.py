@@ -1241,7 +1241,7 @@ class Operator(BaseActor):
         participant = self.signing_coordinator_agent.get_signer(
             cohort_id=cohort_id, provider=self.staking_provider_address
         )
-        if participant.signature:
+        if participant.signerAddress != NULL_ADDRESS:
             # This is a normal state, as the node may have already submitted a signature
             # for this cohort, and it's not necessary to submit another one. Carry on.
             self.log.debug(
@@ -1288,7 +1288,7 @@ class Operator(BaseActor):
 
     def _post_signature(self, cohort_id: int) -> AsyncTx:
         data_hash = self.signing_coordinator_agent.get_signing_cohort_data_hash(
-            cohort_id
+            cohort_id=cohort_id, operator_address=self.transacting_power.account
         )
         _hash, signature = self.threshold_signing_power.sign_message_eip191(
             data_hash, standardize=False
@@ -1301,7 +1301,6 @@ class Operator(BaseActor):
             cohort_id=cohort_id,
             signature=signature,
             transacting_power=self.transacting_power,
-            threshold_signing_power=self.threshold_signing_power,
             async_tx_hooks=async_tx_hooks,
         )
         self.signing_storage.store_ritual_phase_async_tx(
