@@ -210,6 +210,7 @@ class Operator(BaseActor):
         self,
         eth_endpoint: str,
         polygon_endpoint: str,
+        registry: ContractRegistry,
         pre_payment_method: ContractPayment,
         transacting_power: TransactingPower,
         signer: Signer = None,
@@ -246,7 +247,9 @@ class Operator(BaseActor):
         self.pre_payment_method = pre_payment_method
         self._operator_bonded_tracker = OperatorBondedTracker(ursula=self)
 
-        super().__init__(transacting_power=transacting_power, *args, **kwargs)
+        super().__init__(
+            transacting_power=transacting_power, registry=registry, *args, **kwargs
+        )
         self.log = Logger("operator")
 
         self.__staking_provider_address = None  # set by block_until_ready
@@ -257,7 +260,6 @@ class Operator(BaseActor):
             registry=self.registry,
         )
 
-        registry = ContractRegistry.from_latest_publication(domain=self.domain)
         self.child_application_agent = ContractAgency.get_agent(
             TACoChildApplicationAgent,
             registry=registry,
