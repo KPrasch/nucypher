@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Optional, Tuple
 
+from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 
 from nucypher.crypto.powers import TransactingPower
@@ -52,10 +53,12 @@ class SignatureResponse:
     def __init__(
         self,
         _hash: bytes,
+        signer: ChecksumAddress,
         signature: bytes,
         signature_type: SignatureRequestType,
     ):
         self.hash = _hash
+        self.signer = signer
         self.signature = signature
         self.signature_type = signature_type
 
@@ -63,6 +66,7 @@ class SignatureResponse:
         """Serialize the response to bytes in JSON format."""
         data = {
             "message_hash": HexBytes(self.hash).hex(),
+            "signer": self.signer,
             "signature": HexBytes(self.signature).hex(),
             "signature_type": self.signature_type.value,
         }
@@ -73,10 +77,12 @@ class SignatureResponse:
         """Deserialize the response from bytes in JSON format."""
         result = json.loads(response_data.decode())
         _hash = bytes(HexBytes(result["message_hash"]))
+        signer = ChecksumAddress(result["signer"])
         signature = bytes(HexBytes(result["signature"]))
         signature_type = SignatureRequestType(result["signature_type"])
         return cls(
             _hash=_hash,
+            signer=signer,
             signature=signature,
             signature_type=signature_type,
         )

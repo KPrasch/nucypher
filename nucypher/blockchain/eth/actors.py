@@ -75,6 +75,7 @@ from nucypher.crypto.powers import (
     CryptoPower,
     RitualisticPower,
     ThresholdRequestDecryptingPower,
+    ThresholdSigningPower,
     TransactingPower,
 )
 from nucypher.datastore.ritual import (
@@ -275,18 +276,13 @@ class Operator(BaseActor):
             blockchain_endpoint=eth_endpoint,
         )
 
-        # track active onchain rituals
-        self.ritual_tracker = dkg.DkgRitualTracker(
-            operator=self,
-        )
-        self.signing_ritual_tracker = signing.SigningRitualTracker(
-            operator=self,
-        )
-
         self.publish_finalization = (
             publish_finalization  # publish the DKG final key if True
         )
 
+        self.threshold_signing_power = crypto_power.power_ups(
+            ThresholdSigningPower
+        )  # used to sign threshold signing requests
         self.ritual_power = crypto_power.power_ups(
             RitualisticPower
         )  # ferveo material contained within
@@ -300,6 +296,14 @@ class Operator(BaseActor):
 
         self.dkg_storage = DKGRitualStorage()
         self.signing_storage = SigningRitualStorage()
+
+        # track active onchain rituals
+        self.ritual_tracker = dkg.DkgRitualTracker(
+            operator=self,
+        )
+        self.signing_ritual_tracker = signing.SigningRitualTracker(
+            operator=self,
+        )
 
     def set_provider_public_key(self) -> Union[TxReceipt, None]:
         # TODO: Here we're assuming there is one global key per node. See nucypher/#3167
@@ -1237,11 +1241,11 @@ class Operator(BaseActor):
         participant = self.signing_coordinator_agent.get_signer(
             cohort_id=cohort_id, provider=self.staking_provider_address
         )
-        if participant.signature:
+        if participant.signerAddress != NULL_ADDRESS:
             # This is a normal state, as the node may have already submitted a signature
             # for this cohort, and it's not necessary to submit another one. Carry on.
             self.log.debug(
-                f"Node {self.transacting_power.account} has already posted a signature for cohort {cohort_id}."
+                f"Node {self.threshold_signing_power.account} has already posted a signature for cohort {cohort_id}."
             )
             return False
 
@@ -1284,9 +1288,9 @@ class Operator(BaseActor):
 
     def _post_signature(self, cohort_id: int) -> AsyncTx:
         data_hash = self.signing_coordinator_agent.get_signing_cohort_data_hash(
-            cohort_id
+            cohort_id=cohort_id, operator_address=self.transacting_power.account
         )
-        _hash, signature = self.transacting_power.sign_message_eip191(
+        _hash, signature = self.threshold_signing_power.sign_message_eip191(
             data_hash, standardize=False
         )
 
@@ -1494,10 +1498,11 @@ class Operator(BaseActor):
 
         # sign if the request is authorized (conditions are satisfied)
         message_hash, signature = sign_signature_request_data(
-            request=signing_request, transacting_power=self.transacting_power
+            request=signing_request, transacting_power=self.threshold_signing_power
         )
         response = SignatureResponse(
             _hash=message_hash,
+            signer=self.threshold_signing_power.account,
             signature=signature,
             signature_type=signing_request.signature_type,
         )

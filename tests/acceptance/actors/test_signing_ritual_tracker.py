@@ -238,8 +238,7 @@ def test_get_participation_state_signing_cohort_deployed_participation_not_alrea
     def participating(*args, **kwargs):
         participant = SigningCoordinator.SigningCohortParticipant(
             provider=ChecksumAddress(ursula.checksum_address),
-            operator=ChecksumAddress(ursula.operator_address),
-            signature=os.urandom(32),
+            signerAddress=ChecksumAddress(ursula.threshold_signing_power.account),
         )
 
         return participant

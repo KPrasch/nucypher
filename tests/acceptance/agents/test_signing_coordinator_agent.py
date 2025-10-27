@@ -7,7 +7,7 @@ from web3 import Web3
 
 from nucypher.blockchain.eth.agents import SigningCoordinatorAgent
 from nucypher.blockchain.eth.models import SigningCoordinator
-from nucypher.crypto.powers import TransactingPower
+from nucypher.crypto.powers import ThresholdSigningPower, TransactingPower
 
 
 @pytest.fixture(scope="module")
@@ -39,6 +39,22 @@ def transacting_powers(accounts, cohort_operators):
     return [
         TransactingPower(account=ursula, signer=accounts.get_account_signer(ursula))
         for ursula in cohort_operators
+    ]
+
+
+@pytest.fixture(scope="module")
+def signers(accounts, cohort_operators):
+    return [
+        signer_address
+        for signer_address in accounts.unassigned_accounts[: len(cohort_operators)]
+    ]
+
+
+@pytest.fixture(scope="module")
+def signing_powers(accounts, signers):
+    return [
+        ThresholdSigningPower(signer=accounts.get_account_signer(signer_address))
+        for signer_address in signers
     ]
 
 
@@ -114,6 +130,7 @@ def test_post_signature(
     accounts,
     agent,
     transacting_powers,
+    signing_powers,
     authority,
     cohort_providers,
     cohort_operators,
@@ -122,6 +139,7 @@ def test_post_signature(
     mock_async_hooks,
     nucypher_dependency,
     signing_coordinator_child,
+    signers,
 ):
     cohort_id = agent.number_of_cohorts() - 1
 
@@ -132,10 +150,13 @@ def test_post_signature(
 
     txs = []
     signatures = []
-    for transacting_power in transacting_powers:
-        data = encode(["uint32", "address"], [cohort_id, authority])
+    for i, transacting_power in enumerate(transacting_powers):
+        data = encode(
+            ["uint32", "address", "address"],
+            [cohort_id, authority, cohort_operators[i]],
+        )
         digest = Web3.keccak(data)
-        _message_hash, signature = transacting_power.sign_message_eip191(
+        _message_hash, signature = signing_powers[i].sign_message_eip191(
             digest, standardize=False
         )
         async_tx = agent.post_signature(
@@ -161,6 +182,7 @@ def test_post_signature(
         event = post_signature_events[0]
         assert event["args"]["cohortId"] == cohort_id
         assert event["args"]["provider"] == cohort_providers[i]
+        assert event["args"]["signer"] == signers[i]
         assert event["args"]["signature"] == signatures[i]
 
     # ensure relevant hooks are called (once for each tx) OR not called (failure ones)
@@ -185,8 +207,7 @@ def test_post_signature(
     signing_cohort = agent.get_signing_cohort(cohort_id)
     for i, signer in enumerate(signing_cohort.signers):
         assert signer.provider == cohort_providers[i]
-        assert signer.operator == cohort_operators[i]
-        assert signer.signature == signatures[i]
+        assert signer.signerAddress == signers[i]
 
     # check deployed multisigs
     assert (
@@ -201,6 +222,6 @@ def test_post_signature(
     deployed_multisig = nucypher_dependency.ThresholdSigningMultisig.at(
         threshold_signing_multisig_clone_factory.getCloneAddress(cohort_id)
     )
-    assert deployed_multisig.getSigners() == cohort_operators
+    assert deployed_multisig.getSigners() == signers
     assert deployed_multisig.threshold() == len(cohort_operators) // 2 + 1
     assert deployed_multisig.owner() == signing_coordinator_child.address

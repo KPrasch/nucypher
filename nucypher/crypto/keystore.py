@@ -16,6 +16,7 @@ from nucypher_core import SessionSecretFactory
 from nucypher_core.ferveo import Keypair as FerveoKeypair
 from nucypher_core.umbral import SecretKeyFactory
 
+from nucypher.blockchain.eth.signers import InMemorySigner
 from nucypher.config.constants import DEFAULT_CONFIG_ROOT
 from nucypher.crypto.keypairs import HostingKeypair, RitualisticKeypair
 from nucypher.crypto.passwords import (
@@ -33,6 +34,7 @@ from nucypher.crypto.powers import (
     RitualisticPower,
     SigningPower,
     ThresholdRequestDecryptingPower,
+    ThresholdSigningPower,
     TLSHostingPower,
 )
 from nucypher.crypto.tls import generate_self_signed_certificate
@@ -46,6 +48,7 @@ _DELEGATING_INFO = __INFO_BASE + b"delegating"
 _RITUALISTIC_INFO = __INFO_BASE + b"ritualistic"
 _THRESHOLD_REQUEST_DECRYPTING_INFO = __INFO_BASE + b"threshold_request_decrypting"
 _TLS_INFO = __INFO_BASE + b"tls"
+_THRESHOLD_SIGNING_INFO = __INFO_BASE + b"threshold_signing_ecdsa"
 
 # Wrapping key
 _SALT_SIZE = 32
@@ -236,6 +239,7 @@ class Keystore:
         TLSHostingPower: _TLS_INFO,
         RitualisticPower: _RITUALISTIC_INFO,
         ThresholdRequestDecryptingPower: _THRESHOLD_REQUEST_DECRYPTING_INFO,
+        ThresholdSigningPower: _THRESHOLD_SIGNING_INFO,
     }
 
     class Exists(FileExistsError):
@@ -527,6 +531,11 @@ class Keystore:
             parent_skf = SecretKeyFactory.from_secure_randomness(self.__secret)
             child_skf = parent_skf.make_factory(_DELEGATING_INFO)
             power = power_class(secret_key_factory=child_skf, *power_args, **power_kwargs)
+
+        elif issubclass(power_class, ThresholdSigningPower):
+            blob = __skf.make_secret(info)[: ThresholdSigningPower.KEY_SIZE]
+            signer = InMemorySigner(private_key=blob)
+            power = power_class(signer=signer, *power_args, **power_kwargs)
 
         else:
             failure_message = f"{power_class.__name__} is an invalid type for deriving a CryptoPower."

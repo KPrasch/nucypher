@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import string
 from pathlib import Path
 
@@ -61,8 +62,11 @@ def test_invalid_keystore_file_type(tmp_path, tmp_path_factory):
         _keystore = Keystore(invalid_path)
 
     # Not an existing file
-    invalid_path = Path('does-not-exist')
-    with pytest.raises(Keystore.NotFound, match=f"Keystore '{invalid_path.absolute()}' does not exist."):
+    invalid_path = Path("does-not-exist")
+    with pytest.raises(
+        Keystore.NotFound,
+        match=re.escape(f"Keystore '{invalid_path.absolute()}' does not exist."),
+    ):
         _keystore = Keystore(invalid_path)
 
 

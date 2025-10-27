@@ -29,6 +29,7 @@ from nucypher_core.umbral import PublicKey, SecretKey, SecretKeyFactory, generat
 
 from nucypher.blockchain.eth.decorators import validate_checksum_address
 from nucypher.blockchain.eth.signers.base import Signer
+from nucypher.blockchain.eth.signers.software import InMemorySigner
 from nucypher.crypto import keypairs
 from nucypher.crypto.ferveo import dkg
 from nucypher.crypto.keypairs import (
@@ -51,6 +52,10 @@ class NoDecryptingPower(PowerUpError):
     pass
 
 class NoTransactingPower(PowerUpError):
+    pass
+
+
+class NoThresholdSigningPower(PowerUpError):
     pass
 
 class NoRitualisticPower(PowerUpError):
@@ -234,6 +239,21 @@ class TransactingPower(CryptoPowerUp):
     def sign_transaction(self, transaction_dict: dict) -> bytes:
         """Signs the transaction with the private key of the TransactingPower."""
         return self._signer.sign_transaction(transaction_dict=transaction_dict)
+
+
+class ThresholdSigningPower(TransactingPower):
+    """A power that is dedicated to sign threshold cryptography requests."""
+
+    KEY_SIZE = 32  # must be 32 bytes long (ECDSA-specific)
+    not_found_error = NoThresholdSigningPower
+
+    def __init__(
+        self,
+        signer: InMemorySigner = None,
+    ):
+        if not signer:
+            signer = InMemorySigner()
+        super().__init__(account=signer.accounts[0], signer=signer)
 
 
 class KeyPairBasedPower(CryptoPowerUp):

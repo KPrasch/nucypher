@@ -2,6 +2,7 @@ from typing import Optional
 
 from web3.datastructures import AttributeDict
 
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.blockchain.eth.models import SigningCoordinator
 from nucypher.blockchain.eth.trackers.rituals import RitualTracker
 
@@ -141,7 +142,7 @@ class SigningRitualTracker(RitualTracker):
                 # actually participating in this ritual; get latest information
                 new_participation_state.participating = True
                 new_participation_state.already_posted_signature = bool(
-                    participant_info.signature
+                    participant_info.signerAddress != NULL_ADDRESS
                 )
 
         return new_participation_state

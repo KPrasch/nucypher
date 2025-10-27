@@ -3,6 +3,7 @@ from json.decoder import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from cytoolz.dicttoolz import dissoc
 from eth_account.account import Account
@@ -199,7 +200,7 @@ class KeystoreSigner(Signer):
         decoded_uri = urlparse(uri)
         if decoded_uri.scheme != cls.uri_scheme() or decoded_uri.netloc:
             raise cls.InvalidSignerURI(uri)
-        path = decoded_uri.path
+        path = url2pathname(decoded_uri.path)
         if not path:
             raise cls.InvalidSignerURI("Blank signer URI - No keystore path provided")
         return cls(path=Path(path), testnet=testnet)
