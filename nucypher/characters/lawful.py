@@ -715,8 +715,8 @@ class Bob(Character):
             )
 
         # Already sorted by client - just collect responses
-        # successes is of type Dict[ChecksumAddress, Tuple[ChecksumAddress, ThresholdSignatureResponse]]
-        responses = [s[1] for s in successes.values()]
+        # successes is of type Dict[ChecksumAddress, SignatureResponse]
+        responses = successes.values()
         return responses
 
     def threshold_decrypt(

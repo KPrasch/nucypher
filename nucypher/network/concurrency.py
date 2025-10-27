@@ -171,7 +171,7 @@ class SigningRequestClient(NetworkRequestClient):
 
         def worker(
             ursula_address: ChecksumAddress,
-        ) -> Tuple[ChecksumAddress, SignatureResponse]:
+        ) -> SignatureResponse:
 
             encrypted_request = signing_requests[ursula_address]
 
@@ -185,8 +185,7 @@ class SigningRequestClient(NetworkRequestClient):
                 )
                 if response.status_code == HTTPStatus.OK:
                     response = SignatureResponse.from_bytes(response.content)
-                    signer_address = response.signer
-                    return signer_address, response
+                    return response
 
             except Exception as e:
                 message = f"Node {ursula_address} raised {e}"
@@ -206,7 +205,9 @@ class SigningRequestClient(NetworkRequestClient):
         )
 
         # sort successes by signer address
-        # successes is of type Dict[ChecksumAddress, Tuple[ChecksumAddress, SignatureResponse]]
-        successes = OrderedDict(sorted(successes.items(), key=lambda item: item[1][0]))
+        # successes is of type Dict[ChecksumAddress, SignatureResponse]
+        successes = OrderedDict(
+            sorted(successes.items(), key=lambda item: int(item[1].signer, 16))
+        )
 
         return successes, failures

@@ -1215,7 +1215,7 @@ class Operator(BaseActor):
                 )
 
             self.log.info(
-                f"{self.threshold_signing_power.account[:8]} resubmitted a new async tx {async_tx.id} "
+                f"{self.transacting_power.account[:8]} resubmitted a new async tx {async_tx.id} "
                 f"of type {tx_type} for signing ritual #{phase_id.ritual_id}."
             )
 
@@ -1279,7 +1279,7 @@ class Operator(BaseActor):
         )
         if async_tx:
             self.log.info(
-                f"Active signing ritual in progress: {self.threshold_signing_power.account} has submitted tx "
+                f"Active signing ritual in progress: {self.transacting_power.account} has submitted tx "
                 f"for cohort #{cohort_id}, post signature phase, (final: {async_tx.final})."
             )
             return async_tx
