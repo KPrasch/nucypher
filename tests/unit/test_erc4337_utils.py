@@ -139,12 +139,14 @@ class TestPackedUserOperation:
             minimal_user_op.max_fee_per_gas
             == COMMON_REQUIRED_USER_OP_GAS_VALUES["max_fee_per_gas"]
         )
+
+        # optional fields
         assert minimal_user_op.factory is None
-        assert minimal_user_op.factory_data == b""
+        assert minimal_user_op.factory_data is None
         assert minimal_user_op.paymaster is None
-        assert minimal_user_op.paymaster_verification_gas_limit == 0
-        assert minimal_user_op.paymaster_post_op_gas_limit == 0
-        assert minimal_user_op.paymaster_data == b""
+        assert minimal_user_op.paymaster_verification_gas_limit is None
+        assert minimal_user_op.paymaster_post_op_gas_limit is None
+        assert minimal_user_op.paymaster_data is None
 
     def test_serialization(self, sample_user_op, minimal_user_op):
         for user_op in [sample_user_op, minimal_user_op]:
@@ -522,7 +524,7 @@ class TestHelperFunctions:
         assert user_op.sender == common_params["sender"]
         assert user_op.nonce == common_params["nonce"]
         assert user_op.factory is None
-        assert user_op.factory_data == b""
+        assert user_op.factory_data is None
         assert len(user_op.call_data) > 0
 
         # Verify the call data contains the execute function call
