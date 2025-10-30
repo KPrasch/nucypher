@@ -120,6 +120,8 @@ def test_packed_user_operation_paymaster_and_data_packing(
     accounts, chain, user_op, aa_entry_point
 ):
     paymaster = accounts[1].address
+
+    # with paymaster data
     overrides = dict(
         paymaster=paymaster,
         paymaster_post_op_gas_limit=100000,
@@ -146,6 +148,38 @@ def test_packed_user_operation_paymaster_and_data_packing(
         == user_op.paymaster_post_op_gas_limit
     )
     assert aa_entry_point.paymasterData(packed_user_op_dict) == user_op.paymaster_data
+
+
+def test_packed_user_operation_paymaster_and_data_packing_without_paymaster_data(
+    accounts, chain, user_op, aa_entry_point
+):
+    paymaster = accounts[1].address
+    # without paymaster data
+    overrides = dict(
+        paymaster=paymaster,
+        paymaster_post_op_gas_limit=100000,
+        paymaster_verification_gas_limit=200000,
+    )
+
+    user_op = create_user_op(user_op.sender, user_op.factory, **overrides)
+    packed_user_op = PackedUserOperation.from_user_operation(user_op)
+
+    packed_user_op_dict = packed_user_op.to_eip712_struct(
+        AAVersion.V08, chain.chain_id
+    )["message"]
+    packed_user_op_dict["signature"] = b""
+
+    # retrieved individual paymaster values packed into paymaster should match
+    assert aa_entry_point.paymaster(packed_user_op_dict) == paymaster
+    assert (
+        aa_entry_point.paymasterVerificationGasLimit(packed_user_op_dict)
+        == user_op.paymaster_verification_gas_limit
+    )
+    assert (
+        aa_entry_point.paymasterPostOpGasLimit(packed_user_op_dict)
+        == user_op.paymaster_post_op_gas_limit
+    )
+    assert aa_entry_point.paymasterData(packed_user_op_dict) == b""
 
 
 def test_packed_user_operation_init_code_packing(
