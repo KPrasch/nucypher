@@ -26,22 +26,18 @@ def sign_signature_request_data(
     if isinstance(request, UserOperationSignatureRequest):
         # Special handling for UserOperation requests
         packed_user_operation = PackedUserOperation.from_user_operation(request.user_op)
-        return sign_packed_user_operation(
-            packed_user_operation,
-            threshold_signing_power,
-            request.aa_version,
-            request.chain_id,
-        )
     elif isinstance(request, PackedUserOperationSignatureRequest):
-        return sign_packed_user_operation(
-            request.packed_user_op,
-            threshold_signing_power,
-            request.aa_version,
-            request.chain_id,
+        packed_user_operation = request.packed_user_op
+    else:
+        raise UnsupportedSignatureRequest(
+            f"Unsupported signature request: {request.__class__.__name__}"
         )
 
-    raise UnsupportedSignatureRequest(
-        f"Unsupported signature request: {request.__class__.__name__}"
+    return sign_packed_user_operation(
+        packed_user_operation,
+        threshold_signing_power,
+        request.aa_version,
+        request.chain_id,
     )
 
 
