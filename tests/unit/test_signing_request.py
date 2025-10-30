@@ -8,7 +8,7 @@ from nucypher_core import (
 )
 
 from nucypher.blockchain.eth.signers import InMemorySigner
-from nucypher.crypto.powers import TransactingPower
+from nucypher.crypto.powers import ThresholdSigningPower
 from nucypher.network.signing import (
     UnsupportedSignatureRequest,
     get_signature_request_object,
@@ -33,9 +33,9 @@ def packed_user_op(user_op):
 
 
 @pytest.fixture()
-def transacting_power():
+def threshold_signing_power():
     signer = InMemorySigner()
-    return TransactingPower(account=signer.accounts[0], signer=signer)
+    return ThresholdSigningPower(signer=signer)
 
 
 def test_get_signature_request_object_invalid_object():
@@ -70,13 +70,13 @@ def test_get_signature_request_object_packed_user_operation(packed_user_op):
     assert bytes(request_obj) == bytes(packed_user_op)
 
 
-def test_sign_invalid_request(transacting_power):
+def test_sign_invalid_request(threshold_signing_power):
     signing_request = "just a string"
     with pytest.raises(UnsupportedSignatureRequest):
-        _ = sign_signature_request_data(signing_request, transacting_power)
+        _ = sign_signature_request_data(signing_request, threshold_signing_power)
 
 
-def test_sign_user_operation_request(user_op, transacting_power):
+def test_sign_user_operation_request(user_op, threshold_signing_power):
     signing_request = UserOperationSignatureRequest(
         user_op=user_op,
         aa_version=AAVersion.V08,
@@ -85,17 +85,17 @@ def test_sign_user_operation_request(user_op, transacting_power):
         context=None,
     )
     message_hash, signature = sign_signature_request_data(
-        signing_request, transacting_power
+        signing_request, threshold_signing_power
     )
     assert len(message_hash) > 0
     assert len(signature) == 65  # ECDSA signature
     recovered_address = Account._recover_hash(
         message_hash=message_hash, signature=signature
     )
-    assert recovered_address == transacting_power.account
+    assert recovered_address == threshold_signing_power.account
 
 
-def test_sign_packed_user_operation_request(packed_user_op, transacting_power):
+def test_sign_packed_user_operation_request(packed_user_op, threshold_signing_power):
     signing_request = PackedUserOperationSignatureRequest(
         packed_user_op=packed_user_op,
         aa_version=AAVersion.MDT,
@@ -104,11 +104,11 @@ def test_sign_packed_user_operation_request(packed_user_op, transacting_power):
         context=None,
     )
     message_hash, signature = sign_signature_request_data(
-        signing_request, transacting_power
+        signing_request, threshold_signing_power
     )
     assert len(message_hash) > 0
     assert len(signature) == 65  # ECDSA signature
     recovered_address = Account._recover_hash(
         message_hash=message_hash, signature=signature
     )
-    assert recovered_address == transacting_power.account
+    assert recovered_address == threshold_signing_power.account

@@ -1512,7 +1512,8 @@ class Operator(BaseActor):
 
         # sign if the request is authorized (conditions are satisfied)
         message_hash, signature = sign_signature_request_data(
-            request=signing_request, transacting_power=self.threshold_signing_power
+            request=signing_request,
+            threshold_signing_power=self.threshold_signing_power,
         )
         response = SignatureResponse(
             signer=self.threshold_signing_power.account,

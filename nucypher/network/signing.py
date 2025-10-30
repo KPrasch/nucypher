@@ -8,7 +8,7 @@ from nucypher_core import (
     UserOperationSignatureRequest,
 )
 
-from nucypher.crypto.powers import TransactingPower
+from nucypher.crypto.powers import ThresholdSigningPower
 from nucypher.utilities.erc4337_utils import sign_packed_user_operation
 
 
@@ -20,7 +20,7 @@ class UnsupportedSignatureRequest(ValueError):
 
 def sign_signature_request_data(
     request,
-    transacting_power: TransactingPower,
+    threshold_signing_power: ThresholdSigningPower,
 ) -> Tuple[HexBytes, HexBytes]:
     """Sign a signature request using the provided transacting power."""
     if isinstance(request, UserOperationSignatureRequest):
@@ -28,14 +28,14 @@ def sign_signature_request_data(
         packed_user_operation = PackedUserOperation.from_user_operation(request.user_op)
         return sign_packed_user_operation(
             packed_user_operation,
-            transacting_power,
+            threshold_signing_power,
             request.aa_version,
             request.chain_id,
         )
     elif isinstance(request, PackedUserOperationSignatureRequest):
         return sign_packed_user_operation(
             request.packed_user_op,
-            transacting_power,
+            threshold_signing_power,
             request.aa_version,
             request.chain_id,
         )
