@@ -10,6 +10,7 @@ from nucypher.policy.conditions.exceptions import (
 )
 from nucypher.policy.conditions.lingo import (
     AndCompoundCondition,
+    AtLeastCompoundCondition,
     CompoundCondition,
     ConditionType,
     ConditionVariable,
@@ -95,6 +96,28 @@ def test_invalid_compound_condition(time_condition, rpc_condition):
             operands=[rpc_condition],
         )
 
+    # < 2 operands for at least operator
+    with pytest.raises(InvalidCondition):
+        _ = CompoundCondition(
+            operator=CompoundCondition.AT_LEAST_OPERATOR,
+            operands=[rpc_condition],
+        )
+
+    # >= 2 operands for at least operator but no threshold
+    with pytest.raises(InvalidCondition):
+        _ = CompoundCondition(
+            operator=CompoundCondition.AT_LEAST_OPERATOR,
+            operands=[rpc_condition, time_condition],
+        )
+
+    # >= 2 operands for at least operator but invalid threshold
+    with pytest.raises(InvalidCondition):
+        _ = CompoundCondition(
+            operator=CompoundCondition.AT_LEAST_OPERATOR,
+            operands=[rpc_condition, time_condition],
+            threshold=3,
+        )
+
     # exceeds max operands
     operands = list()
     for i in range(CompoundCondition.MAX_NUM_CONDITIONS + 1):
@@ -109,6 +132,12 @@ def test_invalid_compound_condition(time_condition, rpc_condition):
             operator=CompoundCondition.AND_OPERATOR,
             operands=operands,
         )
+    with pytest.raises(InvalidCondition):
+        _ = CompoundCondition(
+            operator=CompoundCondition.AT_LEAST_OPERATOR,
+            operands=operands,
+            threshold=1,
+        )
 
 
 @pytest.mark.parametrize("operator", CompoundCondition.OPERATORS)
@@ -118,7 +147,9 @@ def test_compound_condition_schema_validation(operator, time_condition, rpc_cond
     else:
         operands = [time_condition, rpc_condition]
 
-    compound_condition = CompoundCondition(operator=operator, operands=operands)
+    with_threshold = {"threshold": 2} if operator == CompoundCondition.AT_LEAST_OPERATOR else {}
+
+    compound_condition = CompoundCondition(operator=operator, operands=operands, **with_threshold)
     compound_condition_dict = compound_condition.to_dict()
 
     # no issues here
@@ -231,6 +262,50 @@ def test_or_condition_and_short_circuit(mock_conditions):
 
 
 @pytest.mark.usefixtures("mock_skip_schema_validation")
+def test_at_least_condition_and_short_circuit(mock_conditions):
+    condition_1, condition_2, condition_3, condition_4 = mock_conditions
+
+    at_least_condition = AtLeastCompoundCondition(
+        operands=mock_conditions,
+        threshold=2,
+    )
+
+    # ensure that exactly 2 conditions evaluated when first 2 are True
+    condition_1.verify.return_value = (True, 1)
+    condition_2.verify.return_value = (True, 2)  # short circuit here
+    result, value = at_least_condition.verify(providers={})
+    assert result is True
+    assert len(value) == 2, "only first 2 conditions need to be evaluated"
+    assert value == [1, 2]
+
+    # no short circuit occurs when not enough are True
+    condition_1.verify.return_value = (True, 1)
+    condition_2.verify.return_value = (False, 2)
+    condition_3.verify.return_value = (False, 3)
+    condition_4.verify.return_value = (False, 4)
+
+    result, value = at_least_condition.verify(providers={})
+    assert result is False
+    assert len(value) == 4, "all conditions evaluated"
+    assert value == [1, 2, 3, 4]
+
+    # Same condition with different threshold
+    condition_1.verify.return_value = (False, 1)
+    condition_2.verify.return_value = (True, 2)
+    condition_3.verify.return_value = (False, 3)
+    condition_4.verify.return_value = (True, 4)
+
+    for i in range(len(mock_conditions)):
+        threshold = i + 1
+        at_least_condition = AtLeastCompoundCondition(
+            operands=mock_conditions,
+            threshold=threshold,
+        )
+        result, value = at_least_condition.verify(providers={})
+        assert result == (i < 2)  # only thresholds 1 and 2 return True
+
+
+@pytest.mark.usefixtures("mock_skip_schema_validation")
 def test_compound_condition(mock_conditions):
     condition_1, condition_2, condition_3, condition_4 = mock_conditions
 
@@ -238,8 +313,13 @@ def test_compound_condition(mock_conditions):
         operands=[
             OrCompoundCondition(
                 operands=[
-                    condition_1,
-                    condition_2,
+                    AtLeastCompoundCondition(
+                        operands=[
+                            condition_1,
+                            condition_2,
+                        ],
+                        threshold=1
+                    ),
                     condition_3,
                 ]
             ),
@@ -250,10 +330,10 @@ def test_compound_condition(mock_conditions):
     # all conditions are True
     result, value = compound_condition.verify(providers={})
     assert result is True
-    assert len(value) == 2, "or_condition and condition_4"
-    assert value == [[1], 4]
+    assert len(value) == 2, "at_least_condition and condition_4"
+    assert value == [[[1]], 4]
 
-    # or condition is False
+    # at least condition is False, or condition is False
     condition_1.verify.return_value = (False, 1)
     condition_2.verify.return_value = (False, 2)
     condition_3.verify.return_value = (False, 3)
@@ -261,7 +341,7 @@ def test_compound_condition(mock_conditions):
     assert result is False
     assert len(value) == 1, "or_condition"
     assert value == [
-        [1, 2, 3]
+        [[1, 2], 3]
     ]  # or-condition does not short circuit, but and-condition is short-circuited because or-condition is False
 
     # or condition is True but condition 4 is False
@@ -272,7 +352,7 @@ def test_compound_condition(mock_conditions):
     assert result is False
     assert len(value) == 2, "or_condition and condition_4"
     assert value == [
-        [1],
+        [[1]],
         4,
     ]  # or-condition short-circuited because condition_1 was True
 
@@ -282,7 +362,7 @@ def test_compound_condition(mock_conditions):
     assert result is True
     assert len(value) == 2, "or_condition and condition_4"
     assert value == [
-        [1],
+        [[1]],
         4,
     ]  # or-condition short-circuited because condition_1 was True
 

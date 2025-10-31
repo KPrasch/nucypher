@@ -310,6 +310,11 @@ class NotCompoundCondition(CompoundCondition):
         super().__init__(operator=self.NOT_OPERATOR, operands=[operand])
 
 
+class AtLeastCompoundCondition(CompoundCondition):
+    def __init__(self, operands: List[Condition], threshold: int):
+        super().__init__(operator=self.AT_LEAST_OPERATOR, operands=operands, threshold=threshold)
+
+
 _COMPARATOR_FUNCTIONS = {
     "==": pyoperator.eq,
     "!=": pyoperator.ne,
