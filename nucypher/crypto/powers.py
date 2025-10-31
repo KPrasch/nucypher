@@ -69,6 +69,10 @@ class NoThresholdRequestDecryptingPower(PowerUpError):
     pass
 
 
+class NoThresholdSigningDecryptingPower(PowerUpError):
+    pass
+
+
 class CryptoPower(object):
     def __init__(self, power_ups: list = None) -> None:
         self.__power_ups = {}  # type: dict
@@ -488,6 +492,10 @@ class ThresholdRequestDecryptingPower(DerivedKeyBasedPower):
             return encrypted_decryption_response
         except Exception as e:
             raise self.ThresholdResponseEncryptionFailed from e
+
+
+class SigningRequestDecryptingPower(ThresholdRequestDecryptingPower):
+    """ """
 
 
 class DelegatingPower(DerivedKeyBasedPower):

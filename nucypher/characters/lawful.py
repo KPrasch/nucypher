@@ -99,6 +99,7 @@ from nucypher.crypto.powers import (
     PowerUpError,
     RitualisticPower,
     SigningPower,
+    SigningRequestDecryptingPower,
     ThresholdRequestDecryptingPower,
     ThresholdSigningPower,
     TLSHostingPower,
@@ -792,6 +793,7 @@ class Ursula(Teacher, Character, Operator):
         RitualisticPower,
         ThresholdRequestDecryptingPower,
         ThresholdSigningPower,
+        SigningRequestDecryptingPower,
         # TLSHostingPower  # Still considered a default for Ursula, but needs the host context
     ]
 

@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives._serialization import Encoding
 from mnemonic.mnemonic import Mnemonic
 from nucypher_core.umbral import SecretKeyFactory
 
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.crypto.keystore import (
     _DELEGATING_INFO,
     _MNEMONIC_LANGUAGE,
@@ -26,7 +27,9 @@ from nucypher.crypto.powers import (
     DecryptingPower,
     DelegatingPower,
     SigningPower,
+    SigningRequestDecryptingPower,
     ThresholdRequestDecryptingPower,
+    ThresholdSigningPower,
     TLSHostingPower,
 )
 from nucypher.utilities.networking import LOOPBACK_ADDRESS
@@ -337,5 +340,36 @@ def test_derive_threshold_request_decrypting_power(tmpdir):
 
     different_ritual_public_key = (
         threshold_request_decrypting_power.get_pubkey_from_ritual_id(ritual_id=0)
+    )
+    assert bytes(public_key) != bytes(different_ritual_public_key)
+
+
+def test_derive_threshold_signing_power(tmpdir):
+    keystore = Keystore.generate(INSECURE_DEVELOPMENT_PASSWORD, keystore_dir=tmpdir)
+    keystore.unlock(password=INSECURE_DEVELOPMENT_PASSWORD)
+    threshold_signing_power = keystore.derive_crypto_power(
+        power_class=ThresholdSigningPower
+    )
+    assert threshold_signing_power.account != NULL_ADDRESS
+
+
+def test_derive_signing_request_decrypting_power(tmpdir):
+    keystore = Keystore.generate(INSECURE_DEVELOPMENT_PASSWORD, keystore_dir=tmpdir)
+    keystore.unlock(password=INSECURE_DEVELOPMENT_PASSWORD)
+    signing_request_decrypting_power = keystore.derive_crypto_power(
+        power_class=SigningRequestDecryptingPower
+    )
+
+    ritual_id = 23
+    public_key = signing_request_decrypting_power.get_pubkey_from_ritual_id(
+        ritual_id=ritual_id
+    )
+    other_public_key = signing_request_decrypting_power.get_pubkey_from_ritual_id(
+        ritual_id=ritual_id
+    )
+    assert bytes(public_key) == bytes(other_public_key)
+
+    different_ritual_public_key = (
+        signing_request_decrypting_power.get_pubkey_from_ritual_id(ritual_id=0)
     )
     assert bytes(public_key) != bytes(different_ritual_public_key)

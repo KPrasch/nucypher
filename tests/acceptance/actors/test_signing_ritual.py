@@ -148,7 +148,7 @@ def test_signature_publication(signing_coordinator_agent, cohort, cohort_id, dkg
                 signing_coordinator_agent.get_signer(
                     cohort_id=cohort_id,
                     provider=ursula.checksum_address,
-                ).signerAddress
+                ).signer_address
             )
             > 0
         ), "no signature found for ursula"
@@ -167,7 +167,7 @@ def test_get_signers(
     signing_cohort = signing_coordinator_agent.get_signing_cohort(cohort_id)
     for i, signer in enumerate(signing_cohort.signers):
         assert signer.provider == cohort[i].checksum_address
-        assert signer.signerAddress == cohort[i].threshold_signing_power.account
+        assert signer.signer_address == cohort[i].threshold_signing_power.account
 
     assert len(signing_cohort.signers) == dkg_size
 

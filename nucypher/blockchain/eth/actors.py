@@ -77,6 +77,7 @@ from nucypher.crypto.ferveo.exceptions import FerveoKeyMismatch
 from nucypher.crypto.powers import (
     CryptoPower,
     RitualisticPower,
+    SigningRequestDecryptingPower,
     ThresholdRequestDecryptingPower,
     ThresholdSigningPower,
     TransactingPower,
@@ -294,6 +295,9 @@ class Operator(BaseActor):
         self.threshold_request_power = crypto_power.power_ups(
             ThresholdRequestDecryptingPower
         )  # used for secure decryption request channel
+        self.signing_request_power = crypto_power.power_ups(
+            SigningRequestDecryptingPower
+        )  # used for secure signing request channel
 
         self.condition_provider_manager = self.get_condition_provider_manager(
             condition_blockchain_endpoints
@@ -1246,7 +1250,7 @@ class Operator(BaseActor):
         participant = self.signing_coordinator_agent.get_signer(
             cohort_id=cohort_id, provider=self.staking_provider_address
         )
-        if participant.signerAddress != NULL_ADDRESS:
+        if participant.signer_address != NULL_ADDRESS:
             # This is a normal state, as the node may have already submitted a signature
             # for this cohort, and it's not necessary to submit another one. Carry on.
             self.log.debug(
@@ -1292,6 +1296,9 @@ class Operator(BaseActor):
         return self._post_signature(cohort_id)
 
     def _post_signature(self, cohort_id: int) -> AsyncTx:
+        participant_public_key = self.signing_request_power.get_pubkey_from_ritual_id(
+            cohort_id
+        )
         data_hash = self.signing_coordinator_agent.get_signing_cohort_data_hash(
             cohort_id=cohort_id, operator_address=self.transacting_power.account
         )
@@ -1305,6 +1312,7 @@ class Operator(BaseActor):
         async_tx = self.signing_coordinator_agent.post_signature(
             cohort_id=cohort_id,
             signature=signature,
+            participant_public_key=participant_public_key,
             transacting_power=self.transacting_power,
             async_tx_hooks=async_tx_hooks,
         )

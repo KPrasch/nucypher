@@ -142,7 +142,7 @@ class SigningRitualTracker(RitualTracker):
                 # actually participating in this ritual; get latest information
                 new_participation_state.participating = True
                 new_participation_state.already_posted_signature = bool(
-                    participant_info.signerAddress != NULL_ADDRESS
+                    participant_info.signer_address != NULL_ADDRESS
                 )
 
         return new_participation_state

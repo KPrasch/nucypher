@@ -5,8 +5,8 @@ plugins:
 
 dependencies:
   - name: nucypher-contracts
-    github: nucypher/nucypher-contracts
-    ref: signing
+    github: vzotova/nucypher-contracts
+    ref: request-key
     config_override:
       solidity:
         version: 0.8.23

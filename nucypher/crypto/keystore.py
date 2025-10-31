@@ -33,6 +33,7 @@ from nucypher.crypto.powers import (
     KeyPairBasedPower,
     RitualisticPower,
     SigningPower,
+    SigningRequestDecryptingPower,
     ThresholdRequestDecryptingPower,
     ThresholdSigningPower,
     TLSHostingPower,
@@ -49,6 +50,7 @@ _RITUALISTIC_INFO = __INFO_BASE + b"ritualistic"
 _THRESHOLD_REQUEST_DECRYPTING_INFO = __INFO_BASE + b"threshold_request_decrypting"
 _TLS_INFO = __INFO_BASE + b"tls"
 _THRESHOLD_SIGNING_INFO = __INFO_BASE + b"threshold_signing_ecdsa"
+_SIGNING_REQUEST_DECRYPTING_INFO = __INFO_BASE + b"signing_request_decrypting"
 
 # Wrapping key
 _SALT_SIZE = 32
@@ -240,6 +242,7 @@ class Keystore:
         RitualisticPower: _RITUALISTIC_INFO,
         ThresholdRequestDecryptingPower: _THRESHOLD_REQUEST_DECRYPTING_INFO,
         ThresholdSigningPower: _THRESHOLD_SIGNING_INFO,
+        SigningRequestDecryptingPower: _SIGNING_REQUEST_DECRYPTING_INFO,
     }
 
     class Exists(FileExistsError):
@@ -536,6 +539,18 @@ class Keystore:
             blob = __skf.make_secret(info)[: ThresholdSigningPower.KEY_SIZE]
             signer = InMemorySigner(private_key=blob)
             power = power_class(signer=signer, *power_args, **power_kwargs)
+
+        elif issubclass(power_class, SigningRequestDecryptingPower):
+            # TODO is this really how we want
+            #  to derive the session factory (similar to RitualisticPower)
+            size = SessionSecretFactory.seed_size()
+            secret = __skf.make_secret(info)[:size]
+            session_secret_factory = SessionSecretFactory.from_secure_randomness(secret)
+            power = power_class(
+                session_secret_factory=session_secret_factory,
+                *power_args,
+                **power_kwargs,
+            )
 
         else:
             failure_message = f"{power_class.__name__} is an invalid type for deriving a CryptoPower."
