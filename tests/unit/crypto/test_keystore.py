@@ -360,6 +360,7 @@ def test_derive_signing_request_decrypting_power(tmpdir):
         power_class=SigningRequestDecryptingPower
     )
 
+    assert isinstance(signing_request_decrypting_power, SigningRequestDecryptingPower)
     ritual_id = 23
     public_key = signing_request_decrypting_power.get_pubkey_from_ritual_id(
         ritual_id=ritual_id

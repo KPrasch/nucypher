@@ -446,7 +446,8 @@ class DerivedKeyBasedPower(CryptoPowerUp):
     """
 
 
-class ThresholdRequestDecryptingPower(DerivedKeyBasedPower):
+class ThresholdRequestPower(DerivedKeyBasedPower):
+
     class ThresholdRequestDecryptionFailed(Exception):
         """Raised when decryption of the request fails."""
 
@@ -464,6 +465,8 @@ class ThresholdRequestDecryptingPower(DerivedKeyBasedPower):
     def get_pubkey_from_ritual_id(self, ritual_id: int) -> SessionStaticKey:
         return self._get_static_secret_from_ritual_id(ritual_id).public_key()
 
+
+class ThresholdRequestDecryptingPower(ThresholdRequestPower):
     def decrypt_encrypted_request(
         self, encrypted_request: EncryptedThresholdDecryptionRequest
     ) -> ThresholdDecryptionRequest:
@@ -494,8 +497,36 @@ class ThresholdRequestDecryptingPower(DerivedKeyBasedPower):
             raise self.ThresholdResponseEncryptionFailed from e
 
 
-class SigningRequestDecryptingPower(ThresholdRequestDecryptingPower):
-    """ """
+class SigningRequestDecryptingPower(ThresholdRequestPower):
+    def decrypt_encrypted_request(
+        self,
+        encrypted_request: EncryptedThresholdDecryptionRequest,  # EncryptedThresholdSigningRequest
+    ) -> ThresholdDecryptionRequest:  # ThresholdSigningRequest:
+        try:
+            static_secret = self._get_static_secret_from_ritual_id(
+                encrypted_request.ritual_id
+            )
+            requester_public_key = encrypted_request.requester_public_key
+            shared_secret = static_secret.derive_shared_secret(requester_public_key)
+            decrypted_request = encrypted_request.decrypt(shared_secret)
+            return decrypted_request
+        except Exception as e:
+            raise self.ThresholdRequestDecryptionFailed from e
+
+    def encrypt_decryption_response(
+        self,
+        decryption_response: ThresholdDecryptionResponse,  # ThresholdSigningResponse,
+        requester_public_key: SessionStaticKey,
+    ) -> EncryptedThresholdDecryptionResponse:  # EncryptedThresholdSigningResponse:
+        try:
+            static_secret = self._get_static_secret_from_ritual_id(
+                decryption_response.ritual_id
+            )
+            shared_secret = static_secret.derive_shared_secret(requester_public_key)
+            encrypted_signing_response = decryption_response.encrypt(shared_secret)
+            return encrypted_signing_response
+        except Exception as e:
+            raise self.ThresholdResponseEncryptionFailed from e
 
 
 class DelegatingPower(DerivedKeyBasedPower):
