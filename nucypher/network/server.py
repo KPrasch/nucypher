@@ -12,11 +12,11 @@ from mako import exceptions as mako_exceptions
 from mako.template import Template
 from nucypher_core import (
     EncryptedThresholdDecryptionRequest,
+    EncryptedThresholdSignatureRequest,
     MetadataRequest,
     MetadataResponse,
     MetadataResponsePayload,
     ReencryptionRequest,
-    deserialize_signature_request,
 )
 from prometheus_client import REGISTRY, Counter, Summary
 
@@ -321,12 +321,14 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
     def sign_message():
         """An endpoint that handles message signing requests."""
         try:
-            signing_request = deserialize_signature_request(data=request.data)
-            signing_response = this_node.handle_signing_request(
-                signing_request=signing_request
+            encrypted_request = EncryptedThresholdSignatureRequest.from_bytes(
+                request.data
+            )
+            encrypted_signing_response = this_node.handle_signing_request(
+                encrypted_signing_request=encrypted_request
             )
             return Response(
-                response=bytes(signing_response),
+                response=bytes(encrypted_signing_response),
                 status=HTTPStatus.OK,
                 mimetype="application/octet-stream",
             )

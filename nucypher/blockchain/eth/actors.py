@@ -14,12 +14,12 @@ from eth_typing import ChecksumAddress
 from nucypher_core import (
     EncryptedThresholdDecryptionRequest,
     EncryptedThresholdDecryptionResponse,
-    PackedUserOperationSignatureRequest,
+    EncryptedThresholdSignatureRequest,
+    EncryptedThresholdSignatureResponse,
     SessionStaticKey,
     SignatureResponse,
     ThresholdDecryptionRequest,
     ThresholdDecryptionResponse,
-    UserOperationSignatureRequest,
 )
 from nucypher_core.ferveo import (
     AggregatedTranscript,
@@ -1476,11 +1476,16 @@ class Operator(BaseActor):
 
     def handle_signing_request(
         self,
-        signing_request: Union[
-            UserOperationSignatureRequest, PackedUserOperationSignatureRequest
-        ],
-    ) -> SignatureResponse:
+        encrypted_signing_request: EncryptedThresholdSignatureRequest,
+    ) -> EncryptedThresholdSignatureResponse:
+        static_secret = self.signing_request_power._get_static_secret_from_ritual_id(
+            encrypted_signing_request.cohort_id
+        )
+        requester_public_key = encrypted_signing_request.requester_public_key
+        shared_secret = static_secret.derive_shared_secret(requester_public_key)
+        decrypted_request = encrypted_signing_request.decrypt(shared_secret)
 
+        signing_request = decrypted_request
         if not self.signing_coordinator_agent.is_cohort_active(
             signing_request.cohort_id
         ):
@@ -1529,7 +1534,8 @@ class Operator(BaseActor):
             signature=signature,
             signature_type=signing_request.signature_type,
         )
-        return response
+        encrypted_response = response.encrypt(shared_secret)
+        return encrypted_response
 
     def _local_operator_address(self):
         return self.__operator_address

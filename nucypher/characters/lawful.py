@@ -703,13 +703,24 @@ class Bob(Character):
                 self.remember_node(ursula)
 
         # Create the signing request
-        signing_requests = {}
-        for provider in providers:
-            signing_requests[provider] = signing_request
+        requester_sk = SessionStaticSecret.random()
+        requester_public_key = requester_sk.public_key()
+
+        shared_secrets = {}
+        encrypted_signing_rquests = {}
+        for signer in signing_cohort.signers:
+            signer_request_key = SessionStaticKey.from_bytes(signer.signing_request_key)
+            shared_secret = requester_sk.derive_shared_secret(signer_request_key)
+            encrypted_signing_request = signing_request.encrypt(
+                shared_secret=shared_secret,
+                requester_public_key=requester_public_key,
+            )
+            shared_secrets[signer.provider] = shared_secret
+            encrypted_signing_rquests[signer.provider] = encrypted_signing_request
 
         signing_client = SigningRequestClient(learner=self)
         successes, failures = signing_client.gather_signatures(
-            signing_requests=signing_requests,
+            encrypted_requests=encrypted_signing_rquests,
             threshold=threshold,
             timeout=timeout,
         )
@@ -719,9 +730,20 @@ class Bob(Character):
                 f"Threshold of Ursulas unable to sign: {failures}"
             )
 
-        # Already sorted by client - just collect responses
-        # successes is of type Dict[ChecksumAddress, SignatureResponse]
-        responses = list(successes.values())
+        # decrypt responses
+        decrypted_responses = []
+        for provider_address, encrypted_signature_response in successes.items():
+            shared_secret = shared_secrets[provider_address]
+            signature_response = encrypted_signature_response.decrypt(
+                shared_secret=shared_secret
+            )
+            decrypted_responses.append(signature_response)
+
+        # sort by signer address
+        responses = sorted(
+            decrypted_responses,
+            key=lambda response: int(response.signer, 16),
+        )
         return responses
 
     def threshold_decrypt(

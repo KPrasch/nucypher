@@ -1,15 +1,13 @@
 import math
-from collections import OrderedDict
 from http import HTTPStatus
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 from eth_typing import ChecksumAddress
 from nucypher_core import (
     EncryptedThresholdDecryptionRequest,
     EncryptedThresholdDecryptionResponse,
-    PackedUserOperationSignatureRequest,
-    SignatureResponse,
-    UserOperationSignatureRequest,
+    EncryptedThresholdSignatureRequest,
+    EncryptedThresholdSignatureResponse,
 )
 
 from nucypher.network.client import ThresholdAccessControlClient
@@ -157,28 +155,28 @@ class SigningRequestClient(NetworkRequestClient):
 
     def gather_signatures(
         self,
-        signing_requests: Dict[
+        encrypted_requests: Dict[
             ChecksumAddress,
-            Union[PackedUserOperationSignatureRequest, UserOperationSignatureRequest],
+            EncryptedThresholdSignatureRequest,
         ],
         threshold: int,
         timeout: int = NetworkRequestClient.DEFAULT_TIMEOUT,
         stagger_timeout: int = NetworkRequestClient.DEFAULT_STAGGER_TIMEOUT,
     ) -> Tuple[
-        Dict[ChecksumAddress, SignatureResponse],
+        Dict[ChecksumAddress, EncryptedThresholdSignatureResponse],
         Dict[ChecksumAddress, str],
     ]:
         self._ensure_ursula_availability(
-            ursulas=list(signing_requests.keys()),
+            ursulas=list(encrypted_requests.keys()),
             threshold=threshold,
             timeout=timeout,  # TODO this was 60s (peering timeout) before
         )
 
         def worker(
             ursula_address: ChecksumAddress,
-        ) -> SignatureResponse:
+        ) -> EncryptedThresholdSignatureResponse:
 
-            encrypted_request = signing_requests[ursula_address]
+            encrypted_request = encrypted_requests[ursula_address]
 
             try:
                 node_or_sprout = self._learner.known_nodes[ursula_address]
@@ -189,7 +187,9 @@ class SigningRequestClient(NetworkRequestClient):
                     timeout=timeout,
                 )
                 if response.status_code == HTTPStatus.OK:
-                    signature_response = SignatureResponse.from_bytes(response.content)
+                    signature_response = EncryptedThresholdSignatureResponse.from_bytes(
+                        response.content
+                    )
                     return signature_response
 
             except Exception as e:
@@ -202,17 +202,11 @@ class SigningRequestClient(NetworkRequestClient):
             raise self.SigningRequestFailed(message)
 
         successes, failures = self.execute(
-            requests=signing_requests,
+            requests=encrypted_requests,
             worker=worker,
             threshold=threshold,
             timeout=timeout,
             stagger_timeout=stagger_timeout,
-        )
-
-        # sort successes by signer address
-        # successes is of type Dict[ChecksumAddress, SignatureResponse]
-        successes = OrderedDict(
-            sorted(successes.items(), key=lambda item: int(item[1].signer, 16))
         )
 
         return successes, failures
