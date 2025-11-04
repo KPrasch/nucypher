@@ -459,21 +459,19 @@ class ThresholdRequestPower(DerivedKeyBasedPower):
             session_secret_factory = SessionSecretFactory.random()
         self.__request_key_factory = session_secret_factory
 
-    def _get_static_secret_from_ritual_id(self, ritual_id: int) -> SessionStaticSecret:
-        return self.__request_key_factory.make_key(bytes(ritual_id.to_bytes(4, "big")))
+    def _get_static_secret_from_id(self, id: int) -> SessionStaticSecret:
+        return self.__request_key_factory.make_key(bytes(id.to_bytes(4, "big")))
 
-    def get_pubkey_from_ritual_id(self, ritual_id: int) -> SessionStaticKey:
-        return self._get_static_secret_from_ritual_id(ritual_id).public_key()
+    def get_pubkey_from_id(self, id: int) -> SessionStaticKey:
+        return self._get_static_secret_from_id(id).public_key()
 
 
-class ThresholdRequestDecryptingPower(ThresholdRequestPower):
+class DecryptingRequestPower(ThresholdRequestPower):
     def decrypt_encrypted_request(
         self, encrypted_request: EncryptedThresholdDecryptionRequest
     ) -> ThresholdDecryptionRequest:
         try:
-            static_secret = self._get_static_secret_from_ritual_id(
-                encrypted_request.ritual_id
-            )
+            static_secret = self._get_static_secret_from_id(encrypted_request.ritual_id)
             requester_public_key = encrypted_request.requester_public_key
             shared_secret = static_secret.derive_shared_secret(requester_public_key)
             decrypted_request = encrypted_request.decrypt(shared_secret)
@@ -487,7 +485,7 @@ class ThresholdRequestDecryptingPower(ThresholdRequestPower):
         requester_public_key: SessionStaticKey,
     ) -> EncryptedThresholdDecryptionResponse:
         try:
-            static_secret = self._get_static_secret_from_ritual_id(
+            static_secret = self._get_static_secret_from_id(
                 decryption_response.ritual_id
             )
             shared_secret = static_secret.derive_shared_secret(requester_public_key)
@@ -497,14 +495,14 @@ class ThresholdRequestDecryptingPower(ThresholdRequestPower):
             raise self.ThresholdResponseEncryptionFailed from e
 
 
-class SigningRequestDecryptingPower(ThresholdRequestPower):
+class SigningRequestPower(ThresholdRequestPower):
     def decrypt_encrypted_request(
         self,
         encrypted_request: EncryptedThresholdDecryptionRequest,  # EncryptedThresholdSigningRequest
     ) -> ThresholdDecryptionRequest:  # ThresholdSigningRequest:
         try:
-            static_secret = self._get_static_secret_from_ritual_id(
-                encrypted_request.ritual_id
+            static_secret = self._get_static_secret_from_id(
+                encrypted_request.ritual_id  # cohort_id
             )
             requester_public_key = encrypted_request.requester_public_key
             shared_secret = static_secret.derive_shared_secret(requester_public_key)
@@ -519,8 +517,8 @@ class SigningRequestDecryptingPower(ThresholdRequestPower):
         requester_public_key: SessionStaticKey,
     ) -> EncryptedThresholdDecryptionResponse:  # EncryptedThresholdSigningResponse:
         try:
-            static_secret = self._get_static_secret_from_ritual_id(
-                decryption_response.ritual_id
+            static_secret = self._get_static_secret_from_id(
+                decryption_response.ritual_id  # cohort_id
             )
             shared_secret = static_secret.derive_shared_secret(requester_public_key)
             encrypted_signing_response = decryption_response.encrypt(shared_secret)

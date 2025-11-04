@@ -25,10 +25,10 @@ from nucypher.crypto.keystore import (
 )
 from nucypher.crypto.powers import (
     DecryptingPower,
+    DecryptingRequestPower,
     DelegatingPower,
     SigningPower,
-    SigningRequestDecryptingPower,
-    ThresholdRequestDecryptingPower,
+    SigningRequestPower,
     ThresholdSigningPower,
     TLSHostingPower,
 )
@@ -326,20 +326,18 @@ def test_derive_threshold_request_decrypting_power(tmpdir):
     keystore = Keystore.generate(INSECURE_DEVELOPMENT_PASSWORD, keystore_dir=tmpdir)
     keystore.unlock(password=INSECURE_DEVELOPMENT_PASSWORD)
     threshold_request_decrypting_power = keystore.derive_crypto_power(
-        power_class=ThresholdRequestDecryptingPower
+        power_class=DecryptingRequestPower
     )
 
     ritual_id = 23
-    public_key = threshold_request_decrypting_power.get_pubkey_from_ritual_id(
-        ritual_id=ritual_id
-    )
-    other_public_key = threshold_request_decrypting_power.get_pubkey_from_ritual_id(
-        ritual_id=ritual_id
+    public_key = threshold_request_decrypting_power.get_pubkey_from_id(id=ritual_id)
+    other_public_key = threshold_request_decrypting_power.get_pubkey_from_id(
+        id=ritual_id
     )
     assert bytes(public_key) == bytes(other_public_key)
 
-    different_ritual_public_key = (
-        threshold_request_decrypting_power.get_pubkey_from_ritual_id(ritual_id=0)
+    different_ritual_public_key = threshold_request_decrypting_power.get_pubkey_from_id(
+        id=0
     )
     assert bytes(public_key) != bytes(different_ritual_public_key)
 
@@ -357,20 +355,16 @@ def test_derive_signing_request_decrypting_power(tmpdir):
     keystore = Keystore.generate(INSECURE_DEVELOPMENT_PASSWORD, keystore_dir=tmpdir)
     keystore.unlock(password=INSECURE_DEVELOPMENT_PASSWORD)
     signing_request_decrypting_power = keystore.derive_crypto_power(
-        power_class=SigningRequestDecryptingPower
+        power_class=SigningRequestPower
     )
 
-    assert isinstance(signing_request_decrypting_power, SigningRequestDecryptingPower)
+    assert isinstance(signing_request_decrypting_power, SigningRequestPower)
     ritual_id = 23
-    public_key = signing_request_decrypting_power.get_pubkey_from_ritual_id(
-        ritual_id=ritual_id
-    )
-    other_public_key = signing_request_decrypting_power.get_pubkey_from_ritual_id(
-        ritual_id=ritual_id
-    )
+    public_key = signing_request_decrypting_power.get_pubkey_from_id(id=ritual_id)
+    other_public_key = signing_request_decrypting_power.get_pubkey_from_id(id=ritual_id)
     assert bytes(public_key) == bytes(other_public_key)
 
-    different_ritual_public_key = (
-        signing_request_decrypting_power.get_pubkey_from_ritual_id(ritual_id=0)
+    different_ritual_public_key = signing_request_decrypting_power.get_pubkey_from_id(
+        id=0
     )
     assert bytes(public_key) != bytes(different_ritual_public_key)

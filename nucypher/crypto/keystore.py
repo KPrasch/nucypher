@@ -28,13 +28,13 @@ from nucypher.crypto.passwords import (
 from nucypher.crypto.powers import (
     CryptoPowerUp,
     DecryptingPower,
+    DecryptingRequestPower,
     DelegatingPower,
     DerivedKeyBasedPower,
     KeyPairBasedPower,
     RitualisticPower,
     SigningPower,
-    SigningRequestDecryptingPower,
-    ThresholdRequestDecryptingPower,
+    SigningRequestPower,
     ThresholdSigningPower,
     TLSHostingPower,
 )
@@ -240,9 +240,9 @@ class Keystore:
         DelegatingPower: _DELEGATING_INFO,
         TLSHostingPower: _TLS_INFO,
         RitualisticPower: _RITUALISTIC_INFO,
-        ThresholdRequestDecryptingPower: _THRESHOLD_REQUEST_DECRYPTING_INFO,
+        DecryptingRequestPower: _THRESHOLD_REQUEST_DECRYPTING_INFO,
         ThresholdSigningPower: _THRESHOLD_SIGNING_INFO,
-        SigningRequestDecryptingPower: _SIGNING_REQUEST_DECRYPTING_INFO,
+        SigningRequestPower: _SIGNING_REQUEST_DECRYPTING_INFO,
     }
 
     class Exists(FileExistsError):
@@ -518,7 +518,7 @@ class Keystore:
             keypair = power_class._keypair_class(__skf.make_key(info))
             power = power_class(keypair=keypair, *power_args, **power_kwargs)
 
-        elif issubclass(power_class, ThresholdRequestDecryptingPower):
+        elif issubclass(power_class, DecryptingRequestPower):
             # TODO is this really how we want
             #  to derive the session factory (similar to RitualisticPower)
             size = SessionSecretFactory.seed_size()
@@ -530,7 +530,7 @@ class Keystore:
                 **power_kwargs,
             )
 
-        elif issubclass(power_class, SigningRequestDecryptingPower):
+        elif issubclass(power_class, SigningRequestPower):
             # TODO is this really how we want
             #  to derive the session factory (similar to RitualisticPower)
             size = SessionSecretFactory.seed_size()

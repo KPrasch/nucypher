@@ -13,7 +13,7 @@ from nucypher_core import (
 from nucypher.characters.lawful import Bob, Enrico
 from nucypher.cli.types import ChecksumAddress
 from nucypher.crypto.ferveo import dkg
-from nucypher.crypto.powers import ThresholdRequestDecryptingPower
+from nucypher.crypto.powers import DecryptingRequestPower
 from nucypher.network.concurrency import ThresholdDecryptionClient
 from nucypher.network.middleware import RestMiddleware
 
@@ -41,12 +41,12 @@ class Uncoordinated:
         if session_seed is None:
             session_seed = b"ABytestringOf32BytesIsNeededHere"
         secret_factory = SessionSecretFactory.from_secure_randomness(session_seed)
-        self.threshold_request_decrypting_power = ThresholdRequestDecryptingPower(
+        self.threshold_request_decrypting_power = DecryptingRequestPower(
             session_secret_factory=secret_factory
         )
         # All participants have the same public key.
         fifty_fiver_public_key = (
-            self.threshold_request_decrypting_power._get_static_secret_from_ritual_id(
+            self.threshold_request_decrypting_power._get_static_secret_from_id(
                 55
             ).public_key()
         )

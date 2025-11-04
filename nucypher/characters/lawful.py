@@ -95,12 +95,12 @@ from nucypher.characters.base import Character, Learner
 from nucypher.crypto.keypairs import HostingKeypair
 from nucypher.crypto.powers import (
     DecryptingPower,
+    DecryptingRequestPower,
     DelegatingPower,
     PowerUpError,
     RitualisticPower,
     SigningPower,
-    SigningRequestDecryptingPower,
-    ThresholdRequestDecryptingPower,
+    SigningRequestPower,
     ThresholdSigningPower,
     TLSHostingPower,
     TransactingPower,
@@ -791,9 +791,9 @@ class Ursula(Teacher, Character, Operator):
         SigningPower,
         DecryptingPower,
         RitualisticPower,
-        ThresholdRequestDecryptingPower,
+        DecryptingRequestPower,
         ThresholdSigningPower,
-        SigningRequestDecryptingPower,
+        SigningRequestPower,
         # TLSHostingPower  # Still considered a default for Ursula, but needs the host context
     ]
 

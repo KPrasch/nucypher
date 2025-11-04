@@ -76,9 +76,9 @@ from nucypher.blockchain.eth.utils import (
 from nucypher.crypto.ferveo.exceptions import FerveoKeyMismatch
 from nucypher.crypto.powers import (
     CryptoPower,
+    DecryptingRequestPower,
     RitualisticPower,
-    SigningRequestDecryptingPower,
-    ThresholdRequestDecryptingPower,
+    SigningRequestPower,
     ThresholdSigningPower,
     TransactingPower,
 )
@@ -292,11 +292,11 @@ class Operator(BaseActor):
         self.ritual_power = crypto_power.power_ups(
             RitualisticPower
         )  # ferveo material contained within
-        self.threshold_request_power = crypto_power.power_ups(
-            ThresholdRequestDecryptingPower
+        self.decrypting_request_power = crypto_power.power_ups(
+            DecryptingRequestPower
         )  # used for secure decryption request channel
         self.signing_request_power = crypto_power.power_ups(
-            SigningRequestDecryptingPower
+            SigningRequestPower
         )  # used for secure signing request channel
 
         self.condition_provider_manager = self.get_condition_provider_manager(
@@ -593,7 +593,7 @@ class Operator(BaseActor):
     ) -> AsyncTx:
         """Publish an aggregated transcript to publicly available storage."""
         # look up the node index for this node on the blockchain
-        participant_public_key = self.threshold_request_power.get_pubkey_from_ritual_id(
+        participant_public_key = self.decrypting_request_power.get_pubkey_from_id(
             ritual_id
         )
         identifier = PhaseId(ritual_id=ritual_id, phase=DKG_PHASE_2)
@@ -973,7 +973,7 @@ class Operator(BaseActor):
         handover_transcript: HandoverTranscript,
     ) -> AsyncTx:
         """Publish a handover transcript to the Coordinator."""
-        participant_public_key = self.threshold_request_power.get_pubkey_from_ritual_id(
+        participant_public_key = self.decrypting_request_power.get_pubkey_from_id(
             ritual_id
         )
         handover_transcript = bytes(handover_transcript)
@@ -1296,7 +1296,7 @@ class Operator(BaseActor):
         return self._post_signature(cohort_id)
 
     def _post_signature(self, cohort_id: int) -> AsyncTx:
-        participant_public_key = self.signing_request_power.get_pubkey_from_ritual_id(
+        participant_public_key = self.signing_request_power.get_pubkey_from_id(
             cohort_id
         )
         data_hash = self.signing_coordinator_agent.get_signing_cohort_data_hash(
@@ -1356,7 +1356,7 @@ class Operator(BaseActor):
     def decrypt_threshold_decryption_request(
         self, encrypted_request: EncryptedThresholdDecryptionRequest
     ) -> ThresholdDecryptionRequest:
-        return self.threshold_request_power.decrypt_encrypted_request(
+        return self.decrypting_request_power.decrypt_encrypted_request(
             encrypted_request=encrypted_request
         )
 
@@ -1365,7 +1365,7 @@ class Operator(BaseActor):
         decryption_response: ThresholdDecryptionResponse,
         requester_public_key: SessionStaticKey,
     ) -> EncryptedThresholdDecryptionResponse:
-        return self.threshold_request_power.encrypt_decryption_response(
+        return self.decrypting_request_power.encrypt_decryption_response(
             decryption_response=decryption_response,
             requester_public_key=requester_public_key,
         )
