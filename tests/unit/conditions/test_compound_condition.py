@@ -147,9 +147,13 @@ def test_compound_condition_schema_validation(operator, time_condition, rpc_cond
     else:
         operands = [time_condition, rpc_condition]
 
-    with_threshold = {"threshold": 2} if operator == CompoundCondition.AT_LEAST_OPERATOR else {}
+    with_threshold = {}
+    if operator == CompoundCondition.AT_LEAST_OPERATOR:
+        with_threshold["threshold"] = 1
 
-    compound_condition = CompoundCondition(operator=operator, operands=operands, **with_threshold)
+    compound_condition = CompoundCondition(
+        operator=operator, operands=operands, **with_threshold
+    )
     compound_condition_dict = compound_condition.to_dict()
 
     # no issues here
@@ -318,7 +322,7 @@ def test_compound_condition(mock_conditions):
                             condition_1,
                             condition_2,
                         ],
-                        threshold=1
+                        threshold=1,
                     ),
                     condition_3,
                 ]
