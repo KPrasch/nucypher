@@ -1,1 +1,0 @@
-Dedicated signing key for Action Control requests.
