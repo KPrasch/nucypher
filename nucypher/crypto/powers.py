@@ -246,7 +246,7 @@ class TransactingPower(CryptoPowerUp):
 
 
 class ThresholdSigningPower(TransactingPower):
-    """A power that is dedicated to sign threshold cryptography requests."""
+    """A power that is dedicated to sign TACo Action Control signing requests."""
 
     KEY_SIZE = 32  # must be 32 bytes long (ECDSA-specific)
     not_found_error = NoThresholdSigningPower
@@ -447,6 +447,9 @@ class DerivedKeyBasedPower(CryptoPowerUp):
 
 
 class ThresholdRequestPower(DerivedKeyBasedPower):
+    """
+    A power that is dedicated to decrypting/encrypting threshold cryptography requests/responses.
+    """
 
     class ThresholdRequestDecryptionFailed(Exception):
         """Raised when decryption of the request fails."""
@@ -467,6 +470,9 @@ class ThresholdRequestPower(DerivedKeyBasedPower):
 
 
 class DecryptingRequestPower(ThresholdRequestPower):
+    """
+    A power that is dedicated to decrypting/encrypting threshold decryption requests/responses.
+    """
     def decrypt_encrypted_request(
         self, encrypted_request: EncryptedThresholdDecryptionRequest
     ) -> ThresholdDecryptionRequest:
@@ -496,6 +502,9 @@ class DecryptingRequestPower(ThresholdRequestPower):
 
 
 class SigningRequestPower(ThresholdRequestPower):
+    """
+    A power that is dedicated to decrypting/encrypting threshold signature requests/responses.
+    """
     def decrypt_encrypted_request(
         self,
         encrypted_request: EncryptedThresholdDecryptionRequest,  # EncryptedThresholdSigningRequest
