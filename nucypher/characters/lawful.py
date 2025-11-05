@@ -705,7 +705,7 @@ class Bob(Character):
         requester_public_key = requester_sk.public_key()
 
         shared_secrets = {}
-        encrypted_signing_rquests = {}
+        encrypted_signing_requests = {}
         for signer in signing_cohort.signers:
             signer_request_key = SessionStaticKey.from_bytes(signer.signing_request_key)
             shared_secret = requester_sk.derive_shared_secret(signer_request_key)
@@ -714,11 +714,11 @@ class Bob(Character):
                 requester_public_key=requester_public_key,
             )
             shared_secrets[signer.provider] = shared_secret
-            encrypted_signing_rquests[signer.provider] = encrypted_signing_request
+            encrypted_signing_requests[signer.provider] = encrypted_signing_request
 
         signing_client = SigningRequestClient(learner=self)
         successes, failures = signing_client.gather_signatures(
-            encrypted_requests=encrypted_signing_rquests,
+            encrypted_requests=encrypted_signing_requests,
             threshold=threshold,
             timeout=timeout,
         )
