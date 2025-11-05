@@ -1474,18 +1474,13 @@ class Operator(BaseActor):
         )
         return encrypted_response
 
-    def handle_signing_request(
+    def handle_threshold_signing_request(
         self,
         encrypted_signing_request: EncryptedThresholdSignatureRequest,
     ) -> EncryptedThresholdSignatureResponse:
-        static_secret = self.signing_request_power._get_static_secret_from_ritual_id(
-            encrypted_signing_request.cohort_id
+        signing_request = self.signing_request_power.decrypt_encrypted_request(
+            encrypted_signing_request
         )
-        requester_public_key = encrypted_signing_request.requester_public_key
-        shared_secret = static_secret.derive_shared_secret(requester_public_key)
-        decrypted_request = encrypted_signing_request.decrypt(shared_secret)
-
-        signing_request = decrypted_request
         if not self.signing_coordinator_agent.is_cohort_active(
             signing_request.cohort_id
         ):
@@ -1511,7 +1506,6 @@ class Operator(BaseActor):
             raise self.NoConditionConfigured(
                 f"Condition not configured on chain {signing_request.chain_id} for signing cohort {signing_request.cohort_id} "
             )
-
         condition_lingo = json.loads(condition_string)
 
         # add signing object to context
@@ -1528,13 +1522,17 @@ class Operator(BaseActor):
             request=signing_request,
             threshold_signing_power=self.threshold_signing_power,
         )
-        response = SignatureResponse(
+        signature_response = SignatureResponse(
             signer=self.threshold_signing_power.account,
             hash=message_hash,
             signature=signature,
             signature_type=signing_request.signature_type,
         )
-        encrypted_response = response.encrypt(shared_secret)
+        encrypted_response = self.signing_request_power.encrypt_signature_response(
+            signature_response=signature_response,
+            requester_public_key=encrypted_signing_request.requester_public_key,
+            cohort_id=signing_request.cohort_id,
+        )
         return encrypted_response
 
     def _local_operator_address(self):

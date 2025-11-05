@@ -324,7 +324,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             encrypted_request = EncryptedThresholdSignatureRequest.from_bytes(
                 request.data
             )
-            encrypted_signing_response = this_node.handle_signing_request(
+            encrypted_signing_response = this_node.handle_threshold_signing_request(
                 encrypted_signing_request=encrypted_request
             )
             return Response(
