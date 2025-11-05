@@ -12,6 +12,7 @@ COMMON_REQUIRED_USER_OP_GAS_VALUES = dict(
     max_priority_fee_per_gas=5,
 )
 
+
 def encode_function_call(signature: str, args: list) -> HexBytes:
     return HexBytes(encode_human_readable_call(signature, args))
 

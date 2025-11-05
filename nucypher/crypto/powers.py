@@ -510,6 +510,7 @@ class SigningRequestPower(ThresholdRequestPower):
     """
     A power that is dedicated to decrypting/encrypting threshold signature requests/responses.
     """
+
     def decrypt_encrypted_request(
         self, encrypted_request: EncryptedThresholdSignatureRequest
     ) -> Union[UserOperationSignatureRequest, PackedUserOperationSignatureRequest]:
