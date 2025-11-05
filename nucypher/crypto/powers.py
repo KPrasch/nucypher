@@ -253,7 +253,7 @@ class ThresholdSigningPower(TransactingPower):
 
     def __init__(
         self,
-        signer: InMemorySigner = None,
+        signer: Optional[InMemorySigner] = None,
     ):
         if not signer:
             signer = InMemorySigner()
