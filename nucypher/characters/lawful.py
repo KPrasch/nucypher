@@ -33,8 +33,6 @@ from nucypher_core import (
     Conditions,
     Context,
     EncryptedKeyFrag,
-    EncryptedThresholdDecryptionRequest,
-    EncryptedThresholdDecryptionResponse,
     EncryptedTreasureMap,
     MessageKit,
     NodeMetadata,
@@ -1378,22 +1376,6 @@ class Ursula(Teacher, Character, Operator):
             address=self.checksum_address, public_key=self.public_keys(RitualisticPower)
         )
         return validator
-
-    def handle_threshold_decryption_request(
-        self, encrypted_decryption_request: EncryptedThresholdDecryptionRequest
-    ) -> EncryptedThresholdDecryptionResponse:
-        decryption_request = self.decrypt_threshold_decryption_request(
-            encrypted_decryption_request
-        )
-        decryption_share = self._produce_decryption_share_for_request(
-            decryption_request
-        )
-        encrypted_response = self._encrypt_decryption_share(
-            decryption_share=decryption_share,
-            ritual_id=decryption_request.ritual_id,
-            public_key=encrypted_decryption_request.requester_public_key,
-        )
-        return encrypted_response
 
 
 class LocalUrsulaStatus(NamedTuple):

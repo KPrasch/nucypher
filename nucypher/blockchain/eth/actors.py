@@ -16,18 +16,15 @@ from nucypher_core import (
     EncryptedThresholdDecryptionResponse,
     EncryptedThresholdSignatureRequest,
     EncryptedThresholdSignatureResponse,
-    SessionStaticKey,
     SignatureResponse,
     ThresholdDecryptionRequest,
     ThresholdDecryptionResponse,
 )
 from nucypher_core.ferveo import (
     AggregatedTranscript,
-    CiphertextHeader,
     DecryptionSharePrecomputed,
     DecryptionShareSimple,
     DkgPublicKey,
-    FerveoVariant,
     HandoverTranscript,
     Transcript,
     Validator,
@@ -1321,54 +1318,26 @@ class Operator(BaseActor):
         )
         return async_tx
 
-    def produce_decryption_share(
-        self,
-        ritual_id: int,
-        ciphertext_header: CiphertextHeader,
-        aad: bytes,
-        variant: FerveoVariant,
-    ) -> Union[DecryptionShareSimple, DecryptionSharePrecomputed]:
-        ritual = self._resolve_ritual(ritual_id)
-        validators = self._resolve_validators(ritual)
-        # FIXME: Workaround: add serialized public key to aggregated transcript.
-        # Since we use serde/bincode in rust, we need a metadata field for the public key, which is the field size,
-        # as 8 bytes in little-endian. See ferveo#209
-        public_key_metadata = b"0\x00\x00\x00\x00\x00\x00\x00"
-        transcript = (
-            bytes(ritual.aggregated_transcript)
-            + public_key_metadata
-            + bytes(ritual.public_key)
-        )
-        aggregated_transcript = AggregatedTranscript.from_bytes(transcript)
-        decryption_share = self.ritual_power.produce_decryption_share(
-            nodes=validators,
-            threshold=ritual.threshold,
-            shares=ritual.shares,
-            checksum_address=self.checksum_address,
-            ritual_id=ritual.id,
-            aggregated_transcript=aggregated_transcript,
-            ciphertext_header=ciphertext_header,
-            aad=aad,
-            variant=variant,
-        )
-        return decryption_share
-
-    def decrypt_threshold_decryption_request(
-        self, encrypted_request: EncryptedThresholdDecryptionRequest
-    ) -> ThresholdDecryptionRequest:
-        return self.decrypting_request_power.decrypt_encrypted_request(
-            encrypted_request=encrypted_request
-        )
-
-    def encrypt_threshold_decryption_response(
-        self,
-        decryption_response: ThresholdDecryptionResponse,
-        requester_public_key: SessionStaticKey,
+    def handle_threshold_decryption_request(
+        self, encrypted_decryption_request: EncryptedThresholdDecryptionRequest
     ) -> EncryptedThresholdDecryptionResponse:
-        return self.decrypting_request_power.encrypt_decryption_response(
-            decryption_response=decryption_response,
-            requester_public_key=requester_public_key,
+        decryption_request = self.decrypting_request_power.decrypt_encrypted_request(
+            encrypted_request=encrypted_decryption_request
         )
+        decryption_share = self._produce_decryption_share_for_request(
+            decryption_request
+        )
+
+        # TODO: #3098 nucypher-core#49 Use DecryptionShare type
+        decryption_response = ThresholdDecryptionResponse(
+            ritual_id=decryption_request.ritual_id,
+            decryption_share=bytes(decryption_share),
+        )
+        encrypted_response = self.decrypting_request_power.encrypt_decryption_response(
+            decryption_response=decryption_response,
+            requester_public_key=encrypted_decryption_request.requester_public_key,
+        )
+        return encrypted_response
 
     def _verify_active_ritual(self, decryption_request: ThresholdDecryptionRequest):
         # check that ritual is active
@@ -1446,8 +1415,25 @@ class Operator(BaseActor):
             decryption_request=decryption_request
         )
         try:
-            decryption_share = self.produce_decryption_share(
-                ritual_id=decryption_request.ritual_id,
+            ritual = self._resolve_ritual(decryption_request.ritual_id)
+            validators = self._resolve_validators(ritual)
+            # FIXME: Workaround: add serialized public key to aggregated transcript.
+            # Since we use serde/bincode in rust, we need a metadata field for the public key, which is the field size,
+            # as 8 bytes in little-endian. See ferveo#209
+            public_key_metadata = b"0\x00\x00\x00\x00\x00\x00\x00"
+            transcript = (
+                bytes(ritual.aggregated_transcript)
+                + public_key_metadata
+                + bytes(ritual.public_key)
+            )
+            aggregated_transcript = AggregatedTranscript.from_bytes(transcript)
+            decryption_share = self.ritual_power.produce_decryption_share(
+                nodes=validators,
+                threshold=ritual.threshold,
+                shares=ritual.shares,
+                checksum_address=self.checksum_address,
+                ritual_id=ritual.id,
+                aggregated_transcript=aggregated_transcript,
                 ciphertext_header=decryption_request.ciphertext_header,
                 aad=decryption_request.acp.aad(),
                 variant=decryption_request.variant,
@@ -1455,24 +1441,8 @@ class Operator(BaseActor):
         except Exception as e:
             self.log.warn(f"Failed to derive decryption share: {e}")
             raise self.DecryptionFailure(f"Failed to derive decryption share: {e}")
-        return decryption_share
 
-    def _encrypt_decryption_share(
-        self,
-        ritual_id: int,
-        decryption_share: Union[DecryptionShareSimple, DecryptionSharePrecomputed],
-        public_key: SessionStaticKey,
-    ) -> EncryptedThresholdDecryptionResponse:
-        # TODO: #3098 nucypher-core#49 Use DecryptionShare type
-        decryption_response = ThresholdDecryptionResponse(
-            ritual_id=ritual_id,
-            decryption_share=bytes(decryption_share),
-        )
-        encrypted_response = self.encrypt_threshold_decryption_response(
-            decryption_response=decryption_response,
-            requester_public_key=public_key,
-        )
-        return encrypted_response
+        return decryption_share
 
     def handle_threshold_signing_request(
         self,
