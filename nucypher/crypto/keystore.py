@@ -35,6 +35,7 @@ from nucypher.crypto.powers import (
     RitualisticPower,
     SigningPower,
     SigningRequestPower,
+    ThresholdRequestPower,
     ThresholdSigningPower,
     TLSHostingPower,
 )
@@ -518,21 +519,7 @@ class Keystore:
             keypair = power_class._keypair_class(__skf.make_key(info))
             power = power_class(keypair=keypair, *power_args, **power_kwargs)
 
-        elif issubclass(power_class, DecryptingRequestPower):
-            # TODO is this really how we want
-            #  to derive the session factory (similar to RitualisticPower)
-            size = SessionSecretFactory.seed_size()
-            secret = __skf.make_secret(info)[:size]
-            session_secret_factory = SessionSecretFactory.from_secure_randomness(secret)
-            power = power_class(
-                session_secret_factory=session_secret_factory,
-                *power_args,
-                **power_kwargs,
-            )
-
-        elif issubclass(power_class, SigningRequestPower):
-            # TODO is this really how we want
-            #  to derive the session factory (similar to RitualisticPower)
+        elif issubclass(power_class, ThresholdRequestPower):
             size = SessionSecretFactory.seed_size()
             secret = __skf.make_secret(info)[:size]
             session_secret_factory = SessionSecretFactory.from_secure_randomness(secret)
