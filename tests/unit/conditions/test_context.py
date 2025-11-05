@@ -4,6 +4,7 @@ import itertools
 import pytest
 
 from nucypher.policy.conditions.context import (
+    NULL_ADDRESS_CONTEXT,
     USER_ADDRESS_CONTEXT,
     USER_ADDRESS_EIP4361_EXTERNAL_CONTEXT,
     _resolve_user_address,
@@ -313,3 +314,45 @@ def test_user_address_context_variable_verification(
     ] = "0xdeadbeef"  # invalid signature
     with pytest.raises(InvalidConditionContext):
         get_context_value(context_variable_name, **invalid_signature_context)
+
+
+def test_null_address_context_variable():
+    """Test that :nullAddress resolves to the null address without requiring context data."""
+    from eth_utils import to_checksum_address
+
+    from nucypher.blockchain.eth.constants import NULL_ADDRESS
+    from nucypher.policy.conditions.evm import ContractCondition
+    from tests.constants import TESTERCHAIN_CHAIN_ID
+
+    expected_null_address = to_checksum_address(NULL_ADDRESS)
+
+    # Should work with empty context
+    resolved_address = get_context_value(NULL_ADDRESS_CONTEXT)
+    assert resolved_address == expected_null_address
+
+    # Should work in lists with other context variables
+    resolved = resolve_any_context_variables(
+        [NULL_ADDRESS_CONTEXT, ":foo"], **{":foo": 123}
+    )
+    assert resolved == [expected_null_address, 123]
+
+    # Should work in ReturnValueTest
+    return_value_test = ReturnValueTest(comparator="==", value=NULL_ADDRESS_CONTEXT)
+    resolved_test = return_value_test.with_resolved_context()
+    assert resolved_test.value == expected_null_address
+
+    # Should work in a real ContractCondition
+    condition = ContractCondition(
+        contract_address="0xaDD9D957170dF6F33982001E4c22eCCdd5539118",
+        method="balanceOf",
+        standard_contract_type="ERC20",
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">=", 0),
+        parameters=[":nullAddress"],  # Using the actual string as it would be in JSON
+    )
+    # Verify the condition stores the context variable correctly
+    assert condition.parameters == [":nullAddress"]
+
+    # Verify it resolves correctly when used
+    resolved_params = resolve_any_context_variables(condition.parameters)
+    assert resolved_params == [expected_null_address]
