@@ -7,11 +7,16 @@ from hexbytes import HexBytes
 from nucypher_core import (
     EncryptedThresholdDecryptionRequest,
     EncryptedThresholdDecryptionResponse,
+    EncryptedThresholdSignatureRequest,
+    EncryptedThresholdSignatureResponse,
+    PackedUserOperationSignatureRequest,
     SessionSecretFactory,
     SessionStaticKey,
     SessionStaticSecret,
+    SignatureResponse,
     ThresholdDecryptionRequest,
     ThresholdDecryptionResponse,
+    UserOperationSignatureRequest,
     ferveo,
 )
 from nucypher_core.ferveo import (
@@ -506,13 +511,10 @@ class SigningRequestPower(ThresholdRequestPower):
     A power that is dedicated to decrypting/encrypting threshold signature requests/responses.
     """
     def decrypt_encrypted_request(
-        self,
-        encrypted_request: EncryptedThresholdDecryptionRequest,  # EncryptedThresholdSigningRequest
-    ) -> ThresholdDecryptionRequest:  # ThresholdSigningRequest:
+        self, encrypted_request: EncryptedThresholdSignatureRequest
+    ) -> Union[UserOperationSignatureRequest, PackedUserOperationSignatureRequest]:
         try:
-            static_secret = self._get_static_secret_from_id(
-                encrypted_request.ritual_id  # cohort_id
-            )
+            static_secret = self._get_static_secret_from_id(encrypted_request.cohort_id)
             requester_public_key = encrypted_request.requester_public_key
             shared_secret = static_secret.derive_shared_secret(requester_public_key)
             decrypted_request = encrypted_request.decrypt(shared_secret)
@@ -520,17 +522,16 @@ class SigningRequestPower(ThresholdRequestPower):
         except Exception as e:
             raise self.ThresholdRequestDecryptionFailed from e
 
-    def encrypt_decryption_response(
+    def encrypt_signature_response(
         self,
-        decryption_response: ThresholdDecryptionResponse,  # ThresholdSigningResponse,
+        signature_response: SignatureResponse,
         requester_public_key: SessionStaticKey,
-    ) -> EncryptedThresholdDecryptionResponse:  # EncryptedThresholdSigningResponse:
+        cohort_id: int,
+    ) -> EncryptedThresholdSignatureResponse:
         try:
-            static_secret = self._get_static_secret_from_id(
-                decryption_response.ritual_id  # cohort_id
-            )
+            static_secret = self._get_static_secret_from_id(cohort_id)
             shared_secret = static_secret.derive_shared_secret(requester_public_key)
-            encrypted_signing_response = decryption_response.encrypt(shared_secret)
+            encrypted_signing_response = signature_response.encrypt(shared_secret)
             return encrypted_signing_response
         except Exception as e:
             raise self.ThresholdResponseEncryptionFailed from e
