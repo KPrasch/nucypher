@@ -7,6 +7,9 @@ USER $USER
 RUN sudo apt-get update -y
 RUN sudo apt-get full-upgrade -y
 
+# install git (for potential git dependencies - development convenience)
+RUN sudo apt-get install -y git
+
 # set default in-container workdir
 WORKDIR /code
 
