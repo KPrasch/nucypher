@@ -1,9 +1,16 @@
 from eth_utils import to_checksum_address
 from hexbytes import HexBytes
+from nucypher_core import UserOperation
 
 from nucypher.utilities.abi import encode_human_readable_call
-from nucypher.utilities.erc4337_utils import UserOperation
 
+COMMON_REQUIRED_USER_OP_GAS_VALUES = dict(
+    call_gas_limit=1,
+    verification_gas_limit=2,
+    pre_verification_gas=3,
+    max_fee_per_gas=4,
+    max_priority_fee_per_gas=5,
+)
 
 def encode_function_call(signature: str, args: list) -> HexBytes:
     return HexBytes(encode_human_readable_call(signature, args))
@@ -16,7 +23,12 @@ def create_eth_transfer(
         "execute(address,uint256,bytes)",
         [to_checksum_address(to), value, b""],
     )
-    return UserOperation(sender, nonce, None, b"", data, **kwargs)
+    return UserOperation(
+        sender=sender,
+        nonce=nonce,
+        call_data=data,
+        **{**COMMON_REQUIRED_USER_OP_GAS_VALUES, **kwargs}
+    )
 
 
 def create_erc20_transfer(
@@ -28,7 +40,12 @@ def create_erc20_transfer(
     data = encode_function_call(
         "execute(address,uint256,bytes)", [to_checksum_address(token), 0, call]
     )
-    return UserOperation(sender, nonce, None, b"", data, **kwargs)
+    return UserOperation(
+        sender=sender,
+        nonce=nonce,
+        call_data=data,
+        **{**COMMON_REQUIRED_USER_OP_GAS_VALUES, **kwargs}
+    )
 
 
 def create_erc20_approve(
@@ -40,7 +57,12 @@ def create_erc20_approve(
     data = encode_function_call(
         "execute(address,uint256,bytes)", [to_checksum_address(token), 0, call]
     )
-    return UserOperation(sender, nonce, None, b"", data, **kwargs)
+    return UserOperation(
+        sender=sender,
+        nonce=nonce,
+        call_data=data,
+        **{**COMMON_REQUIRED_USER_OP_GAS_VALUES, **kwargs}
+    )
 
 
 def create_contract_call(
@@ -49,4 +71,9 @@ def create_contract_call(
     payload = encode_function_call(
         "execute(address,uint256,bytes)", [to_checksum_address(target), value, data]
     )
-    return UserOperation(sender, nonce, None, b"", payload, **kwargs)
+    return UserOperation(
+        sender=sender,
+        nonce=nonce,
+        call_data=payload,
+        **{**COMMON_REQUIRED_USER_OP_GAS_VALUES, **kwargs}
+    )

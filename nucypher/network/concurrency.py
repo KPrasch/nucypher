@@ -1,16 +1,18 @@
 import math
 from collections import OrderedDict
 from http import HTTPStatus
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from eth_typing import ChecksumAddress
 from nucypher_core import (
     EncryptedThresholdDecryptionRequest,
     EncryptedThresholdDecryptionResponse,
+    PackedUserOperationSignatureRequest,
+    SignatureResponse,
+    UserOperationSignatureRequest,
 )
 
 from nucypher.network.client import ThresholdAccessControlClient
-from nucypher.network.signing import BaseSignatureRequest, SignatureResponse
 from nucypher.utilities.concurrency import BatchValueFactory, WorkerPool
 
 
@@ -155,12 +157,15 @@ class SigningRequestClient(NetworkRequestClient):
 
     def gather_signatures(
         self,
-        signing_requests: Dict[ChecksumAddress, BaseSignatureRequest],
+        signing_requests: Dict[
+            ChecksumAddress,
+            Union[PackedUserOperationSignatureRequest, UserOperationSignatureRequest],
+        ],
         threshold: int,
         timeout: int = NetworkRequestClient.DEFAULT_TIMEOUT,
         stagger_timeout: int = NetworkRequestClient.DEFAULT_STAGGER_TIMEOUT,
     ) -> Tuple[
-        Dict[ChecksumAddress, Tuple[ChecksumAddress, SignatureResponse]],
+        Dict[ChecksumAddress, SignatureResponse],
         Dict[ChecksumAddress, str],
     ]:
         self._ensure_ursula_availability(
@@ -184,8 +189,8 @@ class SigningRequestClient(NetworkRequestClient):
                     timeout=timeout,
                 )
                 if response.status_code == HTTPStatus.OK:
-                    response = SignatureResponse.from_bytes(response.content)
-                    return response
+                    signature_response = SignatureResponse.from_bytes(response.content)
+                    return signature_response
 
             except Exception as e:
                 message = f"Node {ursula_address} raised {e}"

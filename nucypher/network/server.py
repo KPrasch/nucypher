@@ -16,6 +16,7 @@ from nucypher_core import (
     MetadataResponse,
     MetadataResponsePayload,
     ReencryptionRequest,
+    deserialize_signature_request,
 )
 from prometheus_client import REGISTRY, Counter, Summary
 
@@ -25,9 +26,6 @@ from nucypher.crypto.keypairs import DecryptingKeypair
 from nucypher.crypto.signing import InvalidSignature
 from nucypher.network.nodes import NodeSprout
 from nucypher.network.protocols import InterfaceInfo
-from nucypher.network.signing import (
-    deserialize_signature_request,
-)
 from nucypher.policy.conditions.exceptions import InvalidConditionLingo
 from nucypher.policy.conditions.lingo import ConditionLingo
 from nucypher.policy.conditions.utils import (
@@ -323,7 +321,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
     def sign_message():
         """An endpoint that handles message signing requests."""
         try:
-            signing_request = deserialize_signature_request(request_data=request.data)
+            signing_request = deserialize_signature_request(data=request.data)
             signing_response = this_node.handle_signing_request(
                 signing_request=signing_request
             )

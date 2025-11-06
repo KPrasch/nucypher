@@ -17,15 +17,19 @@ from typing import List
 
 import requests
 from eth_typing import ChecksumAddress
+from nucypher_core import (
+    AAVersion,
+    SignatureResponse,
+    UserOperation,
+    UserOperationSignatureRequest,
+)
 from web3 import Web3
 
 from nucypher.blockchain.eth import domains
 from nucypher.blockchain.eth.agents import SigningCoordinatorAgent
 from nucypher.blockchain.eth.registry import ContractRegistry
 from nucypher.characters.lawful import Bob
-from nucypher.network.signing import SignatureResponse, UserOperationSignatureRequest
 from nucypher.policy.conditions.auth.evm import EIP1271Auth
-from nucypher.utilities.erc4337_utils import AAVersion, UserOperation
 from nucypher.utilities.logging import GlobalLoggerSettings
 
 LOG_LEVEL = "debug"
@@ -153,7 +157,6 @@ def create_sample_user_operation() -> UserOperation:
         pre_verification_gas=21000,
         max_fee_per_gas=2000000000,
         max_priority_fee_per_gas=1000000000,
-        signature=b"",  # Will be filled by threshold signing
     )
 
 
