@@ -21,6 +21,7 @@ from prometheus_client import REGISTRY, Counter, Summary
 from nucypher.blockchain.eth import domains
 from nucypher.config.constants import MAX_UPLOAD_CONTENT_LENGTH, TEMPORARY_DOMAIN_NAME
 from nucypher.crypto.keypairs import DecryptingKeypair
+from nucypher.crypto.powers import ThresholdRequestPower
 from nucypher.crypto.signing import InvalidSignature
 from nucypher.network.nodes import NodeSprout
 from nucypher.network.protocols import InterfaceInfo
@@ -190,6 +191,12 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             return Response(e.message, status=e.status_code)
         except this_node.DecryptionFailure as e:
             return Response(str(e), status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        except ThresholdRequestPower.ThresholdRequestDecryptionFailed as e:
+            return Response(str(e), status=HTTPStatus.BAD_REQUEST)
+        except ValueError as e:
+            # this line is hit when the EncryptedThresholdDecryptionRequest is an old version
+            # ValueError: Failed to deserialize: differing major version: expected 3, got 1
+            return Response(str(e), status=HTTPStatus.BAD_REQUEST)
         except Exception as e:
             return Response(str(e), status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -336,8 +343,10 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             return Response(str(e), status=HTTPStatus.UNAUTHORIZED)
         except this_node.NoConditionConfigured as e:
             return Response(str(e), status=HTTPStatus.FORBIDDEN)
+        except ThresholdRequestPower.ThresholdRequestDecryptionFailed as e:
+            return Response(str(e), status=HTTPStatus.BAD_REQUEST)
         except ValueError as e:
-            # this line is hit when the ThresholdSignatureRequest is an old version
+            # this line is hit when the EncryptedThresholdSignatureRequest is an old version
             # ValueError: Failed to deserialize: differing major version: expected 3, got 1
             return Response(str(e), status=HTTPStatus.BAD_REQUEST)
         except Exception as e:
