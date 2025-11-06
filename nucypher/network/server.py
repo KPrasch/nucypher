@@ -1,6 +1,4 @@
 import json
-import sys
-import traceback
 import weakref
 from http import HTTPStatus
 from ipaddress import AddressValueError
@@ -343,7 +341,6 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             # ValueError: Failed to deserialize: differing major version: expected 3, got 1
             return Response(str(e), status=HTTPStatus.BAD_REQUEST)
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
             return Response(str(e), status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @rest_app.route("/health", methods=["GET"])
