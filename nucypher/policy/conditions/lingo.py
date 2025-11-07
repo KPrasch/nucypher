@@ -217,14 +217,24 @@ class CompoundCondition(MultiCondition):
                 conditions=operands, field_name="operands"
             )
 
+            threshold = data.get("threshold", None)
             if operator == CompoundCondition.AT_LEAST_OPERATOR:
                 number_of_operands = len(operands)
-                threshold = data.get("threshold", 0)
-                if threshold < 1 or threshold > number_of_operands:
+                if threshold is None:
+                    raise ValidationError(
+                        field_name="threshold",
+                        message=f"Threshold must be specified for {operator} operator",
+                    )
+                elif threshold < 1 or threshold > number_of_operands:
                     raise ValidationError(
                         field_name="threshold",
                         message=f"Threshold must be between 1 and number of operands ({number_of_operands})",
                     )
+            elif threshold is not None:
+                raise ValidationError(
+                    field_name="threshold",
+                    message=f"Threshold is only valid for {CompoundCondition.AT_LEAST_OPERATOR} operator",
+                )
 
         @post_load
         def make(self, data, **kwargs):
@@ -264,13 +274,13 @@ class CompoundCondition(MultiCondition):
             return not current_result, current_value
 
         values = []
-        positive_results = 0
+        num_passed_conditions = 0
         overall_result = True if self.operator == self.AND_OPERATOR else False
         for condition in self.operands:
             current_result, current_value = condition.verify(*args, **kwargs)
             values.append(current_value)
             if current_result:
-                positive_results += 1
+                num_passed_conditions += 1
 
             if self.operator == self.AND_OPERATOR:
                 overall_result = overall_result and current_result
@@ -283,7 +293,7 @@ class CompoundCondition(MultiCondition):
                 if overall_result is True:
                     break
             elif self.operator == self.AT_LEAST_OPERATOR:
-                overall_result = positive_results >= self.threshold
+                overall_result = num_passed_conditions >= self.threshold
                 # short-circuit check
                 if overall_result is True:
                     break
