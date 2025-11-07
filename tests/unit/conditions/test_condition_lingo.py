@@ -237,12 +237,13 @@ def lingo_with_all_condition_types(get_random_checksum_address):
                 rpc_condition,
                 {
                     "conditionType": ConditionType.COMPOUND.value,
-                    "operator": "or",
+                    "operator": "at-least",
                     "operands": [
                         signing_object_attribute_condition,
                         signing_object_abi_attribute_condition,
                         context_var_condition,
                     ],
+                    "threshold": 1,
                 },
             ],
         },
