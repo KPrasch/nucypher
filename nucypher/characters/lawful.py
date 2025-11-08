@@ -33,8 +33,6 @@ from nucypher_core import (
     Conditions,
     Context,
     EncryptedKeyFrag,
-    EncryptedThresholdDecryptionRequest,
-    EncryptedThresholdDecryptionResponse,
     EncryptedTreasureMap,
     MessageKit,
     NodeMetadata,
@@ -95,11 +93,12 @@ from nucypher.characters.base import Character, Learner
 from nucypher.crypto.keypairs import HostingKeypair
 from nucypher.crypto.powers import (
     DecryptingPower,
+    DecryptingRequestPower,
     DelegatingPower,
     PowerUpError,
     RitualisticPower,
     SigningPower,
-    ThresholdRequestDecryptingPower,
+    SigningRequestPower,
     ThresholdSigningPower,
     TLSHostingPower,
     TransactingPower,
@@ -702,13 +701,24 @@ class Bob(Character):
                 self.remember_node(ursula)
 
         # Create the signing request
-        signing_requests = {}
-        for provider in providers:
-            signing_requests[provider] = signing_request
+        requester_sk = SessionStaticSecret.random()
+        requester_public_key = requester_sk.public_key()
+
+        shared_secrets = {}
+        encrypted_signing_requests = {}
+        for signer in signing_cohort.signers:
+            signer_request_key = SessionStaticKey.from_bytes(signer.signing_request_key)
+            shared_secret = requester_sk.derive_shared_secret(signer_request_key)
+            encrypted_signing_request = signing_request.encrypt(
+                shared_secret=shared_secret,
+                requester_public_key=requester_public_key,
+            )
+            shared_secrets[signer.provider] = shared_secret
+            encrypted_signing_requests[signer.provider] = encrypted_signing_request
 
         signing_client = SigningRequestClient(learner=self)
         successes, failures = signing_client.gather_signatures(
-            signing_requests=signing_requests,
+            encrypted_requests=encrypted_signing_requests,
             threshold=threshold,
             timeout=timeout,
         )
@@ -718,9 +728,20 @@ class Bob(Character):
                 f"Threshold of Ursulas unable to sign: {failures}"
             )
 
-        # Already sorted by client - just collect responses
-        # successes is of type Dict[ChecksumAddress, SignatureResponse]
-        responses = list(successes.values())
+        # decrypt responses
+        decrypted_responses = []
+        for provider_address, encrypted_signature_response in successes.items():
+            shared_secret = shared_secrets[provider_address]
+            signature_response = encrypted_signature_response.decrypt(
+                shared_secret=shared_secret
+            )
+            decrypted_responses.append(signature_response)
+
+        # sort by signer address
+        responses = sorted(
+            decrypted_responses,
+            key=lambda response: int(response.signer, 16),
+        )
         return responses
 
     def threshold_decrypt(
@@ -790,8 +811,9 @@ class Ursula(Teacher, Character, Operator):
         SigningPower,
         DecryptingPower,
         RitualisticPower,
-        ThresholdRequestDecryptingPower,
+        DecryptingRequestPower,
         ThresholdSigningPower,
+        SigningRequestPower,
         # TLSHostingPower  # Still considered a default for Ursula, but needs the host context
     ]
 
@@ -1354,22 +1376,6 @@ class Ursula(Teacher, Character, Operator):
             address=self.checksum_address, public_key=self.public_keys(RitualisticPower)
         )
         return validator
-
-    def handle_threshold_decryption_request(
-        self, encrypted_decryption_request: EncryptedThresholdDecryptionRequest
-    ) -> EncryptedThresholdDecryptionResponse:
-        decryption_request = self.decrypt_threshold_decryption_request(
-            encrypted_decryption_request
-        )
-        decryption_share = self._produce_decryption_share_for_request(
-            decryption_request
-        )
-        encrypted_response = self._encrypt_decryption_share(
-            decryption_share=decryption_share,
-            ritual_id=decryption_request.ritual_id,
-            public_key=encrypted_decryption_request.requester_public_key,
-        )
-        return encrypted_response
 
 
 class LocalUrsulaStatus(NamedTuple):

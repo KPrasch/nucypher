@@ -1,6 +1,7 @@
 import pytest
 import pytest_twisted
 from eth_abi import encode
+from nucypher_core import SessionStaticSecret
 from twisted.internet import reactor
 from twisted.internet.task import deferLater
 from web3 import Web3
@@ -142,6 +143,7 @@ def test_post_signature(
     signers,
 ):
     cohort_id = agent.number_of_cohorts() - 1
+    participant_public_key = SessionStaticSecret.random().public_key()
 
     assert (
         agent.get_signing_cohort_status(cohort_id=cohort_id)
@@ -162,6 +164,7 @@ def test_post_signature(
         async_tx = agent.post_signature(
             cohort_id=cohort_id,
             signature=signature,
+            participant_public_key=participant_public_key,
             transacting_power=transacting_power,
             async_tx_hooks=mock_async_hooks,
         )
@@ -207,7 +210,8 @@ def test_post_signature(
     signing_cohort = agent.get_signing_cohort(cohort_id)
     for i, signer in enumerate(signing_cohort.signers):
         assert signer.provider == cohort_providers[i]
-        assert signer.signerAddress == signers[i]
+        assert signer.signer_address == signers[i]
+        assert signer.signing_request_key == bytes(participant_public_key)
 
     # check deployed multisigs
     assert (

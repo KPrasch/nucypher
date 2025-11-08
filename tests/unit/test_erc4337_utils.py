@@ -64,6 +64,7 @@ def _expected_pack_init_code(factory: str, factory_data: bytes) -> bytes:
 
     return factory_bytes + factory_data
 
+
 class TestPackedUserOperation:
     """Test suite for PackedUserOperation class"""
 

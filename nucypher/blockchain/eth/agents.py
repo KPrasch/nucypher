@@ -1113,12 +1113,17 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         self,
         cohort_id: int,
         signature: bytes,
+        participant_public_key: SessionStaticKey,
         transacting_power: TransactingPower,
         async_tx_hooks: BlockchainInterface.AsyncTxHooks,
     ) -> AsyncTx:
         # See sprints/#145
         contract_function: ContractFunction = (
-            self.contract.functions.postSigningCohortSignature(cohort_id, signature)
+            self.contract.functions.postSigningCohortData(
+                cohortId=cohort_id,
+                signature=signature,
+                signingRequestStaticKey=bytes(participant_public_key),
+            )
         )
         async_tx = self.blockchain.send_async_transaction(
             contract_function=contract_function,
