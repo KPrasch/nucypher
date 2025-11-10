@@ -108,13 +108,15 @@ class ContextVariableConditionDict(BaseExecConditionDict):
 #
 # CompoundCondition represents:
 # {
-#     "operator": ["and" | "or" | "not"]
+#     "operator": ["and" | "or" | "not" | "at-least"]
 #     "operands": List[Condition]
+#     "threshold": int (Optional)
 # }
 #
 class CompoundConditionDict(_Condition):
-    operator: Literal["and", "or", "not"]
+    operator: Literal["and", "or", "not", "at-least"]
     operands: List["ConditionDict"]
+    threshold: NotRequired[int]
 
 
 #
