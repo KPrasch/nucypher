@@ -60,8 +60,8 @@ class RegistrySource(ABC):
 
 class GithubRegistrySource(RegistrySource):
 
-    _PUBLICATION_REPO = "derekpierre/nucypher-contracts"
-    _BRANCH = "new-signing-coordinator"
+    _PUBLICATION_REPO = "nucypher/nucypher-contracts"
+    _BRANCH = "signing"
     _BASE_URL = f'https://raw.githubusercontent.com/{_PUBLICATION_REPO}'
 
     name = "GitHub Registry Source"
