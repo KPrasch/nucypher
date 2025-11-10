@@ -1479,7 +1479,11 @@ class Operator(BaseActor):
         condition_lingo = json.loads(condition_string)
 
         # add signing object to context
-        context = signing_request.context or dict()
+        context = dict()
+        if signing_request.context:
+            # nucypher_core.Context -> str -> dict
+            context = json.loads(str(signing_request.context)) or dict()
+
         context[SIGNING_CONDITION_OBJECT_CONTEXT_VAR] = get_signature_request_object(
             signing_request
         )

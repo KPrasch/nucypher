@@ -1,8 +1,12 @@
+import json
+import random
+
 import pytest
 import pytest_twisted
 from hexbytes import HexBytes
 from nucypher_core import (
     AAVersion,
+    Context,
     PackedUserOperation,
     PackedUserOperationSignatureRequest,
     UserOperation,
@@ -210,12 +214,17 @@ def test_signing_request_fulfilment(
         max_fee_per_gas=2000000000,
     )
 
+    # flip a coin for specifying a context
+    context = None
+    if random.choice([True, False]):
+        context = Context(json.dumps({":randomContextForTestingContext": 5}))
+
     signing_request = UserOperationSignatureRequest(
         user_op=test_user_op,
         aa_version=AAVersion.V08,
         chain_id=chain.chain_id,
         cohort_id=cohort_id,
-        context=None,
+        context=context,
     )
 
     print("============= SIGNING REQUEST (NO CONDITION)==============")

@@ -255,39 +255,56 @@ def signing_coordinator(
     deployer_account,
     taco_application,
 ):
-    contract = nucypher_dependency.SigningCoordinator.deploy(
+    signing_coordinator_impl = nucypher_dependency.SigningCoordinator.deploy(
         taco_application.address,
         sender=deployer_account,
     )
-    proxy = oz_dependency.TransparentUpgradeableProxy.deploy(
-        contract.address,
+    signing_coordinator_proxy = oz_dependency.TransparentUpgradeableProxy.deploy(
+        signing_coordinator_impl.address,
         deployer_account,
         b"",
         sender=deployer_account,
     )
-    proxy_contract = nucypher_dependency.SigningCoordinator.at(proxy.address)
+    signing_coordinator = nucypher_dependency.SigningCoordinator.at(
+        signing_coordinator_proxy.address
+    )
 
-    signing_coordinator_dispatcher = (
+    # deploy proxied dispatcher
+    signing_coordinator_dispatcher_impl = (
         nucypher_dependency.SigningCoordinatorDispatcher.deploy(
-            proxy_contract.address,
+            signing_coordinator.address,
             sender=deployer_account,
         )
     )
-    proxy_contract.initialize(
+    encoded_initializer_function = (
+        signing_coordinator_dispatcher_impl.initialize.encode_input()
+    )
+    dispatcher_proxy = oz_dependency.TransparentUpgradeableProxy.deploy(
+        signing_coordinator_dispatcher_impl.address,
+        deployer_account,
+        encoded_initializer_function,
+        sender=deployer_account,
+    )
+    dispatcher = nucypher_dependency.SigningCoordinatorDispatcher.at(
+        dispatcher_proxy.address
+    )
+
+    # initialize signing coordinator proxy
+    signing_coordinator.initialize(
         SIGNING_TIMEOUT,
         MAX_DKG_SIZE,
-        signing_coordinator_dispatcher.address,
+        dispatcher.address,
         deployer_account.address,
         sender=deployer_account,
     )
 
-    proxy_contract.grantRole(
-        proxy_contract.INITIATOR_ROLE(),
+    signing_coordinator.grantRole(
+        signing_coordinator.INITIATOR_ROLE(),
         deployer_account.address,
         sender=deployer_account,
     )
 
-    return proxy_contract
+    return signing_coordinator
 
 
 def _signing_coordinator_child_deployment(
