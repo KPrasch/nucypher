@@ -19,6 +19,9 @@ import requests
 from eth_typing import ChecksumAddress
 from nucypher_core import (
     AAVersion,
+    EncryptedThresholdSignatureResponse,
+    SessionStaticKey,
+    SessionStaticSecret,
     SignatureResponse,
     UserOperation,
     UserOperationSignatureRequest,
@@ -209,19 +212,41 @@ def main():
 
     print("\n--------- Threshold Signing Porter ---------")
 
+    # e2e communication
+    requester_sk = SessionStaticSecret.random()
+    requester_pk = requester_sk.public_key()
+
+    signing_cohort = signing_coordinator_agent.get_signing_cohort(COHORT_ID)
+    signers_info = {
+        s.provider: SessionStaticKey.from_bytes(s.signing_request_key)
+        for s in signing_cohort.signers
+    }
+
     response = requests.get(f"{PORTER_BASE_URL}/get_ursulas", params={"quantity": 3})
     response.raise_for_status()
 
     data = response.json()
     ursula_metadata = data["result"]["ursulas"]
 
-    signing_request_b64 = base64.b64encode(bytes(signing_request)).decode()
-    signing_requests = {}
+    encrypted_signing_requests = {}
+    shared_secrets = {}
     for u in ursula_metadata:
-        signing_requests[u["checksum_address"]] = signing_request_b64
+        ursula_checksum_address = u["checksum_address"]
+        # Derive shared secret
+        shared_secret = requester_sk.derive_shared_secret(
+            signers_info[ursula_checksum_address]
+        )
+        shared_secrets[ursula_checksum_address] = shared_secret
+        # Create encrypted signing request
+        encrypted_request = signing_request.encrypt(
+            shared_secret=shared_secret, requester_public_key=requester_pk
+        )
+        encrypted_signing_requests[ursula_checksum_address] = base64.b64encode(
+            bytes(encrypted_request)
+        ).decode()
 
     params = {
-        "signing_requests": signing_requests,
+        "encrypted_signing_requests": encrypted_signing_requests,
         "threshold": THRESHOLD,
     }
 
@@ -235,14 +260,26 @@ def main():
         if len(errors) > 0:
             print(f"Signing errors: {errors}")
 
-        if len(signing_results["signatures"]) >= THRESHOLD:
+        encrypted_signature_responses = signing_results["encrypted_signature_responses"]
+        if len(encrypted_signature_responses) >= THRESHOLD:
             signature_responses = []
-            for r in signing_results["signatures"].values():
+            for (
+                ursula_address,
+                encrypted_response,
+            ) in encrypted_signature_responses.items():
                 # Decode the base64-encoded response
-                signature_responses.append(
-                    SignatureResponse.from_bytes(base64.b64decode(r[1]))
+                encrypted_response = EncryptedThresholdSignatureResponse.from_bytes(
+                    base64.b64decode(encrypted_response)
                 )
+                signature_response = encrypted_response.decrypt(
+                    shared_secret=shared_secrets[ursula_address]
+                )
+                signature_responses.append(signature_response)
 
+            # sort signature responses by signer
+            signature_responses = sorted(
+                signature_responses, key=lambda r: int(r.signer, 16)
+            )
             print_signing_result(user_op, signature_responses)
             validate_responses_with_cohort_eth_multisig(
                 signing_coordinator_agent, signature_responses
