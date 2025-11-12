@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
 
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.policy.conditions.auth.evm import EvmAuth
 from nucypher.policy.conditions.exceptions import (
     ContextVariableVerificationFailed,
@@ -103,9 +104,10 @@ def _resolve_null_address(
     Returns the null address (0x0000000000000000000000000000000000000000).
 
     This is a protected context variable that doesn't require any input data.
-    """
-    from nucypher.blockchain.eth.constants import NULL_ADDRESS
 
+    Note: The `providers` and `**context` parameters are unused but maintained
+    for interface consistency with other resolver functions in `_DIRECTIVES`.
+    """
     return to_checksum_address(NULL_ADDRESS)
 
 

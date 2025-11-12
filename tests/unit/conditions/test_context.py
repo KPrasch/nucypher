@@ -2,7 +2,9 @@ import copy
 import itertools
 
 import pytest
+from eth_utils import to_checksum_address
 
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.policy.conditions.context import (
     NULL_ADDRESS_CONTEXT,
     USER_ADDRESS_CONTEXT,
@@ -12,6 +14,7 @@ from nucypher.policy.conditions.context import (
     is_context_variable,
     resolve_any_context_variables,
 )
+from nucypher.policy.conditions.evm import ContractCondition
 from nucypher.policy.conditions.exceptions import (
     ContextVariableVerificationFailed,
     InvalidConditionContext,
@@ -20,7 +23,7 @@ from nucypher.policy.conditions.exceptions import (
 from nucypher.policy.conditions.lingo import (
     ReturnValueTest,
 )
-from tests.constants import INT256_MIN, UINT256_MAX
+from tests.constants import INT256_MIN, TESTERCHAIN_CHAIN_ID, UINT256_MAX
 
 INVALID_CONTEXT_PARAM_NAMES = [
     ":",
@@ -318,12 +321,6 @@ def test_user_address_context_variable_verification(
 
 def test_null_address_context_variable():
     """Test that :nullAddress resolves to the null address without requiring context data."""
-    from eth_utils import to_checksum_address
-
-    from nucypher.blockchain.eth.constants import NULL_ADDRESS
-    from nucypher.policy.conditions.evm import ContractCondition
-    from tests.constants import TESTERCHAIN_CHAIN_ID
-
     expected_null_address = to_checksum_address(NULL_ADDRESS)
 
     # Should work with empty context
