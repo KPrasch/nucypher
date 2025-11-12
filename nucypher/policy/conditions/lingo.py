@@ -137,6 +137,7 @@ class Operator(Enum):
     AND = "and"
     OR = "or"
     NOT = "not"
+    AT_LEAST = "at-least"
 
     @classmethod
     def values(cls) -> List[str]:
@@ -148,7 +149,7 @@ class CompoundCondition(MultiCondition):
     A combination of two or more conditions connected by logical operators such as AND, OR, NOT.
 
     CompoundCondition grammar:
-        OPERATOR = AND | OR | NOT
+        OPERATOR = AND | OR | NOT | AT_LEAST
 
         COMPOUND_CONDITION = {
             "name": ...  (Optional)
@@ -161,6 +162,7 @@ class CompoundCondition(MultiCondition):
     AND_OPERATOR = Operator.AND.value
     OR_OPERATOR = Operator.OR.value
     NOT_OPERATOR = Operator.NOT.value
+    AT_LEAST_OPERATOR = Operator.AT_LEAST.value
 
     OPERATORS = tuple(Operator.values())
     CONDITION_TYPE = ConditionType.COMPOUND.value
@@ -200,6 +202,7 @@ class CompoundCondition(MultiCondition):
         )
         operator = fields.Str(required=True)
         operands = fields.List(_ConditionField, required=True)
+        threshold = fields.Int(required=False)
 
         # maintain field declaration ordering
         class Meta:
@@ -214,6 +217,25 @@ class CompoundCondition(MultiCondition):
                 conditions=operands, field_name="operands"
             )
 
+            threshold = data.get("threshold", None)
+            if operator == CompoundCondition.AT_LEAST_OPERATOR:
+                number_of_operands = len(operands)
+                if threshold is None:
+                    raise ValidationError(
+                        field_name="threshold",
+                        message=f"Threshold must be specified for {operator} operator",
+                    )
+                elif threshold < 1 or threshold > number_of_operands:
+                    raise ValidationError(
+                        field_name="threshold",
+                        message=f"Threshold must be between 1 and number of operands ({number_of_operands})",
+                    )
+            elif threshold is not None:
+                raise ValidationError(
+                    field_name="threshold",
+                    message=f"Threshold is only valid for {CompoundCondition.AT_LEAST_OPERATOR} operator",
+                )
+
         @post_load
         def make(self, data, **kwargs):
             return CompoundCondition(**data)
@@ -224,6 +246,7 @@ class CompoundCondition(MultiCondition):
         operands: List[Condition],
         condition_type: str = CONDITION_TYPE,
         name: Optional[str] = None,
+        threshold: Optional[int] = None,
     ):
         """
         COMPOUND_CONDITION = {
@@ -233,6 +256,7 @@ class CompoundCondition(MultiCondition):
         """
         self.operator = operator
         self.operands = operands
+        self.threshold = threshold
 
         super().__init__(
             condition_type=condition_type,
@@ -245,11 +269,19 @@ class CompoundCondition(MultiCondition):
         return f"Operator={self.operator} (NumOperands={len(self.operands)}), id={self.id})"
 
     def verify(self, *args, **kwargs) -> Tuple[bool, Any]:
+        if self.operator == self.NOT_OPERATOR:
+            current_result, current_value = self.operands[0].verify(*args, **kwargs)
+            return not current_result, current_value
+
         values = []
+        num_passed_conditions = 0
         overall_result = True if self.operator == self.AND_OPERATOR else False
         for condition in self.operands:
             current_result, current_value = condition.verify(*args, **kwargs)
             values.append(current_value)
+            if current_result:
+                num_passed_conditions += 1
+
             if self.operator == self.AND_OPERATOR:
                 overall_result = overall_result and current_result
                 # short-circuit check
@@ -260,9 +292,11 @@ class CompoundCondition(MultiCondition):
                 # short-circuit check
                 if overall_result is True:
                     break
-            else:
-                # NOT_OPERATOR
-                return not current_result, current_value
+            elif self.operator == self.AT_LEAST_OPERATOR:
+                overall_result = num_passed_conditions >= self.threshold
+                # short-circuit check
+                if overall_result is True:
+                    break
 
         return overall_result, values
 
@@ -284,6 +318,13 @@ class AndCompoundCondition(CompoundCondition):
 class NotCompoundCondition(CompoundCondition):
     def __init__(self, operand: Condition):
         super().__init__(operator=self.NOT_OPERATOR, operands=[operand])
+
+
+class AtLeastCompoundCondition(CompoundCondition):
+    def __init__(self, operands: List[Condition], threshold: int):
+        super().__init__(
+            operator=self.AT_LEAST_OPERATOR, operands=operands, threshold=threshold
+        )
 
 
 _COMPARATOR_FUNCTIONS = {
