@@ -17,11 +17,13 @@ def transactor(initiator):
     return initiator
 
 
-def create_user_op(sender, factory, **overrides):
-    user_op_args = dict(
-        sender=sender,
-        nonce=0,
-        factory=factory,
+@pytest.fixture(scope="module")
+def user_op_args(accounts, get_random_checksum_address):
+    large_nonce = int.from_bytes(os.urandom(32), byteorder="big")
+    return dict(
+        sender=accounts[0].address,
+        nonce=large_nonce,  # create very large nonce
+        factory=get_random_checksum_address(),
         factory_data=os.urandom(23),
         call_data=os.urandom(32),
         verification_gas_limit=100000,
@@ -32,16 +34,28 @@ def create_user_op(sender, factory, **overrides):
         max_fee_per_gas=2000000000,  # 2 gwei
     )
 
+
+@pytest.fixture(scope="module")
+def packed_user_op_args(accounts):
+    large_nonce = int.from_bytes(os.urandom(32), byteorder="big")
+    return dict(
+        sender=accounts[0].address,
+        nonce=large_nonce,
+        init_code=os.urandom(32),
+        call_data=os.urandom(32),
+        account_gas_limits=os.urandom(16),
+        pre_verification_gas=21000,
+        gas_fees=os.urandom(16),
+        paymaster_and_data=os.urandom(32),
+    )
+
+
+def create_user_op(user_op_args, **overrides):
     return UserOperation(**{**user_op_args, **overrides})
 
 
-@pytest.fixture(scope="module")
-def user_op(accounts, get_random_checksum_address):
-    return create_user_op(accounts[0].address, get_random_checksum_address())
-
-
-def test_aa_version_v08_hashing(user_op, chain, aa_entry_point, transactor):
-    packed_user_op = PackedUserOperation.from_user_operation(user_op)
+def test_aa_version_v08_hashing(chain, aa_entry_point, transactor, packed_user_op_args):
+    packed_user_op = PackedUserOperation(**packed_user_op_args)
     message_hash, signature = sign_packed_user_operation(
         packed_user_op, transactor.transacting_power, AAVersion.V08, chain.chain_id
     )
@@ -53,7 +67,12 @@ def test_aa_version_v08_hashing(user_op, chain, aa_entry_point, transactor):
 
     # verify hash matches expected entry point hash
     expected_hash = aa_entry_point.getUserOpHashV8(packed_user_op_dict)
-    assert message_hash == expected_hash
+    assert expected_hash == message_hash
+
+    # check raw python values hashing; ensures nucypher-core -> nucypher value consistency
+    raw_values = tuple([*packed_user_op_args.values(), b""])  # add empty signature
+    raw_values_hash = aa_entry_point.getUserOpHashV8(raw_values)
+    assert raw_values_hash == expected_hash
 
     # signature is correct for calculated hash
     recovered_address = Account._recover_hash(
@@ -62,8 +81,8 @@ def test_aa_version_v08_hashing(user_op, chain, aa_entry_point, transactor):
     assert recovered_address == transactor.transacting_power.account
 
 
-def test_aa_version_mdt_hashing(user_op, chain, aa_entry_point, transactor):
-    packed_user_op = PackedUserOperation.from_user_operation(user_op)
+def test_aa_version_mdt_hashing(chain, aa_entry_point, transactor, packed_user_op_args):
+    packed_user_op = PackedUserOperation(**packed_user_op_args)
     message_hash, signature = sign_packed_user_operation(
         packed_user_op, transactor.transacting_power, AAVersion.MDT, chain.chain_id
     )
@@ -75,7 +94,12 @@ def test_aa_version_mdt_hashing(user_op, chain, aa_entry_point, transactor):
 
     # verify hash matches expected entry point hash
     expected_hash = aa_entry_point.getUserOpHashMDT(packed_user_op_dict)
-    assert message_hash == expected_hash
+    assert expected_hash == message_hash
+
+    # check raw python values hashing; ensures nucypher-core -> nucypher value consistency
+    raw_values = tuple([*packed_user_op_args.values(), b""])  # add empty signature
+    raw_values_hash = aa_entry_point.getUserOpHashMDT(raw_values)
+    assert raw_values_hash == expected_hash
 
     # signature is correct for calculated hash
     recovered_address = Account._recover_hash(
@@ -84,7 +108,8 @@ def test_aa_version_mdt_hashing(user_op, chain, aa_entry_point, transactor):
     assert recovered_address == transactor.transacting_power.account
 
 
-def test_packed_user_operation_gas_limit_packing(chain, user_op, aa_entry_point):
+def test_packed_user_operation_gas_limit_packing(chain, user_op_args, aa_entry_point):
+    user_op = create_user_op(user_op_args)
     packed_user_op = PackedUserOperation.from_user_operation(user_op)
 
     packed_user_op_dict = packed_user_op.to_eip712_struct(
@@ -100,7 +125,8 @@ def test_packed_user_operation_gas_limit_packing(chain, user_op, aa_entry_point)
     assert aa_entry_point.callGasLimit(packed_user_op_dict) == user_op.call_gas_limit
 
 
-def test_packed_user_operation_gas_fees_packing(chain, user_op, aa_entry_point):
+def test_packed_user_operation_gas_fees_packing(chain, user_op_args, aa_entry_point):
+    user_op = create_user_op(user_op_args)
     packed_user_op = PackedUserOperation.from_user_operation(user_op)
 
     packed_user_op_dict = packed_user_op.to_eip712_struct(
@@ -117,7 +143,7 @@ def test_packed_user_operation_gas_fees_packing(chain, user_op, aa_entry_point):
 
 
 def test_packed_user_operation_paymaster_and_data_packing(
-    accounts, chain, user_op, aa_entry_point
+    accounts, chain, user_op_args, aa_entry_point
 ):
     paymaster = accounts[1].address
 
@@ -129,7 +155,7 @@ def test_packed_user_operation_paymaster_and_data_packing(
         paymaster_data=b"paymasterdata",
     )
 
-    user_op = create_user_op(user_op.sender, user_op.factory, **overrides)
+    user_op = create_user_op(user_op_args, **overrides)
     packed_user_op = PackedUserOperation.from_user_operation(user_op)
 
     packed_user_op_dict = packed_user_op.to_eip712_struct(
@@ -151,7 +177,7 @@ def test_packed_user_operation_paymaster_and_data_packing(
 
 
 def test_packed_user_operation_paymaster_and_data_packing_without_paymaster_data(
-    accounts, chain, user_op, aa_entry_point
+    accounts, chain, user_op_args, aa_entry_point
 ):
     paymaster = accounts[1].address
     # without paymaster data
@@ -161,7 +187,7 @@ def test_packed_user_operation_paymaster_and_data_packing_without_paymaster_data
         paymaster_verification_gas_limit=200000,
     )
 
-    user_op = create_user_op(user_op.sender, user_op.factory, **overrides)
+    user_op = create_user_op(user_op_args, **overrides)
     packed_user_op = PackedUserOperation.from_user_operation(user_op)
 
     packed_user_op_dict = packed_user_op.to_eip712_struct(
@@ -183,8 +209,9 @@ def test_packed_user_operation_paymaster_and_data_packing_without_paymaster_data
 
 
 def test_packed_user_operation_init_code_packing(
-    accounts, chain, user_op, aa_entry_point
+    accounts, chain, user_op_args, aa_entry_point
 ):
+    user_op = create_user_op(user_op_args)
     # retrieved individual factory values packed into factory should match
     packed_user_op = PackedUserOperation.from_user_operation(user_op)
     packed_user_op_dict = packed_user_op.to_eip712_struct(
@@ -195,7 +222,7 @@ def test_packed_user_operation_init_code_packing(
     assert aa_entry_point.factoryData(packed_user_op_dict) == user_op.factory_data
 
     # factory with no data
-    user_op = create_user_op(user_op.sender, user_op.factory, factory_data=b"")
+    user_op = create_user_op(user_op_args, factory_data=b"")
     packed_user_op = PackedUserOperation.from_user_operation(user_op)
     packed_user_op_dict = packed_user_op.to_eip712_struct(
         AAVersion.V08, chain.chain_id
@@ -205,7 +232,7 @@ def test_packed_user_operation_init_code_packing(
     assert aa_entry_point.factoryData(packed_user_op_dict) == b""
 
     # retry with empty values
-    user_op = create_user_op(user_op.sender, None, factory_data=b"")
+    user_op = create_user_op(user_op_args, factory=None, factory_data=b"")
     packed_user_op = PackedUserOperation.from_user_operation(user_op)
     packed_user_op_dict = packed_user_op.to_eip712_struct(
         AAVersion.V08, chain.chain_id

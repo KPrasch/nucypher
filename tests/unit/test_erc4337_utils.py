@@ -26,6 +26,7 @@ from tests.utils.erc4337 import (
 )
 
 ENTRYPOINT_V08 = "0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108"
+LARGE_NONCE = 2**256 - 1
 
 
 def _expected_pack_account_gas_limits(
@@ -73,7 +74,7 @@ class TestPackedUserOperation:
         """Create a sample PackedUserOperation for testing"""
         return UserOperation(
             sender="0x1234567890123456789012345678901234567890",
-            nonce=1,
+            nonce=LARGE_NONCE,
             factory="0x27BbA3872e3e00632A200C08F7CD9E999a36BA85",
             factory_data=b"\x12\x34",
             call_data=b"\x56\x78",
@@ -93,7 +94,7 @@ class TestPackedUserOperation:
         """Create a minimal PackedUserOperation for testing"""
         return UserOperation(
             sender="0x1234567890123456789012345678901234567890",
-            nonce=0,
+            nonce=LARGE_NONCE,
             call_data=b"",
             **COMMON_REQUIRED_USER_OP_GAS_VALUES,
         )
@@ -101,7 +102,7 @@ class TestPackedUserOperation:
     def test_user_operation_initialization(self, sample_user_op):
         """Test PackedUserOperation initialization with all fields"""
         assert sample_user_op.sender == "0x1234567890123456789012345678901234567890"
-        assert sample_user_op.nonce == 1
+        assert sample_user_op.nonce == LARGE_NONCE
         assert sample_user_op.factory == "0x27BbA3872e3e00632A200C08F7CD9E999a36BA85"
         assert sample_user_op.factory_data == b"\x12\x34"
         assert sample_user_op.call_data == b"\x56\x78"
@@ -118,7 +119,7 @@ class TestPackedUserOperation:
     def test_minimal_user_operation_initialization(self, minimal_user_op):
         """Test PackedUserOperation initialization with minimal fields"""
         assert minimal_user_op.sender == "0x1234567890123456789012345678901234567890"
-        assert minimal_user_op.nonce == 0
+        assert minimal_user_op.nonce == LARGE_NONCE
         assert minimal_user_op.call_data == b""
         assert (
             minimal_user_op.verification_gas_limit
