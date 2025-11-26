@@ -62,6 +62,42 @@ OPERATION_TEST_CASES = [
         "Do not confuse one story for all stories",
         "Do not confuse one story for all stories",
     ),  # -- Anonymous
+    # JSON conversion
+    ("toJson", None, {"key": "value"}, '{"key": "value"}'),
+    ("toJson", None, [1, 2, 3], "[1, 2, 3]"),
+    ("fromJson", None, '{"key": "value"}', {"key": "value"}),
+    ("fromJson", None, "[1, 2, 3]", [1, 2, 3]),
+    # hex conversion
+    ("toHex", None, b"\x00\x01\x02", "0x000102"),
+    ("toHex", None, "test", "0x74657374"),
+    ("toHex", None, 17, "0x11"),  # integers supported
+    ("toHex", None, bytearray([0x11, 0x22]), "0x1122"),  # bytearray supported
+    ("fromHex", None, "0x74657374", b"test"),
+    # keccak hashing - returns bytes
+    (
+        "keccak",
+        None,
+        "",
+        b"\xc5\xd2F\x01\x86\xf7#<\x92~}\xb2\xdc\xc7\x03\xc0\xe5\x00\xb6S\xca\x82';{\xfa\xd8\x04]\x85\xa4p",
+    ),
+    (
+        "keccak",
+        None,
+        "test",
+        b'\x9c"\xff_!\xf0\xb8\x1b\x11>c\xf7\xdbm\xa9O\xed\xef\x11\xb2\x11\x9b@\x88\xb8\x96d\xfb\x9a<\xb6X',
+    ),
+    (
+        "keccak",
+        None,
+        24,
+        b'\xf1\xadZ\xc1\x84\xf0\x82\x1d\x8f\x12\x1f\x00)\xe0\x0fF\xeeg2i\xe9O\xd8v\x97)\x13"\x9fup\xab',
+    ),  # int - hashes the byte value 24, not string "24"
+    (
+        "keccak",
+        None,
+        b"testing",
+        b"_\x16\xf4\xc7\xf1I\xacO\x95\x10\xd9\xcf\x8c\xf3\x84\x03\x8a\xd3H\xb3\xbc\xdc\x01\x91_\x95\xde\x12\xdf\x9d\x1b\x02",
+    ),  # bytes
 ]
 
 
@@ -107,17 +143,19 @@ def test_type_errors_in_evaluation(operation):
         op = VariableOperation(operation=operation)
     else:
         op = VariableOperation(operation=operation, value=value)
-    # Skip type error test for bool and str casting operations because
-    # they can handle any input without raising TypeError
+    # Skip type error test for operations that can handle any input without raising TypeError.
+    # These operations are designed to accept any input type and will not raise TypeError.
     if operation in ["bool", "str"]:
         return
 
     with pytest.raises(TypeError):
-        if operation in ["int", "float"]:
+        if operation in ["int", "float", "fromJson", "toHex", "fromHex", "keccak"]:
             variable_value = ["some", "list"]
         elif operation in ["%=", "len", "max", "min"]:
             # special cases where the functions can handle strings as the initial variable value
             variable_value = 10
+        elif operation in ["toJson"]:
+            variable_value = b"abc"  # bytes are not JSON serializable
         else:
             variable_value = "initial_value_that_does_not_make_sense"
 
@@ -244,6 +282,131 @@ def test_overloaded_operators():
     assert result == "TACoTACoTACo!"
 
 
+def test_string_concatenation():
+    # Test basic string concatenation
+    initial = "Hello"
+    operations = [
+        VariableOperation(operation="+=", value=" "),
+        VariableOperation(operation="+=", value="World"),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == "Hello World"
+
+    # Test building a sentence word by word
+    initial = ""
+    operations = [
+        VariableOperation(operation="+=", value="Threshold"),
+        VariableOperation(operation="+=", value=" "),
+        VariableOperation(operation="+=", value="Access"),
+        VariableOperation(operation="+=", value=" "),
+        VariableOperation(operation="+=", value="Control"),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == "Threshold Access Control"
+
+    # Test string multiplication followed by concatenation
+    initial = "Nu"
+    operations = [
+        VariableOperation(operation="*=", value=2),  # NuNu
+        VariableOperation(operation="+=", value="Cypher"),  # NuNuCypher
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == "NuNuCypher"
+
+
+def test_json_hex_conversion_operators():
+    # Test JSON to hex and back
+    initial = {"address": "0x123", "amount": 100}
+    operations = [
+        VariableOperation(operation="toJson"),  # '{"address": "0x123", "amount": 100}'
+        VariableOperation(operation="toHex"),  # hex representation
+        VariableOperation(operation="fromHex"),  # back to JSON string bytes
+        VariableOperation(operation="fromJson"),  # back to original dict
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == initial
+
+    # Test hex conversion round trip
+    initial = b"\xde\xad\xbe\xef"
+    operations = [
+        VariableOperation(operation="toHex"),  # "0xdeadbeef"
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == "0xdeadbeef"
+
+    # Convert back
+    operations = [
+        VariableOperation(operation="fromHex"),  # b"\xde\xad\xbe\xef"
+    ]
+    result = VariableOperation.evaluate_operations(operations, result)
+    assert result == initial
+
+
+def test_keccak_hashing():
+    # Test keccak of empty string - returns bytes
+    initial = ""
+    operations = [
+        VariableOperation(operation="keccak"),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert (
+        result
+        == b"\xc5\xd2F\x01\x86\xf7#<\x92~}\xb2\xdc\xc7\x03\xc0\xe5\x00\xb6S\xca\x82';{\xfa\xd8\x04]\x85\xa4p"
+    )
+
+    # Test keccak of a known string - returns bytes
+    initial = "test"
+    operations = [
+        VariableOperation(operation="keccak"),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert (
+        result
+        == b'\x9c"\xff_!\xf0\xb8\x1b\x11>c\xf7\xdbm\xa9O\xed\xef\x11\xb2\x11\x9b@\x88\xb8\x96d\xfb\x9a<\xb6X'
+    )
+
+    # Test keccak of bytes
+    initial = b"test"
+    operations = [
+        VariableOperation(operation="keccak"),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert (
+        result
+        == b'\x9c"\xff_!\xf0\xb8\x1b\x11>c\xf7\xdbm\xa9O\xed\xef\x11\xb2\x11\x9b@\x88\xb8\x96d\xfb\x9a<\xb6X'
+    )
+
+
+def test_json_hex_comparison_use_case():
+    """
+    Test the practical use case of comparing hex representation with object representation
+    to ensure they represent the same data.
+    """
+    # Start with an object
+    original_object = {"address": "0xabc", "value": 42, "nested": {"key": "data"}}
+
+    # Convert to JSON, then to hex
+    operations_to_hex = [
+        VariableOperation(operation="toJson"),
+        VariableOperation(operation="toHex"),
+    ]
+    hex_representation = VariableOperation.evaluate_operations(
+        operations_to_hex, original_object
+    )
+
+    # Now convert hex back to object and compare
+    operations_from_hex = [
+        VariableOperation(operation="fromHex"),
+        VariableOperation(operation="fromJson"),
+    ]
+    reconstructed_object = VariableOperation.evaluate_operations(
+        operations_from_hex, hex_representation
+    )
+
+    # They should be equal
+    assert reconstructed_object == original_object
+
+
 def test_context_variable_resolution_in_operations():
     # various operations with context variables
     initial = 10
@@ -262,3 +425,31 @@ def test_context_variable_resolution_in_operations():
     resolved_operations = VariableOperation.with_resolved_context(operations, **context)
     result = VariableOperation.evaluate_operations(resolved_operations, initial)
     assert result == 35
+
+
+def test_tohex_type_errors():
+    """Test that toHex raises TypeError for unsupported types like float"""
+    op = VariableOperation(operation="toHex")
+
+    # Test that float raises TypeError
+    with pytest.raises(TypeError, match="Invalid value for hex conversion"):
+        VariableOperation.evaluate_operations([op], 3.14)
+
+    # Test that None raises TypeError
+    with pytest.raises(TypeError, match="Invalid value for hex conversion"):
+        VariableOperation.evaluate_operations([op], None)
+
+    # Test that list raises TypeError
+    with pytest.raises(TypeError, match="Invalid value for hex conversion"):
+        VariableOperation.evaluate_operations([op], [1, 2, 3])
+
+
+def test_tojson_type_errors():
+    """Test that toJson raises TypeError for unsupported types like bytes"""
+    op = VariableOperation(operation="toJson")
+
+    # Test that bytes raises TypeError
+    with pytest.raises(
+        TypeError, match="Object of type bytes is not JSON serializable"
+    ):
+        VariableOperation.evaluate_operations([op], b"test")

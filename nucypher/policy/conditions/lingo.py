@@ -10,7 +10,7 @@ from hashlib import md5
 from inspect import signature
 from typing import Any, List, Optional, Tuple, Type, Union
 
-from eth_utils import is_hexstr
+from eth_utils import is_hexstr, keccak
 from hexbytes import HexBytes
 from marshmallow import (
     Schema,
@@ -342,6 +342,28 @@ _COMPARATOR_FUNCTIONS = {
 }
 
 
+def _to_hex(value):
+    """
+    Convert value to hex string.
+
+    Supports bytes, bytearray, int, and str types.
+    Strings are encoded to UTF-8 before conversion.
+
+    :param value: Value to convert to hex
+    :return: Hex string with 0x prefix
+    :raises TypeError: If value type cannot be converted to hex
+    """
+    try:
+        if isinstance(value, str):
+            # Encode regular strings to UTF-8
+            value = value.encode("utf-8")
+        # HexBytes handles bytes, bytearray, and int
+        h = HexBytes(value)
+        return h.hex()
+    except (TypeError, ValueError) as e:
+        raise TypeError(f"Invalid value for hex conversion: {e}")
+
+
 # should raise TypeError for invalid inputs
 _OPERATOR_FUNCTIONS = {
     # We can add all kinds of operators over time, this is just a base start - given that
@@ -371,6 +393,14 @@ _OPERATOR_FUNCTIONS = {
     "float": lambda a: float(a),
     "int": lambda a: int(a),
     "str": lambda a: str(a),
+    # JSON conversion
+    "fromJson": lambda a: json.loads(a),
+    "toJson": lambda a: json.dumps(a),
+    # hex conversion
+    "fromHex": lambda a: bytes(HexBytes(a)),
+    "toHex": _to_hex,
+    # hashing
+    "keccak": lambda a: keccak(a.encode() if isinstance(a, str) else a),
 }
 
 MAX_VARIABLE_OPERATIONS = 5
