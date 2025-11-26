@@ -154,6 +154,10 @@ class RPCCondition(ExecutionCallCondition):
             method = data.get("method")
             return_value_test = data.get("return_value_test")
 
+            if return_value_test.operations:
+                # skip validation since operations modify the value to check
+                return
+
             expected_return_type = RPCCall.ALLOWED_METHODS[method]
             comparator_value = return_value_test.value
             if is_context_variable(comparator_value):
@@ -362,6 +366,10 @@ class ContractCondition(RPCCondition):
 
             # validate return type based on contract function
             return_value_test = data.get("return_value_test")
+            if return_value_test.operations:
+                # skip validation since operations modify the value to check
+                return
+
             try:
                 validate_contract_function_expected_return_type(
                     contract_function=contract_function,
