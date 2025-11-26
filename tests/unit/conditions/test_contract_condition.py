@@ -685,8 +685,17 @@ def test_abi_bytes_output(bytes_test_scenario, contract_condition_dict):
     with pytest.raises(
         InvalidConditionLingo, match="Invalid return value comparison type"
     ):
-        contract_condition_dict["returnValueTest"]["value"] = 1.25
-        ContractCondition.from_json(json.dumps(contract_condition_dict))
+        invalid_contract_condition_dict = dict(contract_condition_dict)
+        invalid_contract_condition_dict["returnValueTest"]["value"] = 1.25
+        ContractCondition.from_json(json.dumps(invalid_contract_condition_dict))
+
+    # type does not fail if operations are present
+    contract_condition_dict_w_ops = invalid_contract_condition_dict.copy()
+    contract_condition_dict_w_ops["returnValueTest"]["operations"] = [
+        {"operation": "toHex"}
+    ]
+    # no exception should be raised here
+    ContractCondition.from_json(json.dumps(contract_condition_dict_w_ops))
 
     # test execution logic
     _check_execution_logic(
