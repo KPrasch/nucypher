@@ -164,18 +164,18 @@ class TestContextVariableConditionOptionalReturnValueTest:
         """ContextVariableCondition with returnValueTest still works as before."""
         ctx_cond = ContextVariableCondition(
             context_variable=":myVar",
-            return_value_test=ReturnValueTest(comparator="==", value="expected"),
+            return_value_test=ReturnValueTest(comparator="==", value=42),
         )
 
         # Should pass when value matches
-        context = {":myVar": "expected"}
+        context = {":myVar": 42}
         result, value = ctx_cond.verify(
             providers=ConditionProviderManager({}), **context
         )
         assert result is True
 
         # Should fail when value doesn't match
-        context = {":myVar": "unexpected"}
+        context = {":myVar": 100}
         result, value = ctx_cond.verify(
             providers=ConditionProviderManager({}), **context
         )
@@ -566,15 +566,15 @@ class TestBackwardsCompatibility:
         # ContextVariableCondition with RVT
         ctx_cond = ContextVariableCondition(
             context_variable=":myVar",
-            return_value_test=ReturnValueTest(comparator="==", value="test"),
+            return_value_test=ReturnValueTest(comparator="==", value=100),
         )
 
-        context = {":myVar": "test"}
+        context = {":myVar": 100}
         result, value = ctx_cond.verify(
             providers=ConditionProviderManager({}), **context
         )
         assert result is True
-        assert value == "test"
+        assert value == 100
 
     def test_existing_sequential_conditions_still_work(self):
         """Existing sequential conditions with all RVTs continue to work."""
