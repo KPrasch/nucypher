@@ -305,7 +305,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             )
         return Response(response=ipv4, status=HTTPStatus.OK)
 
-    @rest_app.route("/status", methods=["GET"])
+    @rest_app.route("/status/", methods=["GET"])
     def status():
         return_json = request.args.get('json') == 'true'
         omit_known_nodes = request.args.get('omit_known_nodes') == 'true'
