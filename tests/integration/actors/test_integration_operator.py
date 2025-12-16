@@ -101,8 +101,13 @@ def test_operator_block_until_ready_success(
     # 5. bonding successful
 
     # funding
-    final_balance = 1
-    mocker.patch.object(EthereumClient, "get_balance", side_effect=[0, final_balance])
+    final_balance_pol = Web3.to_wei(1, "ether")
+    final_balance_eth = Web3.to_wei(2, "ether")
+    mocker.patch.object(
+        EthereumClient,
+        "get_balance",
+        side_effect=[0, 0, final_balance_pol, final_balance_eth],
+    )
 
     # bonding
     mock_taco_application_agent.get_staking_provider_from_operator.side_effect = [
@@ -132,10 +137,15 @@ def test_operator_block_until_ready_success(
 
     expected_messages = [
         # iteration 1
-        ("not funded with MATIC", "not bonded to a staking provider"),
+        (
+            "not funded with POL",
+            "not funded with ETH",
+            "not bonded to a staking provider",
+        ),
         # iteration 2
         (
-            f"is funded with {Web3.from_wei(final_balance, 'ether')} MATIC",
+            f"is funded with {Web3.from_wei(final_balance_pol, 'ether')} POL",
+            f"is funded with {Web3.from_wei(final_balance_eth, 'ether')} ETH",
             "not bonded to a staking provider",
         ),
         # iteration 3

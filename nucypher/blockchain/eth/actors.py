@@ -42,6 +42,7 @@ from nucypher.blockchain.eth.agents import (
     TACoApplicationAgent,
     TACoChildApplicationAgent,
 )
+from nucypher.blockchain.eth.clients import EthereumClient
 from nucypher.blockchain.eth.constants import (
     NULL_ADDRESS,
     PUBLIC_CHAINS,
@@ -1536,42 +1537,54 @@ class Operator(BaseActor):
     def is_confirmed(self) -> bool:
         return self.child_application_agent.is_operator_confirmed(self.operator_address)
 
+    def _is_funded(
+        self, client: EthereumClient, funding_unit: str, emitter: StdoutEmitter
+    ) -> bool:
+        # check for funds
+        wei_balance = client.get_balance(self.operator_address)
+        if wei_balance:
+            # funds found
+            ether_balance = Web3.from_wei(wei_balance, "ether")
+            emitter.message(
+                f"✓ Operator {self.operator_address} is funded with {ether_balance} {funding_unit}",
+                color="green",
+            )
+            return True
+        else:
+            emitter.message(
+                f"! Operator {self.operator_address} is not funded with {funding_unit}",
+                color="yellow",
+            )
+            return False
+
     def block_until_ready(self, poll_rate: int = None, timeout: int = None):
         emitter = StdoutEmitter()
         poll_rate = poll_rate or self.READY_POLL_RATE
         timeout = timeout or self.READY_TIMEOUT
-        start, funded, bonded = maya.now(), False, False
+        start, funded_pol, funded_eth, bonded = maya.now(), False, False, False
 
         taco_child_client = self.child_application_agent.blockchain.client
         taco_child_pretty_chain_name = PUBLIC_CHAINS.get(
             taco_child_client.chain_id, f"chain ID #{taco_child_client.chain_id}"
         )
 
+        taco_app_client = self.application_agent.blockchain.client
+
         taco_root_chain_id = self.application_agent.blockchain.client.chain_id
         taco_root_pretty_chain_name = PUBLIC_CHAINS.get(
             taco_root_chain_id, f"chain ID #{taco_root_chain_id}"
         )
-        while not (funded and bonded):
+        while not (funded_pol and funded_eth and bonded):
             if timeout and ((maya.now() - start).total_seconds() > timeout):
                 message = f"x Operator was not qualified after {timeout} seconds"
                 emitter.message(message, color="red")
                 raise self.ActorError(message)
 
-            if not funded:
-                # check for funds
-                matic_balance = taco_child_client.get_balance(self.operator_address)
-                if matic_balance:
-                    # funds found
-                    funded, balance = True, Web3.from_wei(matic_balance, "ether")
-                    emitter.message(
-                        f"✓ Operator {self.operator_address} is funded with {balance} MATIC",
-                        color="green",
-                    )
-                else:
-                    emitter.message(
-                        f"! Operator {self.operator_address} is not funded with MATIC",
-                        color="yellow",
-                    )
+            if not funded_pol:
+                funded_pol = self._is_funded(taco_child_client, "POL", emitter)
+
+            if not funded_eth:
+                funded_eth = self._is_funded(taco_app_client, "ETH", emitter)
 
             if not bonded:
                 # check root
@@ -1605,7 +1618,7 @@ class Operator(BaseActor):
                             color="yellow",
                         )
 
-            if not (funded and bonded):
+            if not (funded_pol and funded_eth and bonded):
                 time.sleep(poll_rate)
 
         coordinator_address = self.coordinator_agent.contract_address
