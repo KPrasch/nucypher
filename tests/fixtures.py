@@ -830,6 +830,14 @@ def mock_operator_aggregation_delay(module_mocker):
     )
 
 
+@pytest.fixture(scope="module", autouse=True)
+def mock_post_signature_delay(module_mocker):
+    module_mocker.patch(
+        "nucypher.blockchain.eth.actors.Operator.POST_SIGNATURE_MAX_DELAY",
+        PropertyMock(return_value=1),
+    )
+
+
 @pytest.fixture
 def mock_async_hooks(mocker):
     hooks = BlockchainInterface.AsyncTxHooks(
