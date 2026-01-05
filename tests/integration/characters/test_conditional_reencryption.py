@@ -79,6 +79,21 @@ def test_single_retrieve_with_falsy_conditions(
 
     reencrypt_spy = mocker.spy(Ursula, '_reencrypt')
     mocker.patch.object(ConditionLingo, 'eval', return_value=False)
+    # Also mock eval_with_details for debug_mode=True (used on test domains)
+    mocker.patch.object(
+        ConditionLingo,
+        "eval_with_details",
+        return_value=(
+            False,
+            None,
+            {
+                "failed_condition": {},
+                "actual_value": None,
+                "expected": {},
+                "full_lingo": {},
+            },
+        ),
+    )
     reencrypt_http_spy = mocker.spy(MockRestMiddleware, 'reencrypt')
 
     # not actually used for eval, but satisfies serializers
@@ -174,6 +189,12 @@ def test_middleware_handling_of_failed_condition_responses(
     mocker.patch.object(
         ConditionLingo,
         "eval",
+        side_effect=eval_failure_exception_class(exception_parameter),
+    )
+    # Also mock eval_with_details for debug_mode=True (used on test domains)
+    mocker.patch.object(
+        ConditionLingo,
+        "eval_with_details",
         side_effect=eval_failure_exception_class(exception_parameter),
     )
 
