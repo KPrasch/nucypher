@@ -247,3 +247,97 @@ def test_conversion_from_big_int_string(value, expectedValue):
     else:
         # value unchanged
         assert result == value
+
+
+class TestEvaluateConditionLingoDebugMode:
+    """Tests for debug_mode parameter in evaluate_condition_lingo()."""
+
+    def test_debug_mode_true_returns_detailed_error(self):
+        """With debug_mode=True, error message should contain debug info."""
+        condition_lingo = Mock()
+        condition_lingo.eval_with_details.return_value = (
+            False,
+            1234567890,  # actual_value
+            {
+                "failed_condition": {"conditionType": "time"},
+                "actual_value": 1234567890,
+                "expected": {"comparator": ">", "value": 9999999999999},
+                "full_lingo": {"version": "1.0.0"},
+            },
+        )
+
+        with patch(
+            "nucypher.policy.conditions.lingo.ConditionLingo.from_dict"
+        ) as mocked_from_dict:
+            mocked_from_dict.return_value = condition_lingo
+
+            with pytest.raises(ConditionEvalError) as exc_info:
+                evaluate_condition_lingo(
+                    condition_lingo={"version": "1.0.0", "condition": {}},
+                    providers=ConditionProviderManager({1: [Mock(spec=BaseProvider)]}),
+                    debug_mode=True,
+                )
+
+            assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+            assert "Debug info:" in exc_info.value.message
+            assert "actual_value" in exc_info.value.message
+            assert "expected" in exc_info.value.message
+            assert "full_lingo" in exc_info.value.message
+
+    def test_debug_mode_false_returns_generic_error(self):
+        """With debug_mode=False, error should be generic."""
+        condition_lingo = Mock()
+        condition_lingo.eval.return_value = False
+
+        with patch(
+            "nucypher.policy.conditions.lingo.ConditionLingo.from_dict"
+        ) as mocked_from_dict:
+            mocked_from_dict.return_value = condition_lingo
+
+            with pytest.raises(ConditionEvalError) as exc_info:
+                evaluate_condition_lingo(
+                    condition_lingo={"version": "1.0.0", "condition": {}},
+                    providers=ConditionProviderManager({1: [Mock(spec=BaseProvider)]}),
+                    debug_mode=False,
+                )
+
+            assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+            assert exc_info.value.message == "Decryption conditions not satisfied"
+            assert "Debug info:" not in exc_info.value.message
+
+    def test_debug_mode_default_is_false(self):
+        """Default debug_mode should be False (production behavior)."""
+        condition_lingo = Mock()
+        condition_lingo.eval.return_value = False
+
+        with patch(
+            "nucypher.policy.conditions.lingo.ConditionLingo.from_dict"
+        ) as mocked_from_dict:
+            mocked_from_dict.return_value = condition_lingo
+
+            with pytest.raises(ConditionEvalError) as exc_info:
+                evaluate_condition_lingo(
+                    condition_lingo={"version": "1.0.0", "condition": {}},
+                    providers=ConditionProviderManager({1: [Mock(spec=BaseProvider)]}),
+                    # debug_mode not specified - should default to False
+                )
+
+            assert exc_info.value.message == "Decryption conditions not satisfied"
+            assert "Debug info:" not in exc_info.value.message
+
+    def test_debug_mode_true_success_no_error(self):
+        """With debug_mode=True and success, no error should be raised."""
+        condition_lingo = Mock()
+        condition_lingo.eval_with_details.return_value = (True, 1234567890, None)
+
+        with patch(
+            "nucypher.policy.conditions.lingo.ConditionLingo.from_dict"
+        ) as mocked_from_dict:
+            mocked_from_dict.return_value = condition_lingo
+
+            # Should not raise
+            evaluate_condition_lingo(
+                condition_lingo={"version": "1.0.0", "condition": {}},
+                providers=ConditionProviderManager({1: [Mock(spec=BaseProvider)]}),
+                debug_mode=True,
+            )

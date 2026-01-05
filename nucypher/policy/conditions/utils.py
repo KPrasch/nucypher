@@ -213,13 +213,22 @@ def evaluate_condition_lingo(
     providers: Optional[ConditionProviderManager] = None,
     context: Optional[ContextDict] = None,
     log: Logger = __LOGGER,
+    debug_mode: bool = False,
 ):
     """
     Evaluates condition lingo with the give providers and user supplied context.
     If all conditions are satisfied this function returns None.
 
+    Args:
+        condition_lingo: The condition lingo to evaluate.
+        providers: Provider manager for blockchain connections.
+        context: User-supplied context variables.
+        log: Logger instance.
+        debug_mode: If True, return detailed failure info (for Lynx/dev only).
+
     # TODO: Evaluate all conditions even if one fails and report the result
     """
+    import json
 
     # prevent circular import
     from nucypher.policy.conditions.lingo import ConditionLingo
@@ -234,12 +243,26 @@ def evaluate_condition_lingo(
         if condition_lingo:
             log.debug(f"Evaluating access conditions {condition_lingo}")
             lingo = ConditionLingo.from_dict(condition_lingo)
-            result = lingo.eval(providers=providers, **context)
-            if not result:
-                # explicit condition failure
-                error = ConditionEvalError(
-                    "Decryption conditions not satisfied", HTTPStatus.FORBIDDEN
+
+            if debug_mode:
+                # Use detailed evaluation for debug info
+                result, actual_value, failure_details = lingo.eval_with_details(
+                    providers=providers, **context
                 )
+                if not result:
+                    debug_info = json.dumps(failure_details, default=str)
+                    error = ConditionEvalError(
+                        f"Decryption conditions not satisfied. Debug info: {debug_info}",
+                        HTTPStatus.FORBIDDEN,
+                    )
+            else:
+                # Original behavior
+                result = lingo.eval(providers=providers, **context)
+                if not result:
+                    # explicit condition failure
+                    error = ConditionEvalError(
+                        "Decryption conditions not satisfied", HTTPStatus.FORBIDDEN
+                    )
     except ReturnValueEvaluationError as e:
         error = ConditionEvalError(
             f"Unable to evaluate return value: {e}",
