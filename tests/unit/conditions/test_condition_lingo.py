@@ -1,5 +1,6 @@
 import json
 from collections import namedtuple
+from unittest.mock import Mock
 
 import pytest
 from marshmallow import ValidationError
@@ -14,10 +15,13 @@ from nucypher.policy.conditions.exceptions import (
 from nucypher.policy.conditions.lingo import (
     AnyField,
     AnyLargeIntegerField,
+    CompoundCondition,
     ConditionLingo,
     ConditionType,
+    ReturnValueTest,
 )
 from nucypher.policy.conditions.signing.base import SIGNING_CONDITION_OBJECT_CONTEXT_VAR
+from nucypher.policy.conditions.time import TimeCondition
 from tests.constants import INT256_MIN, TESTERCHAIN_CHAIN_ID, UINT256_MAX
 
 
@@ -590,3 +594,98 @@ def test_any_large_integer_field(json_value, expected_deserialized_value):
         # expected to fail
         with pytest.raises(ValidationError, match="Not a valid integer."):
             _ = field.deserialize(json_value)
+
+
+class TestEvalWithDetails:
+    """Tests for ConditionLingo.eval_with_details() debug method."""
+
+    def test_eval_with_details_success_returns_none_for_failure_details(self):
+        """On success, failure_details should be None."""
+        # Create a passing time condition (timestamp > 0, always true)
+        condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        )
+        lingo = ConditionLingo(condition=condition)
+
+        # Mock the condition.verify to return success
+        mock_actual_value = 1234567890
+        condition.verify = Mock(return_value=(True, mock_actual_value))
+
+        success, actual_value, failure_details = lingo.eval_with_details()
+
+        assert success is True
+        assert actual_value == mock_actual_value
+        assert failure_details is None
+
+    def test_eval_with_details_failure_returns_debug_info(self):
+        """On failure, should return structured debug info."""
+        # Create a time condition that will fail
+        condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        )
+        lingo = ConditionLingo(condition=condition)
+
+        # Mock the condition.verify to return failure
+        mock_actual_value = 1234567890
+        condition.verify = Mock(return_value=(False, mock_actual_value))
+
+        success, actual_value, failure_details = lingo.eval_with_details()
+
+        assert success is False
+        assert actual_value == mock_actual_value
+        assert failure_details is not None
+        assert "failed_condition" in failure_details
+        assert "actual_value" in failure_details
+        assert failure_details["actual_value"] == mock_actual_value
+        assert "expected" in failure_details
+        assert failure_details["expected"]["comparator"] == ">"
+        assert failure_details["expected"]["value"] == 9999999999999
+        assert "full_lingo" in failure_details
+        assert failure_details["full_lingo"]["version"] == ConditionLingo.VERSION
+
+    def test_eval_with_details_compound_condition_identifies_failed_operand(self):
+        """For compound AND, should identify which operand failed."""
+        # First condition passes, second fails
+        passing_condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        )
+        failing_condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        )
+
+        compound = CompoundCondition(
+            operator="and",
+            operands=[passing_condition, failing_condition],
+        )
+        lingo = ConditionLingo(condition=compound)
+
+        # Mock verify to simulate: first passes (True, 1000), second fails (False, 500)
+        # CompoundCondition.verify short-circuits on first failure
+        compound.verify = Mock(return_value=(False, [1234567890, 500]))
+
+        success, actual_value, failure_details = lingo.eval_with_details()
+
+        assert success is False
+        assert "compound_details" in failure_details
+        assert failure_details["compound_details"]["operator"] == "and"
+        assert len(failure_details["compound_details"]["operand_results"]) >= 1
+
+    def test_eval_with_details_preserves_return_value_test_index(self):
+        """If ReturnValueTest has an index, it should be included in expected."""
+        condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 100, index=0),
+        )
+        lingo = ConditionLingo(condition=condition)
+
+        # Mock failure
+        condition.verify = Mock(return_value=(False, [50, 60, 70]))
+
+        success, actual_value, failure_details = lingo.eval_with_details()
+
+        assert success is False
+        assert failure_details["expected"]["index"] == 0

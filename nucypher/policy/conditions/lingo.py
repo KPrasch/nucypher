@@ -1160,6 +1160,105 @@ class ConditionLingo(_Serializable):
         result, _ = self.condition.verify(*args, **kwargs)
         return result
 
+    def eval_with_details(self, *args, **kwargs) -> Tuple[bool, Any, Optional[dict]]:
+        """
+        Evaluate condition and return detailed results for debugging.
+
+        Returns:
+            Tuple of (success, actual_value, failure_details).
+            failure_details is None on success, contains debug info on failure.
+        """
+        result, actual_value = self.condition.verify(*args, **kwargs)
+
+        if result:
+            return True, actual_value, None
+
+        failure_details = self._extract_failure_details(self.condition, actual_value)
+        failure_details["full_lingo"] = self.to_dict()
+
+        return False, actual_value, failure_details
+
+    def _extract_failure_details(self, condition: Condition, actual_value: Any) -> dict:
+        """Extract detailed failure information from a condition evaluation."""
+        details: dict = {
+            "failed_condition": condition.to_dict(),
+            "actual_value": actual_value,
+        }
+
+        # Extract expected value from ReturnValueTest if present
+        if hasattr(condition, "return_value_test"):
+            rvt = condition.return_value_test
+            details["expected"] = {
+                "comparator": rvt.comparator,
+                "value": rvt.value,
+            }
+            if rvt.index is not None:
+                details["expected"]["index"] = rvt.index
+
+        # Handle compound conditions
+        if isinstance(condition, CompoundCondition):
+            details["compound_details"] = self._extract_compound_failure_details(
+                condition, actual_value
+            )
+        elif isinstance(condition, SequentialCondition):
+            details["sequential_details"] = self._extract_sequential_failure_details(
+                condition, actual_value
+            )
+        elif isinstance(condition, IfThenElseCondition):
+            details["if_then_else_details"] = (
+                self._extract_if_then_else_failure_details(condition, actual_value)
+            )
+
+        return details
+
+    def _extract_compound_failure_details(
+        self, condition: "CompoundCondition", actual_values: List[Any]
+    ) -> dict:
+        """Extract failure details from compound conditions."""
+        details: dict = {"operator": condition.operator, "operand_results": []}
+
+        actual_values_list = actual_values if isinstance(actual_values, list) else []
+        for i, operand in enumerate(condition.operands):
+            value = actual_values_list[i] if i < len(actual_values_list) else None
+            details["operand_results"].append(
+                {"index": i, "condition": operand.to_dict(), "actual_value": value}
+            )
+
+        return details
+
+    def _extract_sequential_failure_details(
+        self, condition: "SequentialCondition", actual_values: List[Any]
+    ) -> dict:
+        """Extract failure details from sequential conditions."""
+        details: dict = {"condition_variables": []}
+
+        actual_values_list = actual_values if isinstance(actual_values, list) else []
+        for i, cv in enumerate(condition.condition_variables):
+            value = actual_values_list[i] if i < len(actual_values_list) else None
+            details["condition_variables"].append(
+                {
+                    "var_name": cv.var_name,
+                    "condition": cv.condition.to_dict(),
+                    "actual_value": value,
+                }
+            )
+
+        return details
+
+    def _extract_if_then_else_failure_details(
+        self, condition: "IfThenElseCondition", actual_values: List[Any]
+    ) -> dict:
+        """Extract failure details from if-then-else conditions."""
+        else_cond = condition.else_condition
+        return {
+            "if_condition": condition.if_condition.to_dict(),
+            "then_condition": condition.then_condition.to_dict(),
+            "else_condition": (
+                else_cond.to_dict() if isinstance(else_cond, Condition) else else_cond
+            ),
+            "actual_values": actual_values,
+        }
+
     @classmethod
     def resolve_condition_class(
         cls, condition: ConditionDict, version: int = None
