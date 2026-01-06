@@ -72,7 +72,6 @@ from nucypher.blockchain.eth.utils import (
     rpc_endpoint_health_check,
     truncate_checksum_address,
 )
-from nucypher.config.constants import TEMPORARY_DOMAIN_NAME
 from nucypher.crypto.ferveo.exceptions import FerveoKeyMismatch
 from nucypher.crypto.powers import (
     CryptoPower,
@@ -1400,7 +1399,7 @@ class Operator(BaseActor):
 
         # evaluate the conditions for this ciphertext; raises if it fails
         # Enable debug mode for Lynx only
-        is_lynx_debug = self.domain.name in [domains.LYNX.name, TEMPORARY_DOMAIN_NAME]
+        is_lynx_debug = self.domain.name == domains.LYNX.name
 
         evaluate_condition_lingo(
             condition_lingo=condition_lingo,
@@ -1500,7 +1499,7 @@ class Operator(BaseActor):
         )
 
         # Enable debug mode for Lynx only
-        is_lynx_debug = self.domain.name in [domains.LYNX.name, TEMPORARY_DOMAIN_NAME]
+        is_lynx_debug = self.domain.name == domains.LYNX.name
 
         evaluate_condition_lingo(
             condition_lingo,

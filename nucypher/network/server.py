@@ -267,10 +267,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
 
         # Enforce Conditions
         # Enable debug mode for Lynx only
-        is_lynx_debug = this_node.domain.name in [
-            domains.LYNX.name,
-            TEMPORARY_DOMAIN_NAME,
-        ]
+        is_lynx_debug = this_node.domain.name == domains.LYNX.name
 
         capsules_to_process = list()
         for capsule, condition_lingo in packets:
