@@ -600,18 +600,20 @@ def test_any_large_integer_field(json_value, expected_deserialized_value):
 
 
 class TestEvalWithDetails:
-    """Tests for ConditionLingo.eval_with_details() debug method."""
+    """Tests for ConditionLingo.eval_with_details() debug method.
+
+    Note: Real behavioral tests are in tests/acceptance/conditions/test_conditions.py.
+    These unit tests use mocking for fast execution and unit coverage.
+    """
 
     def test_eval_with_details_success_returns_none_for_failure_details(self):
         """On success, failure_details should be None."""
-        # Create a passing time condition (timestamp > 0, always true)
         condition = TimeCondition(
             chain=TESTERCHAIN_CHAIN_ID,
             return_value_test=ReturnValueTest(">", 0),
         )
         lingo = ConditionLingo(condition=condition)
 
-        # Mock the condition.verify to return success
         mock_actual_value = 1234567890
         condition.verify = Mock(return_value=(True, mock_actual_value))
 
@@ -623,14 +625,12 @@ class TestEvalWithDetails:
 
     def test_eval_with_details_failure_returns_debug_info(self):
         """On failure, should return structured debug info."""
-        # Create a time condition that will fail
         condition = TimeCondition(
             chain=TESTERCHAIN_CHAIN_ID,
             return_value_test=ReturnValueTest(">", 9999999999999),
         )
         lingo = ConditionLingo(condition=condition)
 
-        # Mock the condition.verify to return failure
         mock_actual_value = 1234567890
         condition.verify = Mock(return_value=(False, mock_actual_value))
 
@@ -648,9 +648,8 @@ class TestEvalWithDetails:
         assert "full_lingo" in failure_details
         assert failure_details["full_lingo"]["version"] == ConditionLingo.VERSION
 
-    def test_eval_with_details_compound_condition_identifies_failed_operand(self):
+    def test_eval_with_details_compound_condition_failure(self):
         """For compound AND, should identify which operand failed."""
-        # First condition passes, second fails
         passing_condition = TimeCondition(
             chain=TESTERCHAIN_CHAIN_ID,
             return_value_test=ReturnValueTest(">", 0),
@@ -666,8 +665,6 @@ class TestEvalWithDetails:
         )
         lingo = ConditionLingo(condition=compound)
 
-        # Mock verify to simulate: first passes (True, 1000), second fails (False, 500)
-        # CompoundCondition.verify short-circuits on first failure
         compound.verify = Mock(return_value=(False, [1234567890, 500]))
 
         success, actual_value, failure_details = lingo.eval_with_details()
@@ -675,7 +672,7 @@ class TestEvalWithDetails:
         assert success is False
         assert "compound_details" in failure_details
         assert failure_details["compound_details"]["operator"] == "and"
-        assert len(failure_details["compound_details"]["operand_results"]) >= 1
+        assert len(failure_details["compound_details"]["operand_results"]) == 2
 
     def test_eval_with_details_preserves_return_value_test_index(self):
         """If ReturnValueTest has an index, it should be included in expected."""
@@ -685,7 +682,6 @@ class TestEvalWithDetails:
         )
         lingo = ConditionLingo(condition=condition)
 
-        # Mock failure
         condition.verify = Mock(return_value=(False, [50, 60, 70]))
 
         success, actual_value, failure_details = lingo.eval_with_details()
@@ -695,7 +691,6 @@ class TestEvalWithDetails:
 
     def test_eval_with_details_sequential_condition_failure(self):
         """For sequential conditions, should extract condition variable details."""
-        # Create two time conditions for a sequential condition
         condition1 = TimeCondition(
             chain=TESTERCHAIN_CHAIN_ID,
             return_value_test=ReturnValueTest(">", 0),
@@ -705,14 +700,12 @@ class TestEvalWithDetails:
             return_value_test=ReturnValueTest(">", 9999999999999),
         )
 
-        # Create condition variables
         cv1 = ConditionVariable(var_name="time1", condition=condition1)
         cv2 = ConditionVariable(var_name="time2", condition=condition2)
 
         sequential = SequentialCondition(condition_variables=[cv1, cv2])
         lingo = ConditionLingo(condition=sequential)
 
-        # Mock verify to return failure with actual values
         sequential.verify = Mock(return_value=(False, [1234567890, 500]))
 
         success, actual_value, failure_details = lingo.eval_with_details()
@@ -729,7 +722,6 @@ class TestEvalWithDetails:
 
     def test_eval_with_details_if_then_else_condition_failure(self):
         """For if-then-else conditions, should extract branch details."""
-        # Create conditions for if-then-else
         if_condition = TimeCondition(
             chain=TESTERCHAIN_CHAIN_ID,
             return_value_test=ReturnValueTest(">", 0),
@@ -750,7 +742,6 @@ class TestEvalWithDetails:
         )
         lingo = ConditionLingo(condition=if_then_else)
 
-        # Mock verify to return failure
         if_then_else.verify = Mock(return_value=(False, [True, 500, None]))
 
         success, actual_value, failure_details = lingo.eval_with_details()
@@ -778,11 +769,10 @@ class TestEvalWithDetails:
         if_then_else = IfThenElseCondition(
             if_condition=if_condition,
             then_condition=then_condition,
-            else_condition=True,  # boolean else
+            else_condition=True,
         )
         lingo = ConditionLingo(condition=if_then_else)
 
-        # Mock verify to return failure
         if_then_else.verify = Mock(return_value=(False, [True, 500]))
 
         success, actual_value, failure_details = lingo.eval_with_details()
@@ -790,5 +780,4 @@ class TestEvalWithDetails:
         assert success is False
         assert "if_then_else_details" in failure_details
         details = failure_details["if_then_else_details"]
-        # Boolean else should be preserved as-is
         assert details["else_condition"] is True

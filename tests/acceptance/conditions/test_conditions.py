@@ -34,12 +34,17 @@ from nucypher.policy.conditions.json.api import JsonApiCondition
 from nucypher.policy.conditions.json.auth import AuthorizationType
 from nucypher.policy.conditions.json.rpc import JsonRpcCondition
 from nucypher.policy.conditions.lingo import (
+    AndCompoundCondition,
     CompoundCondition,
     ConditionLingo,
     ConditionType,
+    ConditionVariable,
+    IfThenElseCondition,
     NotCompoundCondition,
     ReturnValueTest,
+    SequentialCondition,
 )
+from nucypher.policy.conditions.time import TimeCondition
 from nucypher.policy.conditions.utils import ConditionProviderManager
 from tests.constants import (
     TEST_ETH_PROVIDER_URI,
@@ -1171,3 +1176,140 @@ def test_poap_contract_condition(get_context_value_mock):
     )
     success, _ = and_condition.verify(providers=gnosis_providers, **context)
     assert success
+
+
+# ===== eval_with_details() Tests =====
+# These tests verify real condition evaluation behavior without mocking verify()
+
+
+def test_eval_with_details_real_time_condition_failure(condition_providers):
+    """Test eval_with_details() with a real failing time condition."""
+    # Create a time condition that will fail (current time is never > far future)
+    failing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 9999999999999),
+    )
+    lingo = ConditionLingo(condition=failing_condition)
+
+    success, actual_value, failure_details = lingo.eval_with_details(
+        providers=condition_providers
+    )
+
+    assert success is False
+    assert isinstance(actual_value, int)
+    assert actual_value < 9999999999999  # actual blockchain time
+    assert failure_details is not None
+    assert failure_details["actual_value"] == actual_value
+    assert failure_details["expected"]["comparator"] == ">"
+    assert failure_details["expected"]["value"] == 9999999999999
+    assert "failed_condition" in failure_details
+    assert "full_lingo" in failure_details
+
+
+def test_eval_with_details_real_compound_condition_failure(condition_providers):
+    """Test eval_with_details() with real compound condition failure."""
+    passing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 0),  # always passes
+    )
+    failing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 9999999999999),  # always fails
+    )
+
+    compound = AndCompoundCondition(operands=[passing_condition, failing_condition])
+    lingo = ConditionLingo(condition=compound)
+
+    success, actual_value, failure_details = lingo.eval_with_details(
+        providers=condition_providers
+    )
+
+    assert success is False
+    assert "compound_details" in failure_details
+    assert failure_details["compound_details"]["operator"] == "and"
+    # Verify actual blockchain values are captured
+    assert len(failure_details["compound_details"]["operand_results"]) == 2
+    # First operand should have a real timestamp value
+    first_result = failure_details["compound_details"]["operand_results"][0]
+    assert isinstance(first_result["actual_value"], int)
+
+
+def test_eval_with_details_real_sequential_condition_failure(condition_providers):
+    """Test eval_with_details() with real sequential condition failure."""
+    # First condition passes, second fails
+    cv1 = ConditionVariable(
+        var_name="blocktime",
+        condition=TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        ),
+    )
+    cv2 = ConditionVariable(
+        var_name="check",
+        condition=TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        ),
+    )
+
+    sequential = SequentialCondition(condition_variables=[cv1, cv2])
+    lingo = ConditionLingo(condition=sequential)
+
+    success, actual_value, failure_details = lingo.eval_with_details(
+        providers=condition_providers
+    )
+
+    assert success is False
+    assert "sequential_details" in failure_details
+    cv_details = failure_details["sequential_details"]["condition_variables"]
+    assert len(cv_details) == 2
+    assert cv_details[0]["var_name"] == "blocktime"
+    assert isinstance(cv_details[0]["actual_value"], int)  # real blockchain time
+
+
+def test_eval_with_details_real_if_then_else_failure(condition_providers):
+    """Test eval_with_details() with real if-then-else condition failure."""
+    # if (time > 0) then (time > 9999999999999) else True
+    # The if passes, then the then branch is evaluated and fails
+    if_then_else = IfThenElseCondition(
+        if_condition=TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        ),
+        then_condition=TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        ),
+        else_condition=True,
+    )
+    lingo = ConditionLingo(condition=if_then_else)
+
+    success, actual_value, failure_details = lingo.eval_with_details(
+        providers=condition_providers
+    )
+
+    assert success is False
+    assert "if_then_else_details" in failure_details
+    details = failure_details["if_then_else_details"]
+    assert "if_condition" in details
+    assert "then_condition" in details
+    assert "else_condition" in details
+    assert details["else_condition"] is True  # boolean preserved
+
+
+def test_eval_with_details_real_success(condition_providers):
+    """Test eval_with_details() returns None for failure_details on success."""
+    passing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 0),  # always passes
+    )
+    lingo = ConditionLingo(condition=passing_condition)
+
+    success, actual_value, failure_details = lingo.eval_with_details(
+        providers=condition_providers
+    )
+
+    assert success is True
+    assert isinstance(actual_value, int)
+    assert actual_value > 0  # real blockchain timestamp
+    assert failure_details is None
