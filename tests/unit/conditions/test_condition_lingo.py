@@ -18,7 +18,10 @@ from nucypher.policy.conditions.lingo import (
     CompoundCondition,
     ConditionLingo,
     ConditionType,
+    ConditionVariable,
+    IfThenElseCondition,
     ReturnValueTest,
+    SequentialCondition,
 )
 from nucypher.policy.conditions.signing.base import SIGNING_CONDITION_OBJECT_CONTEXT_VAR
 from nucypher.policy.conditions.time import TimeCondition
@@ -689,3 +692,103 @@ class TestEvalWithDetails:
 
         assert success is False
         assert failure_details["expected"]["index"] == 0
+
+    def test_eval_with_details_sequential_condition_failure(self):
+        """For sequential conditions, should extract condition variable details."""
+        # Create two time conditions for a sequential condition
+        condition1 = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        )
+        condition2 = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        )
+
+        # Create condition variables
+        cv1 = ConditionVariable(var_name="time1", condition=condition1)
+        cv2 = ConditionVariable(var_name="time2", condition=condition2)
+
+        sequential = SequentialCondition(condition_variables=[cv1, cv2])
+        lingo = ConditionLingo(condition=sequential)
+
+        # Mock verify to return failure with actual values
+        sequential.verify = Mock(return_value=(False, [1234567890, 500]))
+
+        success, actual_value, failure_details = lingo.eval_with_details()
+
+        assert success is False
+        assert "sequential_details" in failure_details
+        assert "condition_variables" in failure_details["sequential_details"]
+        cv_details = failure_details["sequential_details"]["condition_variables"]
+        assert len(cv_details) == 2
+        assert cv_details[0]["var_name"] == "time1"
+        assert cv_details[0]["actual_value"] == 1234567890
+        assert cv_details[1]["var_name"] == "time2"
+        assert cv_details[1]["actual_value"] == 500
+
+    def test_eval_with_details_if_then_else_condition_failure(self):
+        """For if-then-else conditions, should extract branch details."""
+        # Create conditions for if-then-else
+        if_condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        )
+        then_condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        )
+        else_condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest("<", 100),
+        )
+
+        if_then_else = IfThenElseCondition(
+            if_condition=if_condition,
+            then_condition=then_condition,
+            else_condition=else_condition,
+        )
+        lingo = ConditionLingo(condition=if_then_else)
+
+        # Mock verify to return failure
+        if_then_else.verify = Mock(return_value=(False, [True, 500, None]))
+
+        success, actual_value, failure_details = lingo.eval_with_details()
+
+        assert success is False
+        assert "if_then_else_details" in failure_details
+        details = failure_details["if_then_else_details"]
+        assert "if_condition" in details
+        assert "then_condition" in details
+        assert "else_condition" in details
+        assert "actual_values" in details
+        assert details["actual_values"] == [True, 500, None]
+
+    def test_eval_with_details_if_then_else_with_bool_else(self):
+        """For if-then-else with boolean else, should handle correctly."""
+        if_condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        )
+        then_condition = TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        )
+
+        if_then_else = IfThenElseCondition(
+            if_condition=if_condition,
+            then_condition=then_condition,
+            else_condition=True,  # boolean else
+        )
+        lingo = ConditionLingo(condition=if_then_else)
+
+        # Mock verify to return failure
+        if_then_else.verify = Mock(return_value=(False, [True, 500]))
+
+        success, actual_value, failure_details = lingo.eval_with_details()
+
+        assert success is False
+        assert "if_then_else_details" in failure_details
+        details = failure_details["if_then_else_details"]
+        # Boolean else should be preserved as-is
+        assert details["else_condition"] is True
