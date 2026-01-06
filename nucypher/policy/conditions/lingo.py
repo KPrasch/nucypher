@@ -1180,13 +1180,17 @@ class ConditionLingo(_Serializable):
 
     def _extract_failure_details(self, condition: Condition, actual_value: Any) -> dict:
         """Extract detailed failure information from a condition evaluation."""
+        # Avoid circular import
+        from nucypher.policy.conditions.json.json import JsonCondition
+
         details: dict = {
             "failed_condition": condition.to_dict(),
             "actual_value": actual_value,
         }
 
         # Extract expected value from ReturnValueTest if present
-        if hasattr(condition, "return_value_test"):
+        # Use isinstance() with condition class hierarchy instead of hasattr()
+        if isinstance(condition, (ExecutionCallCondition, JsonCondition)):
             rvt = condition.return_value_test
             details["expected"] = {
                 "comparator": rvt.comparator,
