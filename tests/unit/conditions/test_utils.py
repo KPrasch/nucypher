@@ -252,19 +252,22 @@ def test_conversion_from_big_int_string(value, expectedValue):
 class TestEvaluateConditionLingoDebugMode:
     """Tests for debug_mode parameter in evaluate_condition_lingo()."""
 
-    def test_debug_mode_true_returns_detailed_error(self):
-        """With debug_mode=True, error message should contain debug info."""
+    def test_debug_mode_true_logs_details_but_returns_generic_error(self):
+        """With debug_mode=True, debug info should be logged but error should be generic."""
         condition_lingo = Mock()
+        failure_details = {
+            "failed_condition": {"conditionType": "time"},
+            "actual_value": 1234567890,
+            "expected": {"comparator": ">", "value": 9999999999999},
+            "full_lingo": {"version": "1.0.0"},
+        }
         condition_lingo.eval_with_details.return_value = (
             False,
             1234567890,  # actual_value
-            {
-                "failed_condition": {"conditionType": "time"},
-                "actual_value": 1234567890,
-                "expected": {"comparator": ">", "value": 9999999999999},
-                "full_lingo": {"version": "1.0.0"},
-            },
+            failure_details,
         )
+
+        mock_logger = Mock()
 
         with patch(
             "nucypher.policy.conditions.lingo.ConditionLingo.from_dict"
@@ -276,13 +279,21 @@ class TestEvaluateConditionLingoDebugMode:
                     condition_lingo={"version": "1.0.0", "condition": {}},
                     providers=ConditionProviderManager({1: [Mock(spec=BaseProvider)]}),
                     debug_mode=True,
+                    log=mock_logger,
                 )
 
+            # Error message should be generic (same as mainnet)
             assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
-            assert "Debug info:" in exc_info.value.message
-            assert "actual_value" in exc_info.value.message
-            assert "expected" in exc_info.value.message
-            assert "full_lingo" in exc_info.value.message
+            assert exc_info.value.message == "Decryption conditions not satisfied"
+            assert "Debug info:" not in exc_info.value.message
+
+            # Debug info should be logged
+            mock_logger.info.assert_called_once()
+            log_message = mock_logger.info.call_args[0][0]
+            assert "Condition evaluation failed" in log_message
+            assert "Debug info:" in log_message
+            assert "actual_value" in log_message
+            assert "expected" in log_message
 
     def test_debug_mode_false_returns_generic_error(self):
         """With debug_mode=False, error should be generic."""

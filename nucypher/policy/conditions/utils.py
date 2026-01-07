@@ -245,15 +245,16 @@ def evaluate_condition_lingo(
             lingo = ConditionLingo.from_dict(condition_lingo)
 
             if debug_mode:
-                # Use detailed evaluation for debug info
+                # Use detailed evaluation and log debug info (viewable via Dozzle)
                 result, actual_value, failure_details = lingo.eval_with_details(
                     providers=providers, **context
                 )
                 if not result:
                     debug_info = json.dumps(failure_details, default=str)
+                    log.info(f"Condition evaluation failed. Debug info: {debug_info}")
+                    # Return same error as mainnet for consistent behavior
                     error = ConditionEvalError(
-                        f"Decryption conditions not satisfied. Debug info: {debug_info}",
-                        HTTPStatus.FORBIDDEN,
+                        "Decryption conditions not satisfied", HTTPStatus.FORBIDDEN
                     )
             else:
                 # Original behavior
