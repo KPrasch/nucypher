@@ -265,10 +265,6 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             message = f"{bob_identity_message} Policy {bytes(hrac)} is unpaid."
             return Response(message, status=HTTPStatus.PAYMENT_REQUIRED)
 
-        # Enforce Conditions
-        # Enable debug mode for Lynx only
-        is_lynx_debug = this_node.domain.name == domains.LYNX.name
-
         capsules_to_process = list()
         for capsule, condition_lingo in packets:
             if condition_lingo:
@@ -277,7 +273,6 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
                         condition_lingo=condition_lingo,
                         providers=this_node.condition_provider_manager,
                         context=context,
-                        debug_mode=is_lynx_debug,
                     )
                 except ConditionEvalError as error:
                     # TODO: This response short-circuits the entire request on falsy condition
