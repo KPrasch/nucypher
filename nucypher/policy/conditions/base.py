@@ -78,6 +78,9 @@ class Condition(_Serializable, ABC):
         except ValueError as e:
             raise InvalidCondition(f"{e}")
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}"
+
     @abstractmethod
     def verify(self, *args, **kwargs) -> Tuple[bool, Any]:
         """Returns the boolean result of the evaluation and the returned value in a two-tuple."""
