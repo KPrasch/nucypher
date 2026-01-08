@@ -1,7 +1,7 @@
 import decimal
 import re
 from http import HTTPStatus
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, OrderedDict, Union
 
 from eth_utils import currency
 from marshmallow import Schema, post_dump
@@ -10,6 +10,7 @@ from web3 import HTTPProvider, Web3
 from web3.middleware import geth_poa_middleware
 from web3.providers import BaseProvider
 
+from nucypher.policy import conditions
 from nucypher.policy.conditions.exceptions import (
     ConditionEvaluationFailed,
     ContextVariableVerificationFailed,
@@ -228,7 +229,6 @@ def evaluate_condition_lingo(
 
     # TODO: Evaluate all conditions even if one fails and report the result
     """
-    import json
 
     # prevent circular import
     from nucypher.policy.conditions.lingo import ConditionLingo
@@ -241,29 +241,17 @@ def evaluate_condition_lingo(
     # Evaluate
     try:
         if condition_lingo:
-            log.debug(f"Evaluating access conditions {condition_lingo}")
             lingo = ConditionLingo.from_dict(condition_lingo)
+            log.debug(
+                f"Evaluating access conditions for lingo id#{str(lingo.id)}: {condition_lingo}"
+            )
 
-            if debug_mode:
-                # Use detailed evaluation and log debug info (viewable via Dozzle)
-                result, actual_value, failure_details = lingo.eval_with_details(
-                    providers=providers, **context
+            result = lingo.eval(debug_mode=debug_mode, providers=providers, **context)
+            if not result:
+                # explicit condition failure
+                error = ConditionEvalError(
+                    "Decryption conditions not satisfied", HTTPStatus.FORBIDDEN
                 )
-                if not result:
-                    debug_info = json.dumps(failure_details, default=str)
-                    log.info(f"Condition evaluation failed. Debug info: {debug_info}")
-                    # Return same error as mainnet for consistent behavior
-                    error = ConditionEvalError(
-                        "Decryption conditions not satisfied", HTTPStatus.FORBIDDEN
-                    )
-            else:
-                # Original behavior
-                result = lingo.eval(providers=providers, **context)
-                if not result:
-                    # explicit condition failure
-                    error = ConditionEvalError(
-                        "Decryption conditions not satisfied", HTTPStatus.FORBIDDEN
-                    )
     except ReturnValueEvaluationError as e:
         error = ConditionEvalError(
             f"Unable to evaluate return value: {e}",
@@ -377,3 +365,117 @@ def check_and_convert_any_big_ints(value: Any) -> Any:
         return check_and_convert_big_int_string_to_int(value)
 
     return value
+
+
+DEBUG_CONDITION_NOT_EVALUATED = "<not_evaluated>"
+DEBUG_CONDITION_LOGICAL_CHECK = "<logical_check>"
+
+
+def extract_condition_failure_details(
+    condition: "conditions.base.Condition", actual_value: Any
+) -> dict:
+    """Extract detailed failure information from a condition evaluation."""
+    # avoid circular import
+    from nucypher.policy.conditions.jwt import JWTCondition
+    from nucypher.policy.conditions.lingo import (
+        CompoundCondition,
+        IfThenElseCondition,
+        MultiCondition,
+        SequentialCondition,
+    )
+
+    details: dict = {
+        "condition": str(condition),
+    }
+
+    # base case
+    if not isinstance(condition, MultiCondition):
+        # base case - leaf condition
+        if not isinstance(condition, JWTCondition):
+            # JWT condition returns JWT payload, let's not include that in logs
+            details["value_obtained"] = actual_value
+
+        if hasattr(condition, "return_value_test"):
+            details["check_performed"] = condition.return_value_test.to_dict()
+        else:
+            details["check_performed"] = DEBUG_CONDITION_LOGICAL_CHECK
+    else:
+        # recursive case for MultiCondition
+        if isinstance(condition, IfThenElseCondition):
+            # special case because of logical branches, and optional else condition
+            sub_conditions = _extract_if_then_else_failure_details(
+                condition, actual_value
+            )
+        else:
+            if isinstance(condition, CompoundCondition):
+                details["operator"] = condition.operator
+
+            sub_conditions = OrderedDict()
+            actual_values_list = actual_value if isinstance(actual_value, list) else []
+            for i, sub_condition in enumerate(condition.conditions):
+                value = (
+                    actual_values_list[i]
+                    if i < len(actual_values_list)
+                    else DEBUG_CONDITION_NOT_EVALUATED
+                )
+
+                sub_conditions[f"{i}"] = extract_condition_failure_details(
+                    sub_condition, value
+                )
+
+                if isinstance(condition, SequentialCondition):
+                    sub_conditions[f"{i}"]["var_name"] = condition.condition_variables[
+                        i
+                    ].var_name
+
+        details["sub_conditions"] = sub_conditions
+
+    return details
+
+
+def _extract_if_then_else_failure_details(
+    condition: "conditions.lingo.IfThenElseCondition", actual_value: Any
+) -> dict:
+    """Extract failure details from if-then-else conditions."""
+    actual_values_list = actual_value if isinstance(actual_value, list) else []
+
+    details = OrderedDict()
+    details["if_condition"] = extract_condition_failure_details(
+        condition.if_condition,
+        (
+            actual_values_list[0]
+            if 0 < len(actual_values_list)
+            else DEBUG_CONDITION_NOT_EVALUATED
+        ),
+    )
+    details["then_condition"] = extract_condition_failure_details(
+        # no "then" means that actual values length is 2
+        condition.then_condition,
+        (
+            actual_values_list[1]
+            if len(actual_values_list) == 2
+            else DEBUG_CONDITION_NOT_EVALUATED
+        ),
+    )
+
+    # prevent circular import
+    from nucypher.policy.conditions.base import Condition
+
+    else_cond = condition.else_condition
+    if isinstance(else_cond, Condition):
+        # no "else" means that actual values length is 2
+        details["else_condition"] = extract_condition_failure_details(
+            else_cond,
+            (
+                actual_values_list[2]
+                if len(actual_values_list) == 3
+                else DEBUG_CONDITION_NOT_EVALUATED
+            ),
+        )
+    else:
+        details["else_condition"] = {}
+        details["else_condition"]["condition"] = str(else_cond)
+        if len(actual_values_list) < 3:
+            details["else_condition"]["value_obtained"] = DEBUG_CONDITION_NOT_EVALUATED
+
+    return details

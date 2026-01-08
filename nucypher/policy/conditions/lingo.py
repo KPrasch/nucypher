@@ -52,7 +52,9 @@ from nucypher.policy.conditions.utils import (
     _wei_to_eth,
     check_and_convert_any_big_ints,
     check_and_convert_big_int_string_to_int,
+    extract_condition_failure_details,
 )
+from nucypher.utilities.logging import Logger
 
 
 class AnyField(fields.Field):
@@ -1121,6 +1123,7 @@ class ConditionLingo(_Serializable):
         self.check_version_compatibility(version)
         self.version = version
         self.id = md5(bytes(self)).hexdigest()[:6]
+        self.log = Logger(self.__class__.__name__)
 
     @classmethod
     def from_dict(cls, data: Lingo) -> "ConditionLingo":
@@ -1159,112 +1162,16 @@ class ConditionLingo(_Serializable):
     def __repr__(self):
         return f"{self.__class__.__name__} (version={self.version} | id={self.id} | size={len(bytes(self))}) | condition=({self.condition})"
 
-    def eval(self, *args, **kwargs) -> bool:
-        result, _ = self.condition.verify(*args, **kwargs)
+    def eval(self, debug_mode: bool = False, *args, **kwargs) -> bool:
+        result, value = self.condition.verify(*args, **kwargs)
+        if not result and debug_mode:
+            failure_details = extract_condition_failure_details(self.condition, value)
+            debug_info = json.dumps(failure_details, indent=2)
+            self.log.debug(
+                f"Condition evaluation failed; ({self}). Debug info: {debug_info}"
+            )
+
         return result
-
-    def eval_with_details(self, *args, **kwargs) -> Tuple[bool, Any, Optional[dict]]:
-        """
-        Evaluate condition and return detailed results for debugging.
-
-        Returns:
-            Tuple of (success, actual_value, failure_details).
-            failure_details is None on success, contains debug info on failure.
-        """
-        result, actual_value = self.condition.verify(*args, **kwargs)
-
-        if result:
-            return True, actual_value, None
-
-        failure_details = self._extract_failure_details(self.condition, actual_value)
-        failure_details["full_lingo"] = self.to_dict()
-
-        return False, actual_value, failure_details
-
-    def _extract_failure_details(self, condition: Condition, actual_value: Any) -> dict:
-        """Extract detailed failure information from a condition evaluation."""
-        # Avoid circular import
-        from nucypher.policy.conditions.json.json import JsonCondition
-
-        details: dict = {
-            "failed_condition": condition.to_dict(),
-            "actual_value": actual_value,
-        }
-
-        # Extract expected value from ReturnValueTest if present
-        # Use isinstance() with condition class hierarchy instead of hasattr()
-        if isinstance(condition, (ExecutionCallCondition, JsonCondition)):
-            rvt = condition.return_value_test
-            details["expected"] = {
-                "comparator": rvt.comparator,
-                "value": rvt.value,
-            }
-            if rvt.index is not None:
-                details["expected"]["index"] = rvt.index
-
-        # Handle compound conditions
-        if isinstance(condition, CompoundCondition):
-            details["compound_details"] = self._extract_compound_failure_details(
-                condition, actual_value
-            )
-        elif isinstance(condition, SequentialCondition):
-            details["sequential_details"] = self._extract_sequential_failure_details(
-                condition, actual_value
-            )
-        elif isinstance(condition, IfThenElseCondition):
-            details["if_then_else_details"] = (
-                self._extract_if_then_else_failure_details(condition, actual_value)
-            )
-
-        return details
-
-    def _extract_compound_failure_details(
-        self, condition: "CompoundCondition", actual_values: List[Any]
-    ) -> dict:
-        """Extract failure details from compound conditions."""
-        details: dict = {"operator": condition.operator, "operand_results": []}
-
-        actual_values_list = actual_values if isinstance(actual_values, list) else []
-        for i, operand in enumerate(condition.operands):
-            value = actual_values_list[i] if i < len(actual_values_list) else None
-            details["operand_results"].append(
-                {"index": i, "condition": operand.to_dict(), "actual_value": value}
-            )
-
-        return details
-
-    def _extract_sequential_failure_details(
-        self, condition: "SequentialCondition", actual_values: List[Any]
-    ) -> dict:
-        """Extract failure details from sequential conditions."""
-        details: dict = {"condition_variables": []}
-
-        actual_values_list = actual_values if isinstance(actual_values, list) else []
-        for i, cv in enumerate(condition.condition_variables):
-            value = actual_values_list[i] if i < len(actual_values_list) else None
-            details["condition_variables"].append(
-                {
-                    "var_name": cv.var_name,
-                    "condition": cv.condition.to_dict(),
-                    "actual_value": value,
-                }
-            )
-
-        return details
-
-    def _extract_if_then_else_failure_details(
-        self, condition: "IfThenElseCondition", actual_values: List[Any]
-    ) -> dict:
-        """Extract failure details from if-then-else conditions."""
-        else_cond = condition.else_condition
-        return {
-            "if_condition": condition.if_condition.to_dict(),
-            "then_condition": condition.then_condition.to_dict(),
-            "else_condition": (
-                else_cond.to_dict() if isinstance(else_cond, Condition) else else_cond
-            ),
-            "actual_values": actual_values,
-        }
 
     @classmethod
     def resolve_condition_class(
