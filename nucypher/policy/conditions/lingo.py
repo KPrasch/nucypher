@@ -843,6 +843,9 @@ class IfThenElseCondition(MultiCondition):
             values.append(then_value)
             return then_result, values
 
+        # then condition not executed
+        values.append(None)
+
         # else
         if isinstance(self.else_condition, Condition):
             # actual condition

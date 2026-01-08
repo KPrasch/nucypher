@@ -207,13 +207,13 @@ def test_if_then_else_condition(mock_conditions):
     cond_1.verify.return_value = (False, 1)
     result, value = if_then_else_condition.verify()
     assert result is False
-    assert value == [1, 3]
+    assert value == [1, None, 3]
 
     # flip else condition to be sure
     cond_3.verify.return_value = (True, 3)
     result, value = if_then_else_condition.verify()
     assert result is True
-    assert value == [1, 3]
+    assert value == [1, None, 3]
 
 
 @pytest.mark.usefixtures("mock_skip_schema_validation")
@@ -233,7 +233,7 @@ def test_if_then_else_condition_else_condition_is_boolean(mock_conditions):
     cond_1.verify.return_value = (False, 1)
     result, value = if_then_else_condition.verify()
     assert result is False
-    assert value == [1, False]
+    assert value == [1, None, False]
 
     if_then_else_condition = IfThenElseCondition(
         if_condition=cond_1,
@@ -244,7 +244,7 @@ def test_if_then_else_condition_else_condition_is_boolean(mock_conditions):
     # else execution happens - True
     result, value = if_then_else_condition.verify()
     assert result is True
-    assert value == [1, True]
+    assert value == [1, None, True]
 
 
 @pytest.mark.usefixtures("mock_skip_schema_validation")
@@ -307,7 +307,7 @@ def test_nested_multi_conditions(mock_conditions):
         providers=ConditionProviderManager({})
     )
     assert result is False
-    assert value == [[1, 2], [3, 2]]  # [[or result], [else if condition result]]
+    assert value == [[1, 2], None, [3, 2]]  # [[or result], [else if condition result]]
 
 
 @pytest.mark.usefixtures("mock_skip_schema_validation")
