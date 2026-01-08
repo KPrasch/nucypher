@@ -193,7 +193,7 @@ class CompoundCondition(MultiCondition):
         elif num_operands > cls.MAX_NUM_CONDITIONS:
             raise ValidationError(
                 field_name="operands",
-                message="Maximum of {cls.MAX_NUM_CONDITIONS} operands allowed for '{operator}' compound condition",
+                message=f"Maximum of {cls.MAX_NUM_CONDITIONS} operands allowed for '{operator}' compound condition",
             )
 
     class Schema(Condition.Schema):

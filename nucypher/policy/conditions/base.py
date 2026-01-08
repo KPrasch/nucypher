@@ -130,7 +130,7 @@ class MultiCondition(Condition):
                     field_name=field_name,
                     message=f"Only {cls.MAX_MULTI_CONDITION_NESTED_LEVEL} nested levels of multi-conditions are allowed",
                 )
-            cls._validate_multi_condition_nesting(
+            condition._validate_multi_condition_nesting(
                 conditions=condition.conditions,
                 field_name=field_name,
                 current_level=level,

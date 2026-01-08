@@ -13,6 +13,7 @@ from nucypher.policy.conditions.exceptions import (
 from nucypher.policy.conditions.json.json import JsonCondition
 from nucypher.policy.conditions.lingo import (
     MAX_VARIABLE_OPERATIONS,
+    ConditionLingo,
     ConditionType,
     ConditionVariable,
     OrCompoundCondition,
@@ -101,6 +102,24 @@ def test_invalid_sequential_condition(rpc_condition, time_condition):
                 ),
             ],
         )
+
+
+def test_sequential_condition_max_number_of_conditions(rpc_condition):
+    sequential_condition = SequentialCondition(
+        # uses MAX_NUM_CONDITIONS for SequentialCondition (10), which is more than CompoundCondition.MAX_NUM_CONDITIONS (5)
+        condition_variables=[
+            ConditionVariable(f"var{i}", rpc_condition)
+            for i in range(SequentialCondition.MAX_NUM_CONDITIONS)
+        ]
+    )
+    compound_condition = OrCompoundCondition(
+        operands=[
+            rpc_condition,
+            sequential_condition,
+        ]
+    )
+    lingo = ConditionLingo(condition=compound_condition)
+    _ = ConditionLingo.from_dict(lingo.to_dict())
 
 
 def test_nested_sequential_condition_too_many_nested_levels(

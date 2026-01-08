@@ -122,17 +122,26 @@ def test_invalid_compound_condition(time_condition, rpc_condition):
     operands = list()
     for i in range(CompoundCondition.MAX_NUM_CONDITIONS + 1):
         operands.append(rpc_condition)
-    with pytest.raises(InvalidCondition):
+    with pytest.raises(
+        InvalidCondition,
+        match=f"Maximum of {CompoundCondition.MAX_NUM_CONDITIONS} operands",
+    ):
         _ = CompoundCondition(
             operator=CompoundCondition.OR_OPERATOR,
             operands=operands,
         )
-    with pytest.raises(InvalidCondition):
+    with pytest.raises(
+        InvalidCondition,
+        match=f"Maximum of {CompoundCondition.MAX_NUM_CONDITIONS} operands",
+    ):
         _ = CompoundCondition(
             operator=CompoundCondition.AND_OPERATOR,
             operands=operands,
         )
-    with pytest.raises(InvalidCondition):
+    with pytest.raises(
+        InvalidCondition,
+        match=f"Maximum of {CompoundCondition.MAX_NUM_CONDITIONS} operands",
+    ):
         _ = CompoundCondition(
             operator=CompoundCondition.AT_LEAST_OPERATOR,
             operands=operands,
