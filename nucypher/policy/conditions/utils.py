@@ -1,7 +1,8 @@
 import decimal
 import re
+from collections import OrderedDict
 from http import HTTPStatus
-from typing import Any, Dict, Iterator, List, Optional, OrderedDict, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from eth_utils import currency
 from marshmallow import Schema, post_dump
@@ -444,12 +445,12 @@ def _extract_if_then_else_failure_details(
         condition.if_condition,
         (
             actual_values_list[0]
-            if 0 < len(actual_values_list)
+            if actual_values_list
             else DEBUG_CONDITION_NOT_EVALUATED
         ),
     )
     details["then_condition"] = extract_condition_failure_details(
-        # no "then" means that actual values length is 2
+        # "then" is executed if there are exactly 2 values (i.e., "if" + "then")
         condition.then_condition,
         (
             actual_values_list[1]
@@ -463,7 +464,8 @@ def _extract_if_then_else_failure_details(
 
     else_cond = condition.else_condition
     if isinstance(else_cond, Condition):
-        # no "else" means that actual values length is 2
+        # "else" is executed only when the values list has exactly 3 elements:
+        # (if + None for "then" since "if" failed + else)
         details["else_condition"] = extract_condition_failure_details(
             else_cond,
             (
