@@ -1162,7 +1162,7 @@ class ConditionLingo(_Serializable):
     def __repr__(self):
         return f"{self.__class__.__name__} (version={self.version} | id={self.id} | size={len(bytes(self))}) | condition=({self.condition})"
 
-    def eval(self, debug_mode: bool = False, *args, **kwargs) -> bool:
+    def eval(self, *args, debug_mode: bool = False, **kwargs) -> bool:
         result, value = self.condition.verify(*args, **kwargs)
         if not result and debug_mode:
             failure_details = extract_condition_failure_details(self.condition, value)
