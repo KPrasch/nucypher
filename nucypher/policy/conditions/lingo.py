@@ -1166,7 +1166,7 @@ class ConditionLingo(_Serializable):
         result, value = self.condition.verify(*args, **kwargs)
         if not result and debug_mode:
             failure_details = extract_condition_failure_details(self.condition, value)
-            debug_info = json.dumps(failure_details, indent=2)
+            debug_info = json.dumps(failure_details, indent=2, default=str)
             self.log.debug(
                 f"Condition evaluation failed; ({self}). Debug info: {debug_info}"
             )
