@@ -226,7 +226,7 @@ def evaluate_condition_lingo(
         providers: Provider manager for blockchain connections.
         context: User-supplied context variables.
         log: Logger instance.
-        debug_mode: If True, return detailed failure info (for Lynx/dev only).
+        debug_mode: If True and evaluation fails, log detailed failure information.
 
     # TODO: Evaluate all conditions even if one fails and report the result
     """
