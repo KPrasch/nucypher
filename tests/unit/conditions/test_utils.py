@@ -698,29 +698,29 @@ class TestExtractConditionFailureDebugMode:
         assert and_failure_details["condition"] == str(condition)
         assert and_failure_details["operator"] == "and"
 
-        assert and_failure_details["sub_conditions"]["0"]["condition"] == str(cond_1)
-        assert and_failure_details["sub_conditions"]["0"]["value_obtained"] == value[0]
+        assert and_failure_details["sub_conditions"][0]["condition"] == str(cond_1)
+        assert and_failure_details["sub_conditions"][0]["value_obtained"] == value[0]
         assert (
-            and_failure_details["sub_conditions"]["0"]["check_performed"]
+            and_failure_details["sub_conditions"][0]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert and_failure_details["sub_conditions"]["1"]["condition"] == str(cond_2)
-        assert and_failure_details["sub_conditions"]["1"]["value_obtained"] == value[1]
+        assert and_failure_details["sub_conditions"][1]["condition"] == str(cond_2)
+        assert and_failure_details["sub_conditions"][1]["value_obtained"] == value[1]
         assert (
-            and_failure_details["sub_conditions"]["1"]["check_performed"]
+            and_failure_details["sub_conditions"][1]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert and_failure_details["sub_conditions"]["2"]["condition"] == str(
+        assert and_failure_details["sub_conditions"][2]["condition"] == str(
             time_condition
         )
         assert (
-            and_failure_details["sub_conditions"]["2"]["value_obtained"]
+            and_failure_details["sub_conditions"][2]["value_obtained"]
             == DEBUG_CONDITION_NOT_EVALUATED
         )
         assert (
-            and_failure_details["sub_conditions"]["2"]["check_performed"]
+            and_failure_details["sub_conditions"][2]["check_performed"]
             == time_condition.return_value_test.to_dict()
         )
 
@@ -737,24 +737,24 @@ class TestExtractConditionFailureDebugMode:
         assert or_failure_details["condition"] == str(condition)
         assert or_failure_details["operator"] == "or"
 
-        assert or_failure_details["sub_conditions"]["0"]["condition"] == str(cond_1)
-        assert or_failure_details["sub_conditions"]["0"]["value_obtained"] == value[0]
+        assert or_failure_details["sub_conditions"][0]["condition"] == str(cond_1)
+        assert or_failure_details["sub_conditions"][0]["value_obtained"] == value[0]
         assert (
-            or_failure_details["sub_conditions"]["0"]["check_performed"]
+            or_failure_details["sub_conditions"][0]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert or_failure_details["sub_conditions"]["1"]["condition"] == str(cond_2)
-        assert or_failure_details["sub_conditions"]["1"]["value_obtained"] == value[1]
+        assert or_failure_details["sub_conditions"][1]["condition"] == str(cond_2)
+        assert or_failure_details["sub_conditions"][1]["value_obtained"] == value[1]
         assert (
-            or_failure_details["sub_conditions"]["1"]["check_performed"]
+            or_failure_details["sub_conditions"][1]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert or_failure_details["sub_conditions"]["2"]["condition"] == str(cond_3)
-        assert or_failure_details["sub_conditions"]["2"]["value_obtained"] == value[2]
+        assert or_failure_details["sub_conditions"][2]["condition"] == str(cond_3)
+        assert or_failure_details["sub_conditions"][2]["value_obtained"] == value[2]
         assert (
-            or_failure_details["sub_conditions"]["2"]["check_performed"]
+            or_failure_details["sub_conditions"][2]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
@@ -819,55 +819,55 @@ class TestExtractConditionFailureDebugMode:
 
         assert sequential_failure_details["condition"] == str(condition)
 
-        assert sequential_failure_details["sub_conditions"]["0"]["var_name"] == "var1"
-        assert sequential_failure_details["sub_conditions"]["0"]["condition"] == str(
+        assert sequential_failure_details["sub_conditions"][0]["var_name"] == "var1"
+        assert sequential_failure_details["sub_conditions"][0]["condition"] == str(
             cond_1
         )
         assert (
-            sequential_failure_details["sub_conditions"]["0"]["value_obtained"]
+            sequential_failure_details["sub_conditions"][0]["value_obtained"]
             == value[0]
         )
         assert (
-            sequential_failure_details["sub_conditions"]["0"]["check_performed"]
+            sequential_failure_details["sub_conditions"][0]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert sequential_failure_details["sub_conditions"]["1"]["var_name"] == "var2"
-        assert sequential_failure_details["sub_conditions"]["1"]["condition"] == str(
+        assert sequential_failure_details["sub_conditions"][1]["var_name"] == "var2"
+        assert sequential_failure_details["sub_conditions"][1]["condition"] == str(
             cond_2
         )
         assert (
-            sequential_failure_details["sub_conditions"]["1"]["value_obtained"]
+            sequential_failure_details["sub_conditions"][1]["value_obtained"]
             == value[1]
         )
         assert (
-            sequential_failure_details["sub_conditions"]["1"]["check_performed"]
+            sequential_failure_details["sub_conditions"][1]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert sequential_failure_details["sub_conditions"]["2"]["var_name"] == "var3"
-        assert sequential_failure_details["sub_conditions"]["2"]["condition"] == str(
+        assert sequential_failure_details["sub_conditions"][2]["var_name"] == "var3"
+        assert sequential_failure_details["sub_conditions"][2]["condition"] == str(
             cond_3
         )
         assert (
-            sequential_failure_details["sub_conditions"]["2"]["value_obtained"]
+            sequential_failure_details["sub_conditions"][2]["value_obtained"]
             == value[2]
         )
         assert (
-            sequential_failure_details["sub_conditions"]["2"]["check_performed"]
+            sequential_failure_details["sub_conditions"][2]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert sequential_failure_details["sub_conditions"]["3"]["var_name"] == "var4"
-        assert sequential_failure_details["sub_conditions"]["3"]["condition"] == str(
+        assert sequential_failure_details["sub_conditions"][3]["var_name"] == "var4"
+        assert sequential_failure_details["sub_conditions"][3]["condition"] == str(
             rpc_condition
         )
         assert (
-            sequential_failure_details["sub_conditions"]["3"]["value_obtained"]
+            sequential_failure_details["sub_conditions"][3]["value_obtained"]
             == DEBUG_CONDITION_NOT_EVALUATED
         )
         assert (
-            sequential_failure_details["sub_conditions"]["3"]["check_performed"]
+            sequential_failure_details["sub_conditions"][3]["check_performed"]
             == rpc_condition.return_value_test.to_dict()
         )
 
@@ -901,46 +901,44 @@ class TestExtractConditionFailureDebugMode:
 
         assert nested_failure_details["condition"] == str(condition)
 
-        assert nested_failure_details["sub_conditions"]["0"]["var_name"] == "var1"
-        assert nested_failure_details["sub_conditions"]["0"]["condition"] == str(cond_1)
+        assert nested_failure_details["sub_conditions"][0]["var_name"] == "var1"
+        assert nested_failure_details["sub_conditions"][0]["condition"] == str(cond_1)
+        assert nested_failure_details["sub_conditions"][0]["value_obtained"] == value[0]
         assert (
-            nested_failure_details["sub_conditions"]["0"]["value_obtained"] == value[0]
-        )
-        assert (
-            nested_failure_details["sub_conditions"]["0"]["check_performed"]
+            nested_failure_details["sub_conditions"][0]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        inner_details = nested_failure_details["sub_conditions"]["1"]
+        inner_details = nested_failure_details["sub_conditions"][1]
         assert inner_details["var_name"] == "var2"
         assert inner_details["condition"] == str(inner_compound)
         assert inner_details["operator"] == "and"
 
-        assert inner_details["sub_conditions"]["0"]["condition"] == str(cond_2)
-        assert inner_details["sub_conditions"]["0"]["value_obtained"] == value[1][0]
+        assert inner_details["sub_conditions"][0]["condition"] == str(cond_2)
+        assert inner_details["sub_conditions"][0]["value_obtained"] == value[1][0]
         assert (
-            inner_details["sub_conditions"]["0"]["check_performed"]
+            inner_details["sub_conditions"][0]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 
-        assert inner_details["sub_conditions"]["1"]["condition"] == str(time_condition)
+        assert inner_details["sub_conditions"][1]["condition"] == str(time_condition)
         assert (
-            inner_details["sub_conditions"]["1"]["value_obtained"]
+            inner_details["sub_conditions"][1]["value_obtained"]
             == DEBUG_CONDITION_NOT_EVALUATED
         )
         assert (
-            inner_details["sub_conditions"]["1"]["check_performed"]
+            inner_details["sub_conditions"][1]["check_performed"]
             == time_condition.return_value_test.to_dict()
         )
 
-        assert nested_failure_details["sub_conditions"]["2"]["var_name"] == "var3"
-        assert nested_failure_details["sub_conditions"]["2"]["condition"] == str(cond_3)
+        assert nested_failure_details["sub_conditions"][2]["var_name"] == "var3"
+        assert nested_failure_details["sub_conditions"][2]["condition"] == str(cond_3)
         assert (
-            nested_failure_details["sub_conditions"]["2"]["value_obtained"]
+            nested_failure_details["sub_conditions"][2]["value_obtained"]
             == DEBUG_CONDITION_NOT_EVALUATED
         )
         assert (
-            nested_failure_details["sub_conditions"]["2"]["check_performed"]
+            nested_failure_details["sub_conditions"][2]["check_performed"]
             == DEBUG_CONDITION_LOGICAL_CHECK
         )
 

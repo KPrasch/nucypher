@@ -420,12 +420,12 @@ def extract_condition_failure_details(
                     else DEBUG_CONDITION_NOT_EVALUATED
                 )
 
-                sub_conditions[f"{i}"] = extract_condition_failure_details(
+                sub_conditions[i] = extract_condition_failure_details(
                     sub_condition, value
                 )
 
                 if isinstance(condition, SequentialCondition):
-                    sub_conditions[f"{i}"]["var_name"] = condition.condition_variables[
+                    sub_conditions[i]["var_name"] = condition.condition_variables[
                         i
                     ].var_name
 
