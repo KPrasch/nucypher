@@ -376,6 +376,7 @@ _OPERATOR_FUNCTIONS = {
     "/=": pyoperator.truediv,
     "%=": pyoperator.mod,
     "index": lambda a, b: a[b],
+    "pow": lambda a, b: pyoperator.pow(*b),
     "round": lambda a, b: round(a, b),
     # unary operations i.e. don't require 2nd 'b' value to be passed;
     "abs": lambda a: abs(a),
@@ -551,7 +552,7 @@ class ConditionVariable(_Serializable):
 
 
 class SequentialCondition(MultiCondition):
-    MAX_NUM_CONDITIONS = 10
+    MAX_NUM_CONDITIONS = 20
 
     """
     A series of conditions that are evaluated in a specific order, where the result of one
