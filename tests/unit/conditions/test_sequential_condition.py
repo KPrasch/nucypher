@@ -13,6 +13,7 @@ from nucypher.policy.conditions.exceptions import (
 from nucypher.policy.conditions.json.json import JsonCondition
 from nucypher.policy.conditions.lingo import (
     MAX_VARIABLE_OPERATIONS,
+    AndCompoundCondition,
     ConditionLingo,
     ConditionType,
     ConditionVariable,
@@ -125,10 +126,13 @@ def test_sequential_condition_max_number_of_conditions(rpc_condition):
 def test_nested_sequential_condition_too_many_nested_levels(
     rpc_condition, time_condition
 ):
+    # Need 5 levels to exceed MAX_MULTI_CONDITION_NESTED_LEVEL of 4
     var_1 = ConditionVariable("var1", time_condition)
     var_2 = ConditionVariable("var2", rpc_condition)
     var_3 = ConditionVariable("var3", time_condition)
     var_4 = ConditionVariable("var4", rpc_condition)
+    var_5 = ConditionVariable("var5", time_condition)
+    var_6 = ConditionVariable("var6", rpc_condition)
 
     with pytest.raises(
         InvalidCondition, match="nested levels of multi-conditions are allowed"
@@ -147,7 +151,23 @@ def test_nested_sequential_condition_too_many_nested_levels(
                                     SequentialCondition(
                                         condition_variables=[
                                             var_3,
-                                            var_4,
+                                            ConditionVariable(
+                                                "seq_3",
+                                                SequentialCondition(
+                                                    condition_variables=[
+                                                        var_4,
+                                                        ConditionVariable(
+                                                            "seq_4",
+                                                            SequentialCondition(
+                                                                condition_variables=[
+                                                                    var_5,
+                                                                    var_6,
+                                                                ],
+                                                            ),
+                                                        ),
+                                                    ],
+                                                ),
+                                            ),
                                         ],
                                     ),
                                 ),
@@ -162,6 +182,7 @@ def test_nested_sequential_condition_too_many_nested_levels(
 def test_nested_compound_condition_too_many_nested_levels(
     rpc_condition, time_condition
 ):
+    # Need 5 levels to exceed MAX_MULTI_CONDITION_NESTED_LEVEL of 4
     var_1 = ConditionVariable("var1", time_condition)
     var_2 = ConditionVariable("var2", rpc_condition)
     var_3 = ConditionVariable("var3", time_condition)
@@ -177,10 +198,20 @@ def test_nested_compound_condition_too_many_nested_levels(
                     OrCompoundCondition(
                         operands=[
                             var_1.condition,
-                            SequentialCondition(
-                                condition_variables=[
-                                    var_2,
-                                    var_3,
+                            AndCompoundCondition(
+                                operands=[
+                                    var_2.condition,
+                                    OrCompoundCondition(
+                                        operands=[
+                                            var_3.condition,
+                                            SequentialCondition(
+                                                condition_variables=[
+                                                    var_2,
+                                                    var_3,
+                                                ]
+                                            ),
+                                        ]
+                                    ),
                                 ]
                             ),
                         ]
