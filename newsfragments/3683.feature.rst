@@ -1,1 +1,1 @@
-Added ``pow`` operator for condition variable operations (takes ``[base, exponent]`` as value to compute ``base ** exponent``), and increased condition limits (``SequentialCondition.MAX_NUM_CONDITIONS`` to 20, ``MAX_MULTI_CONDITION_NESTED_LEVEL`` to 4).
+Added ``*pow=`` operator for condition variable operations (takes ``[base, exponent]`` as value to compute ``initial_value * (base ** exponent)``), useful for token decimal conversions, and increased condition limits (``SequentialCondition.MAX_NUM_CONDITIONS`` to 20, ``MAX_MULTI_CONDITION_NESTED_LEVEL`` to 4).

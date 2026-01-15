@@ -13,9 +13,10 @@ OPERATION_TEST_CASES = [
     ("*=", 2, 3, 6),
     ("/=", 2, 6, 3.0),
     ("%=", 2, 5, 1),
-    ("pow", [3, 2], None, 9),  # 3 ** 2 = 9
-    ("pow", [2, 3], None, 8),  # 2 ** 3 = 8
-    ("pow", [10, 18], None, 1000000000000000000),  # 10 ** 18 for token decimals
+    ("*pow=", [3, 2], 1, 9),  # 1 * (3 ** 2) = 9
+    ("*pow=", [2, 3], 1, 8),  # 1 * (2 ** 3) = 8
+    ("*pow=", [10, 18], 1, 1000000000000000000),  # 1 * (10 ** 18) for wei conversion
+    ("*pow=", [10, 6], 100, 100000000),  # 100 * (10 ** 6) = 100000000 for USDC decimals
     ("abs", None, -3, 3),
     ("abs", None, 3, 3),
     ("avg", None, [1, 2, 3], 2),
@@ -459,70 +460,83 @@ def test_tojson_type_errors():
 
 
 def test_pow_operator_for_token_decimals():
-    """Test the pow operator for ERC-20 token decimal conversion use case."""
-    # Common use case: convert token decimals to multiplier
-    # For USDC (6 decimals): 10 ** 6 = 1000000
-    initial = None  # initial value doesn't matter for pow
+    """Test the *pow= operator for ERC-20 token decimal conversion use case."""
+    # Common use case: multiply amount by power of 10 for token decimals
+    # For USDC (6 decimals): 100 * (10 ** 6) = 100000000
+    initial = 100  # amount from user input (e.g., 100 USDC)
     operations = [
-        VariableOperation(operation="pow", value=[10, 6]),  # 10 ** 6 = 1000000
-    ]
-    result = VariableOperation.evaluate_operations(operations, initial)
-    assert result == 1000000
-
-    # For ETH/most tokens (18 decimals): 10 ** 18
-    operations = [
-        VariableOperation(operation="pow", value=[10, 18]),  # 10 ** 18
-    ]
-    result = VariableOperation.evaluate_operations(operations, initial)
-    assert result == 1000000000000000000
-
-    # Cascading: compute multiplier, then multiply amount
-    # Simulates: amount * (10 ** decimals)
-    initial = None  # initial value doesn't matter
-    operations = [
-        VariableOperation(operation="pow", value=[10, 6]),  # 10 ** 6 = 1000000
         VariableOperation(
-            operation="*=", value=100
-        ),  # 1000000 * 100 = 100000000 (100 USDC in smallest unit)
+            operation="*pow=", value=[10, 6]
+        ),  # 100 * (10 ** 6) = 100000000
     ]
     result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 100000000
 
-
-def test_pow_operator_edge_cases():
-    """Test edge cases for the pow operator."""
-    # Anything to the power of 0 is 1
-    initial = None
+    # For ETH/most tokens (18 decimals): 1 * (10 ** 18)
+    initial = 1  # 1 token
     operations = [
-        VariableOperation(operation="pow", value=[5, 0]),
+        VariableOperation(operation="*pow=", value=[10, 18]),  # 1 * (10 ** 18)
     ]
     result = VariableOperation.evaluate_operations(operations, initial)
-    assert result == 1
+    assert result == 1000000000000000000
 
-    # 0 to any positive power is 0
+    # Another example: 250.5 tokens with 6 decimals
+    initial = 250.5
     operations = [
-        VariableOperation(operation="pow", value=[0, 5]),
+        VariableOperation(
+            operation="*pow=", value=[10, 6]
+        ),  # 250.5 * (10 ** 6) = 250500000
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 250500000
+
+
+def test_pow_operator_edge_cases():
+    """Test edge cases for the *pow= operator."""
+    # Anything to the power of 0 is 1, multiplied by initial value
+    initial = 7
+    operations = [
+        VariableOperation(operation="*pow=", value=[5, 0]),  # 7 * (5 ** 0) = 7 * 1 = 7
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 7
+
+    # 0 to any positive power is 0, so result is 0
+    initial = 100
+    operations = [
+        VariableOperation(
+            operation="*pow=", value=[0, 5]
+        ),  # 100 * (0 ** 5) = 100 * 0 = 0
     ]
     result = VariableOperation.evaluate_operations(operations, initial)
     assert result == 0
 
-    # 1 to any power is 1
+    # 1 to any power is 1, so result equals initial value
+    initial = 42
     operations = [
-        VariableOperation(operation="pow", value=[1, 100]),
+        VariableOperation(
+            operation="*pow=", value=[1, 100]
+        ),  # 42 * (1 ** 100) = 42 * 1 = 42
     ]
     result = VariableOperation.evaluate_operations(operations, initial)
-    assert result == 1
+    assert result == 42
 
     # Negative exponent gives float
+    initial = 10
     operations = [
-        VariableOperation(operation="pow", value=[2, -1]),
+        VariableOperation(
+            operation="*pow=", value=[2, -1]
+        ),  # 10 * (2 ** -1) = 10 * 0.5 = 5
     ]
     result = VariableOperation.evaluate_operations(operations, initial)
-    assert result == 0.5
+    assert result == 5.0
 
     # Float base
+    initial = 2
     operations = [
-        VariableOperation(operation="pow", value=[2.5, 2]),
+        VariableOperation(
+            operation="*pow=", value=[2.5, 2]
+        ),  # 2 * (2.5 ** 2) = 2 * 6.25 = 12.5
     ]
     result = VariableOperation.evaluate_operations(operations, initial)
-    assert result == 6.25
+    assert result == 12.5
