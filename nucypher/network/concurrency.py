@@ -77,6 +77,13 @@ class NetworkRequestClient(ThresholdAccessControlClient):
             worker_pool.cancel()
 
         failures = worker_pool.get_failures()
+        if len(successes) < threshold:
+            # threshold not met and some ursulas did not respond at all; mark them as timeout failures
+            for ursula in ursulas_to_contact:
+                if ursula not in successes and ursula not in failures:
+                    failures[ursula] = (
+                        f"Node {ursula} did not respond before timeout ({timeout}s)."
+                    )
 
         return successes, failures
 
