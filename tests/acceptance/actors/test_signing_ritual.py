@@ -1,5 +1,6 @@
 import json
 import random
+import time
 
 import pytest
 import pytest_twisted
@@ -274,6 +275,73 @@ def test_signing_request_fulfilment(
         result == EIP1271Auth.MAGIC_VALUE_BYTES
     ), f"Invalid signature: {result} != {EIP1271Auth.MAGIC_VALUE_BYTES}"
     print("===================== SIGNING SUCCESSFUL =====================")
+    yield
+
+
+@pytest_twisted.inlineCallbacks
+def test_signing_request_failure_node_timeout(
+    mocker,
+    chain,
+    bob,
+    accounts,
+    cohort_id,
+    cohort,
+):
+    print(
+        "==================== SIGNING FAILURE NODE TIMEOUT (EXPECTED) ===================="
+    )
+    bob.start_learning_loop(now=True)
+
+    test_user_op = create_eth_transfer(
+        sender=accounts[0].address,
+        nonce=1,
+        to=accounts[1].address,
+        value=1000000000000000000,  # 1 ETH in wei
+        verification_gas_limit=100000,
+        call_gas_limit=100000,
+        pre_verification_gas=21000,
+        max_priority_fee_per_gas=1000000000,
+        max_fee_per_gas=2000000000,
+    )
+
+    signing_request = UserOperationSignatureRequest(
+        user_op=test_user_op,
+        aa_version=AAVersion.V08,
+        chain_id=chain.chain_id,
+        cohort_id=cohort_id,
+        context=None,
+    )
+
+    # mock timeout for all ursulas in cohort
+    timeout = 1
+
+    def timed_out_request_signature(*args, **kwargs):
+        time.sleep(timeout + 2)  # ensures node never responds in time
+        raise ValueError("Fake exception should be after worker pool timeout")
+
+    mocker.patch(
+        "nucypher.network.middleware.RestMiddleware.request_signature",
+        side_effect=timed_out_request_signature,
+    )
+
+    # perform threshold decryption
+    with pytest.raises(
+        Ursula.NotEnoughUrsulas, match="Threshold of Ursulas unable to sign"
+    ) as exc_info:
+        _ = yield bob.request_threshold_signatures(
+            signing_request=signing_request, timeout=timeout
+        )
+
+    message = str(exc_info.value)
+    for ursula in cohort:
+        assert (
+            f"Node {ursula.checksum_address} did not respond before timeout ({timeout}s)"
+            in message
+        )
+
+    print(
+        "===================== SIGNING FAILURE NODE TIMEOUT (EXPECTED) SUCCESSFUL ====================="
+    )
     yield
 
 
