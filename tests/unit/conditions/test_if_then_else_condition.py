@@ -6,6 +6,7 @@ from nucypher.policy.conditions.base import (
 )
 from nucypher.policy.conditions.exceptions import InvalidCondition
 from nucypher.policy.conditions.lingo import (
+    AndCompoundCondition,
     ConditionType,
     ConditionVariable,
     IfThenElseCondition,
@@ -47,13 +48,24 @@ def test_nested_sequential_condition_too_many_nested_levels(
     rpc_condition, time_condition
 ):
     # causes too many nested multi-conditions when used within a if-then-else condition
+    # Need 5 levels to exceed MAX_MULTI_CONDITION_NESTED_LEVEL of 4
     problematic_nested_condition = SequentialCondition(
         condition_variables=[
             ConditionVariable("var1", time_condition),
             ConditionVariable(
                 "seq_1",
                 IfThenElseCondition(
-                    if_condition=rpc_condition,
+                    if_condition=OrCompoundCondition(
+                        operands=[
+                            rpc_condition,
+                            AndCompoundCondition(
+                                operands=[
+                                    time_condition,
+                                    rpc_condition,
+                                ]
+                            ),
+                        ]
+                    ),
                     then_condition=time_condition,
                     else_condition=rpc_condition,
                 ),
@@ -96,13 +108,24 @@ def test_nested_compound_condition_too_many_nested_levels(
     rpc_condition, time_condition
 ):
     # causes too many nested multi-conditions when used within a if-then-else condition
+    # Need 5 levels to exceed MAX_MULTI_CONDITION_NESTED_LEVEL of 4
     problematic_nested_condition = OrCompoundCondition(
         operands=[
             rpc_condition,
-            IfThenElseCondition(
-                if_condition=time_condition,
-                then_condition=rpc_condition,
-                else_condition=time_condition,
+            AndCompoundCondition(
+                operands=[
+                    time_condition,
+                    IfThenElseCondition(
+                        if_condition=OrCompoundCondition(
+                            operands=[
+                                rpc_condition,
+                                time_condition,
+                            ]
+                        ),
+                        then_condition=rpc_condition,
+                        else_condition=time_condition,
+                    ),
+                ]
             ),
         ]
     )

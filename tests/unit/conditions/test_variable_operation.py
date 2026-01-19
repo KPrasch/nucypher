@@ -41,6 +41,10 @@ OPERATION_TEST_CASES = [
     ("round", 2, 3.1415, 3.14),
     ("sum", None, [1, 2, 3], 6),
     ("sum", None, [1232, 22212, 3231], 26675),
+    ("toTokenBaseUnits", 18, 1, 1000000000000000000),  # 1 token with 18 decimals
+    ("toTokenBaseUnits", 18, 1.5, 1500000000000000000),  # 1.5 tokens with 18 decimals
+    ("toTokenBaseUnits", 6, 100, 100000000),  # 100 USDC (6 decimals)
+    ("toTokenBaseUnits", 6, 250.5, 250500000),  # 250.5 USDC (6 decimals)
     ("weiToEth", None, 1000000000000000000, 1),
     ("weiToEth", None, 1500000000000000000, 1.5),
     ("weiToEth", None, 1100000000000000000, 1.1),
@@ -453,3 +457,110 @@ def test_tojson_type_errors():
         TypeError, match="Object of type bytes is not JSON serializable"
     ):
         VariableOperation.evaluate_operations([op], b"test")
+
+
+def test_to_token_base_units_operator():
+    """Test toTokenBaseUnits operator for ERC-20 token decimal conversion."""
+    # USDC (6 decimals): 100 tokens -> 100000000 base units
+    initial = 100
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=6),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 100000000
+
+    # ETH/most tokens (18 decimals): 1 token -> 1000000000000000000 base units
+    initial = 1
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=18),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 1000000000000000000
+
+    # 250.5 tokens with 6 decimals
+    initial = 250.5
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=6),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 250500000
+
+
+def test_to_token_base_units_high_precision():
+    """
+    Test toTokenBaseUnits with high precision values that would fail with float arithmetic.
+
+    This is the key test case that motivated replacing *pow= with toTokenBaseUnits.
+    Float precision is limited to ~17 digits, so 0.123456789012345678 * 10^18 would
+    fail with float arithmetic but succeeds with Decimal + int conversion.
+
+    In practice, high precision values come from JSON as strings which get converted
+    to Decimals via _convert_any_floats_to_decimal before reaching toTokenBaseUnits.
+    Python float literals can't represent 18+ digits of precision, so we test with
+    Decimal inputs which reflects the real-world flow.
+    """
+    from decimal import Decimal
+
+    # High precision case - using Decimal as values come from JSON strings in practice
+    initial = Decimal("0.123456789012345678")  # 18 decimal places
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=18),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 123456789012345678
+
+    # Another high precision case
+    initial = Decimal("0.999999999999999999")
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=18),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 999999999999999999
+
+
+def test_to_token_base_units_edge_cases():
+    """Test edge cases for toTokenBaseUnits operator."""
+    # Zero tokens
+    initial = 0
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=18),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 0
+
+    # Whole number tokens
+    initial = 1000
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=6),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 1000000000
+
+    # Zero decimals (token with no decimals)
+    initial = 100
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=0),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 100
+
+    # Very small amount
+    initial = 0.000001
+    operations = [
+        VariableOperation(operation="toTokenBaseUnits", value=18),
+    ]
+    result = VariableOperation.evaluate_operations(operations, initial)
+    assert result == 1000000000000
+
+
+def test_to_token_base_units_type_errors():
+    """Test that toTokenBaseUnits raises TypeError for invalid inputs."""
+    op = VariableOperation(operation="toTokenBaseUnits", value=18)
+
+    # Test that non-numeric value raises TypeError
+    with pytest.raises(TypeError, match="Invalid value for toTokenBaseUnits"):
+        VariableOperation.evaluate_operations([op], "not a number")
+
+    # Test that list raises TypeError
+    with pytest.raises(TypeError, match="Invalid value for toTokenBaseUnits"):
+        VariableOperation.evaluate_operations([op], [1, 2, 3])

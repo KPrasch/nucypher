@@ -394,7 +394,17 @@ def test_nested_compound_condition_too_many_nested_levels(
                         AndCompoundCondition(
                             operands=[
                                 time_condition,
-                                rpc_condition,
+                                OrCompoundCondition(
+                                    operands=[
+                                        rpc_condition,
+                                        AndCompoundCondition(
+                                            operands=[
+                                                time_condition,
+                                                rpc_condition,
+                                            ]
+                                        ),
+                                    ]
+                                ),
                             ]
                         ),
                     ]
@@ -415,10 +425,24 @@ def test_nested_sequential_condition_too_many_nested_levels(
                 OrCompoundCondition(
                     operands=[
                         rpc_condition,
-                        SequentialCondition(
-                            condition_variables=[
-                                ConditionVariable("var2", time_condition),
-                                ConditionVariable("var3", rpc_condition),
+                        AndCompoundCondition(
+                            operands=[
+                                time_condition,
+                                OrCompoundCondition(
+                                    operands=[
+                                        rpc_condition,
+                                        SequentialCondition(
+                                            condition_variables=[
+                                                ConditionVariable(
+                                                    "var2", time_condition
+                                                ),
+                                                ConditionVariable(
+                                                    "var3", rpc_condition
+                                                ),
+                                            ]
+                                        ),
+                                    ]
+                                ),
                             ]
                         ),
                     ]
