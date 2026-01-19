@@ -41,6 +41,40 @@ def _wei_to_eth(value) -> Union[int, decimal.Decimal]:
         raise TypeError(f"Invalid value for weiToEth conversion: {value}") from e
 
 
+def _to_token_base_units(value, decimals: int) -> int:
+    """
+    Convert token amount to base units.
+
+    For example, 1.5 tokens with 18 decimals -> 1500000000000000000.
+
+    This is similar to ethToWei but allows specifying custom decimals for any token.
+    Returns int to avoid float precision issues with high-precision token amounts.
+
+    :param value: Token amount (can be int, float, or Decimal)
+    :param decimals: Number of decimal places for the token (e.g., 18 for ETH, 6 for USDC)
+    :return: Token amount in base units as an integer
+    :raises TypeError: If value cannot be converted
+    """
+    try:
+        from decimal import Decimal, localcontext
+
+        with localcontext() as ctx:
+            ctx.prec = 999
+            # Convert to Decimal using string representation to preserve precision
+            if isinstance(value, float):
+                d_value = Decimal(str(value))
+            elif isinstance(value, Decimal):
+                d_value = value
+            else:
+                d_value = Decimal(value)
+            result = d_value * (Decimal(10) ** decimals)
+            return int(result)
+    except (decimal.InvalidOperation, ValueError, TypeError) as e:
+        raise TypeError(
+            f"Invalid value for toTokenBaseUnits conversion: {value}"
+        ) from e
+
+
 def _convert_any_floats_to_decimal(value: Union[Any, List[Any], Dict[Any, Any]]) -> Any:
     """
     Convert float values to Decimal to avoid precision issues.

@@ -48,6 +48,7 @@ from nucypher.policy.conditions.utils import (
     _convert_any_decimals_to_floats,
     _convert_any_floats_to_decimal,
     _eth_to_wei,
+    _to_token_base_units,
     _wei_to_eth,
     check_and_convert_any_big_ints,
     check_and_convert_big_int_string_to_int,
@@ -376,8 +377,8 @@ _OPERATOR_FUNCTIONS = {
     "/=": pyoperator.truediv,
     "%=": pyoperator.mod,
     "index": lambda a, b: a[b],
-    "*pow=": lambda a, b: pyoperator.mul(a, pyoperator.pow(*b)),
     "round": lambda a, b: round(a, b),
+    "toTokenBaseUnits": _to_token_base_units,
     # unary operations i.e. don't require 2nd 'b' value to be passed;
     "abs": lambda a: abs(a),
     "avg": lambda a: statistics.mean(a),
