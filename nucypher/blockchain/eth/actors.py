@@ -34,6 +34,7 @@ from web3 import HTTPProvider, Web3
 from web3.types import TxReceipt
 
 from nucypher.acumen.nicknames import Nickname
+from nucypher.blockchain.eth import domains
 from nucypher.blockchain.eth.agents import (
     ContractAgency,
     CoordinatorAgent,
@@ -1397,10 +1398,13 @@ class Operator(BaseActor):
             )
 
         # evaluate the conditions for this ciphertext; raises if it fails
+        # Enable debug mode for Lynx only
+        is_lynx_debug = self.domain == domains.LYNX
         evaluate_condition_lingo(
             condition_lingo=condition_lingo,
             context=context,
             providers=self.condition_provider_manager,
+            debug_mode=is_lynx_debug,
         )
 
     def _verify_decryption_request_authorization(
@@ -1492,8 +1496,14 @@ class Operator(BaseActor):
         context[SIGNING_CONDITION_OBJECT_CONTEXT_VAR] = get_signature_request_object(
             signing_request
         )
+
+        # Enable debug mode for Lynx only
+        is_lynx_debug = self.domain == domains.LYNX
         evaluate_condition_lingo(
-            condition_lingo, self.condition_provider_manager, context
+            condition_lingo,
+            self.condition_provider_manager,
+            context,
+            debug_mode=is_lynx_debug,
         )
 
         # sign if the request is authorized (conditions are satisfied)

@@ -34,13 +34,21 @@ from nucypher.policy.conditions.json.api import JsonApiCondition
 from nucypher.policy.conditions.json.auth import AuthorizationType
 from nucypher.policy.conditions.json.rpc import JsonRpcCondition
 from nucypher.policy.conditions.lingo import (
+    AndCompoundCondition,
     CompoundCondition,
     ConditionLingo,
     ConditionType,
+    ConditionVariable,
+    IfThenElseCondition,
     NotCompoundCondition,
     ReturnValueTest,
+    SequentialCondition,
 )
-from nucypher.policy.conditions.utils import ConditionProviderManager
+from nucypher.policy.conditions.time import TimeCondition
+from nucypher.policy.conditions.utils import (
+    ConditionProviderManager,
+    extract_condition_failure_details,
+)
 from tests.constants import (
     TEST_ETH_PROVIDER_URI,
     TEST_POLYGON_PROVIDER_URI,
@@ -1171,3 +1179,158 @@ def test_poap_contract_condition(get_context_value_mock):
     )
     success, _ = and_condition.verify(providers=gnosis_providers, **context)
     assert success
+
+
+# ===== eval_with_details() Tests =====
+# These tests verify real condition evaluation behavior without mocking verify()
+
+
+def test_eval_with_details_real_time_condition_failure(mocker, condition_providers):
+    """Test eval() using debug mode with failing conditions."""
+    # Create a time condition that will fail (current time is never > far future)
+    failing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 9999999999999),
+    )
+
+    _, actual_value = failing_condition.verify(providers=condition_providers)
+    failure_details = extract_condition_failure_details(failing_condition, actual_value)
+
+    lingo = ConditionLingo(condition=failing_condition)
+    lingo.log = mocker.Mock()
+
+    success = lingo.eval(debug_mode=True, providers=condition_providers)
+
+    assert success is False
+    assert json.dumps(failure_details, indent=2) in lingo.log.debug.call_args.args[0]
+
+
+def test_eval_with_details_real_time_condition_failure_no_debug_mode(
+    mocker, condition_providers
+):
+    """Test eval() using debug mode with failing conditions."""
+    # Create a time condition that will fail (current time is never > far future)
+    failing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 9999999999999),
+    )
+
+    lingo = ConditionLingo(condition=failing_condition)
+    lingo.log = mocker.Mock()
+
+    success = lingo.eval(debug_mode=False, providers=condition_providers)
+
+    assert success is False
+    lingo.log.debug.assert_not_called()  # details not logged to debug
+
+
+def test_eval_with_details_real_compound_condition_failure(mocker, condition_providers):
+    """Test eval_with_details() with real compound condition failure."""
+    passing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 0),  # always passes
+    )
+    failing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 9999999999999),  # always fails
+    )
+
+    compound = AndCompoundCondition(operands=[passing_condition, failing_condition])
+
+    _, actual_value = compound.verify(providers=condition_providers)
+    failure_details = extract_condition_failure_details(compound, actual_value)
+
+    lingo = ConditionLingo(condition=compound)
+    lingo.log = mocker.Mock()
+
+    success = lingo.eval(debug_mode=True, providers=condition_providers)
+
+    assert success is False
+    assert (
+        json.dumps(failure_details, indent=2) in lingo.log.debug.call_args.args[0]
+    ), "details not logged to debug"
+
+
+def test_eval_with_details_real_sequential_condition_failure(
+    mocker, condition_providers
+):
+    """Test eval_with_details() with real sequential condition failure."""
+    # First condition passes, second fails
+    cv1 = ConditionVariable(
+        var_name="blocktime",
+        condition=TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 0),
+        ),
+    )
+    cv2 = ConditionVariable(
+        var_name="check",
+        condition=TimeCondition(
+            chain=TESTERCHAIN_CHAIN_ID,
+            return_value_test=ReturnValueTest(">", 9999999999999),
+        ),
+    )
+
+    sequential = SequentialCondition(condition_variables=[cv1, cv2])
+
+    _, actual_value = sequential.verify(providers=condition_providers)
+    failure_details = extract_condition_failure_details(sequential, actual_value)
+
+    lingo = ConditionLingo(condition=sequential)
+    lingo.log = mocker.Mock()
+
+    success = lingo.eval(debug_mode=True, providers=condition_providers)
+
+    assert success is False
+    assert (
+        json.dumps(failure_details, indent=2) in lingo.log.debug.call_args.args[0]
+    ), "details not logged to debug"
+
+
+def test_eval_with_details_real_if_then_else_failure(mocker, condition_providers):
+    """Test eval_with_details() with real if-then-else condition failure."""
+    # if (time > 0) then (time > 9999999999999) else True
+    # The if passes, then the then branch is evaluated and fails
+
+    if_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 0),
+    )
+    then_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 9999999999999),
+    )
+
+    if_then_else = IfThenElseCondition(
+        if_condition=if_condition,
+        then_condition=then_condition,
+        else_condition=True,
+    )
+
+    _, actual_value = if_then_else.verify(providers=condition_providers)
+    failure_details = extract_condition_failure_details(if_then_else, actual_value)
+
+    lingo = ConditionLingo(condition=if_then_else)
+    lingo.log = mocker.Mock()
+
+    success = lingo.eval(debug_mode=True, providers=condition_providers)
+
+    assert success is False
+    assert (
+        json.dumps(failure_details, indent=2) in lingo.log.debug.call_args.args[0]
+    ), "details not logged to debug"
+
+
+def test_eval_with_details_real_success(mocker, condition_providers):
+    """Test eval_with_details() returns None for failure_details on success."""
+    passing_condition = TimeCondition(
+        chain=TESTERCHAIN_CHAIN_ID,
+        return_value_test=ReturnValueTest(">", 0),  # always passes
+    )
+    lingo = ConditionLingo(condition=passing_condition)
+    lingo.log = mocker.Mock()
+
+    success = lingo.eval(debug_mode=True, providers=condition_providers)
+
+    assert success is True
+    lingo.log.debug.assert_not_called()  # details not logged to debug

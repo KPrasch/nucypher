@@ -52,7 +52,9 @@ from nucypher.policy.conditions.utils import (
     _wei_to_eth,
     check_and_convert_any_big_ints,
     check_and_convert_big_int_string_to_int,
+    extract_condition_failure_details,
 )
+from nucypher.utilities.logging import Logger
 
 
 class AnyField(fields.Field):
@@ -843,6 +845,9 @@ class IfThenElseCondition(MultiCondition):
             values.append(then_value)
             return then_result, values
 
+        # then condition not executed
+        values.append(None)
+
         # else
         if isinstance(self.else_condition, Condition):
             # actual condition
@@ -1118,6 +1123,7 @@ class ConditionLingo(_Serializable):
         self.check_version_compatibility(version)
         self.version = version
         self.id = md5(bytes(self)).hexdigest()[:6]
+        self.log = Logger(self.__class__.__name__)
 
     @classmethod
     def from_dict(cls, data: Lingo) -> "ConditionLingo":
@@ -1156,8 +1162,15 @@ class ConditionLingo(_Serializable):
     def __repr__(self):
         return f"{self.__class__.__name__} (version={self.version} | id={self.id} | size={len(bytes(self))}) | condition=({self.condition})"
 
-    def eval(self, *args, **kwargs) -> bool:
-        result, _ = self.condition.verify(*args, **kwargs)
+    def eval(self, *args, debug_mode: bool = False, **kwargs) -> bool:
+        result, value = self.condition.verify(*args, **kwargs)
+        if not result and debug_mode:
+            failure_details = extract_condition_failure_details(self.condition, value)
+            debug_info = json.dumps(failure_details, indent=2, default=str)
+            self.log.debug(
+                f"Condition evaluation failed; ({self}). Debug info: {debug_info}"
+            )
+
         return result
 
     @classmethod

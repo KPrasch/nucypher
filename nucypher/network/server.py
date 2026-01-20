@@ -265,7 +265,6 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
             message = f"{bob_identity_message} Policy {bytes(hrac)} is unpaid."
             return Response(message, status=HTTPStatus.PAYMENT_REQUIRED)
 
-        # Enforce Conditions
         capsules_to_process = list()
         for capsule, condition_lingo in packets:
             if condition_lingo:
