@@ -24,4 +24,4 @@ __email__ = "dev@nucypher.com"
 
 __license__ = "GNU Affero General Public License, Version 3"
 
-__copyright__ = 'Copyright (C) 2019 NuCypher'
+__copyright__ = "Copyright (C) 2018-2026 NuCypher"
