@@ -1480,12 +1480,12 @@ class Operator(BaseActor):
         )
 
         # evaluate condition
-        condition_string = signing_cohort.conditions[signing_request.chain_id].decode()
-        if not condition_string:
+        condition_bytes = signing_cohort.conditions.get(signing_request.chain_id)
+        if not condition_bytes:
             raise self.NoConditionConfigured(
                 f"Condition not configured on chain {signing_request.chain_id} for signing cohort {signing_request.cohort_id} "
             )
-        condition_lingo = json.loads(condition_string)
+        condition_lingo = json.loads(condition_bytes.decode("utf-8"))
 
         # add signing object to context
         context = dict()

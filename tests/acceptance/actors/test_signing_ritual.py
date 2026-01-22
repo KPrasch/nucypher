@@ -220,6 +220,20 @@ def test_signing_request_fulfilment(
     if random.choice([True, False]):
         context = Context(json.dumps({":randomContextForTestingContext": 5}))
 
+    print("============= SIGNING REQUEST RANDOM CHAIN (NO CONDITION)==============")
+    with pytest.raises(Ursula.NotEnoughUrsulas, match="Condition not configured"):
+        signing_request = UserOperationSignatureRequest(
+            user_op=test_user_op,
+            aa_version=AAVersion.V08,
+            chain_id=12345,  # random chain id
+            cohort_id=cohort_id,
+            context=context,
+        )
+        _ = yield bob.request_threshold_signatures(
+            signing_request=signing_request,
+        )
+    print("===================== SIGNING FAILED (AS EXPECTED) =====================")
+
     signing_request = UserOperationSignatureRequest(
         user_op=test_user_op,
         aa_version=AAVersion.V08,
