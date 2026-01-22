@@ -16,7 +16,7 @@ from nucypher_core import (
     MetadataResponsePayload,
     ReencryptionRequest,
 )
-from prometheus_client import REGISTRY, Counter, Summary
+from prometheus_client import REGISTRY, Counter, Histogram, Summary
 
 from nucypher.blockchain.eth import domains
 from nucypher.config.constants import MAX_UPLOAD_CONTENT_LENGTH, TEMPORARY_DOMAIN_NAME
@@ -49,6 +49,25 @@ DECRYPTION_REQUESTS_FAILURES = Counter(
 DECRYPTION_REQUEST_SUMMARY = Summary(
     "decryption_request_processing",
     "Summary of decryption request processing",
+    registry=REGISTRY,
+)
+
+SIGNING_REQUESTS_SUCCESSES = Counter(
+    "threshold_signing_num_successes",
+    "Number of threshold signing successes",
+    registry=REGISTRY,
+)
+SIGNING_REQUESTS_FAILURES = Counter(
+    "threshold_signing_num_failures",
+    "Number of threshold signing failures",
+    registry=REGISTRY,
+)
+
+# Histogram for signing request duration with buckets suited for request latencies
+SIGNING_REQUEST_HISTOGRAM = Histogram(
+    "signing_request_duration_seconds",
+    "Histogram of signing request processing duration in seconds",
+    buckets=(0.1, 0.5, 1.0, 2.0, 3.0, 5.0, 7.5, 10.0, 12.5, 15.0),
     registry=REGISTRY,
 )
 
@@ -323,15 +342,19 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
         return Response(response=content, headers=headers)
 
     @rest_app.route("/sign", methods=["POST"])
+    @SIGNING_REQUEST_HISTOGRAM.time()
     def sign_message():
         """An endpoint that handles message signing requests."""
         try:
-            encrypted_request = EncryptedThresholdSignatureRequest.from_bytes(
-                request.data
-            )
-            encrypted_signing_response = this_node.handle_threshold_signing_request(
-                encrypted_signing_request=encrypted_request
-            )
+            with SIGNING_REQUESTS_FAILURES.count_exceptions():
+                encrypted_request = EncryptedThresholdSignatureRequest.from_bytes(
+                    request.data
+                )
+                encrypted_signing_response = this_node.handle_threshold_signing_request(
+                    encrypted_signing_request=encrypted_request
+                )
+
+            SIGNING_REQUESTS_SUCCESSES.inc()
             return Response(
                 response=bytes(encrypted_signing_response),
                 status=HTTPStatus.OK,
