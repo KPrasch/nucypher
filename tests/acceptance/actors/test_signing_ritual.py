@@ -738,9 +738,7 @@ def test_signing_request_with_signing_object_attribute_condition(
         cohort_id=cohort_id,
         context=None,
     )
-    with pytest.raises(
-        Ursula.NotEnoughUrsulas, match="Decryption conditions not satisfied"
-    ):
+    with pytest.raises(Ursula.NotEnoughUrsulas, match="Conditions not satisfied"):
         _ = yield bob.request_threshold_signatures(
             signing_request=failure_user_op_erc20_signing_request,
         )
