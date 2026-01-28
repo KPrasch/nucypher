@@ -43,13 +43,6 @@ NU_TOTAL_SUPPLY = Web3.to_wei(
 # TACo Application
 MIN_AUTHORIZATION = Web3.to_wei(40_000, "ether")
 
-REWARD_DURATION = 7 * ONE_DAY  # one week in seconds
-DEAUTHORIZATION_DURATION = 60 * ONE_DAY  # 60 days in seconds
-
-PENALTY_DEFAULT = 1000  # 10% penalty
-PENALTY_INCREMENT = 2500  # 25% penalty increment
-PENALTY_DURATION = ONE_DAY  # 1 day in seconds
-
 
 # Coordinator
 DKG_TIMEOUT = 3600
@@ -160,11 +153,6 @@ def taco_application(
         threshold_staking.address,
         MIN_AUTHORIZATION,
         MIN_OPERATOR_SECONDS,
-        REWARD_DURATION,
-        DEAUTHORIZATION_DURATION,
-        PENALTY_DEFAULT,
-        PENALTY_DURATION,
-        PENALTY_INCREMENT,
     )
 
     proxy = deployer_account.deploy(
