@@ -234,7 +234,7 @@ class DoomedDecryptionClient(ThresholdDecryptionClient):
             # (to be forward-compatible with changes to Failure)
             # TODO: Dehydrate this logic in a single failure flow.
             try:
-                raise RestMiddleware.Unauthorized("Decryption conditions not satisfied")
+                raise RestMiddleware.Unauthorized("Conditions not satisfied")
             except RestMiddleware.Unauthorized:
                 failures[checksum_address] = sys.exc_info()
 

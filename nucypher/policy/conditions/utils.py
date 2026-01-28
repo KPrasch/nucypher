@@ -251,7 +251,7 @@ def evaluate_condition_lingo(
             if not result:
                 # explicit condition failure
                 error = ConditionEvalError(
-                    "Decryption conditions not satisfied", HTTPStatus.FORBIDDEN
+                    "Conditions not satisfied", HTTPStatus.FORBIDDEN
                 )
     except ReturnValueEvaluationError as e:
         error = ConditionEvalError(
