@@ -246,6 +246,46 @@ def test_condition_provider_manager(mocker):
     with patch.object(manager, "_configure_w3", side_effect=[w3_1, w3_2]):
         assert list(manager.web3_endpoints(chain_id=2)) == [w3_1, w3_2]
 
+    # preferential provider
+    preferential_providers = [mocker.Mock(spec=BaseProvider) for _ in range(3)]
+    other_providers = [mocker.Mock(spec=BaseProvider) for _ in range(2)]
+    chain_3_providers = [mocker.Mock(spec=BaseProvider) for _ in range(2)]
+    manager = ConditionProviderManager(
+        providers={2: other_providers, 3: chain_3_providers},
+        preferential_providers={2: preferential_providers},
+    )
+    with patch.object(manager, "_check_chain_id", return_value=None):
+        w3_instances = list(manager.web3_endpoints(chain_id=2))
+        assert len(w3_instances) == (len(preferential_providers) + len(other_providers))
+
+        # preferential is first and order maintained
+        for i, w3_instance in enumerate(w3_instances[: len(preferential_providers)]):
+            assert w3_instance.provider == preferential_providers[i]
+
+        # other providers follow in random order
+        for w3_instance in w3_instances[len(preferential_providers) :]:
+            assert w3_instance.provider in other_providers
+
+        chain_3_w3_instances = list(manager.web3_endpoints(chain_id=3))
+        assert len(chain_3_w3_instances) == len(chain_3_providers)
+        for w3_instance in chain_3_w3_instances:
+            assert w3_instance.provider in chain_3_providers
+
+    # order randomized
+    all_providers = [mocker.Mock(spec=BaseProvider) for _ in range(10)]
+    manager = ConditionProviderManager(providers={2: all_providers})
+    with patch.object(manager, "_check_chain_id", return_value=None):
+        num_times_different = 0
+        for i in range(5):
+            w3_instances_first = list(manager.web3_endpoints(chain_id=2))
+            w3_instances_second = list(manager.web3_endpoints(chain_id=2))
+            if any(
+                w31.provider != w32.provider
+                for w31, w32 in zip(w3_instances_first, w3_instances_second)
+            ):
+                num_times_different += 1
+        assert num_times_different > 0  # at least one time the order differed
+
 
 @pytest.mark.parametrize(
     "value, expectedValue",
