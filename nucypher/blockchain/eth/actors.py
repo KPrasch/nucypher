@@ -339,10 +339,12 @@ class Operator(BaseActor):
             self.domain.eth_chain.id,
             self.domain.polygon_chain.id,
         }
-        if mandatory_configured_chains != set(operator_configured_endpoints):
+        configured_chains = set(operator_configured_endpoints)
+        missing_mandatory = mandatory_configured_chains - configured_chains
+        if missing_mandatory:
             raise self.ActorError(
-                f"Operator-configured condition endpoints for chains don't match mandatory chains: "
-                f"{set(operator_configured_endpoints)} vs expected {mandatory_configured_chains}"
+                f"Operator-configured condition endpoints missing mandatory chains: "
+                f"{missing_mandatory}; configured: {configured_chains}, required: {mandatory_configured_chains}"
             )
 
         providers = defaultdict(list)  # use list to maintain order
