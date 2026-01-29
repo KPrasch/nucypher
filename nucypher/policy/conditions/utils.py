@@ -1,4 +1,5 @@
 import decimal
+import random
 import re
 from collections import OrderedDict
 from http import HTTPStatus
@@ -120,12 +121,28 @@ def _convert_any_decimals_to_floats(
 
 
 class ConditionProviderManager:
-    def __init__(self, providers: Dict[int, List[HTTPProvider]]):
+    def __init__(
+        self,
+        providers: Dict[int, List[HTTPProvider]],
+        preferential_providers: Optional[Dict[int, List[HTTPProvider]]] = None,
+    ):
         self.providers = providers
+        self.preferential_providers = preferential_providers
         self.logger = Logger(__name__)
 
     def web3_endpoints(self, chain_id: int) -> Iterator[Web3]:
-        rpc_providers = self.providers.get(chain_id, None)
+        rpc_providers = []
+
+        if self.preferential_providers:
+            preferential_list = self.preferential_providers.get(chain_id, None)
+            if preferential_list:
+                rpc_providers.extend(preferential_list)
+
+        other_providers = self.providers.get(chain_id, None)
+        if other_providers:
+            random.shuffle(other_providers)
+            rpc_providers.extend(other_providers)
+
         if not rpc_providers:
             raise NoConnectionToChain(chain=chain_id)
 

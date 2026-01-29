@@ -347,12 +347,11 @@ class Operator(BaseActor):
                 f"{missing_mandatory}; configured: {configured_chains}, required: {mandatory_configured_chains}"
             )
 
-        providers = defaultdict(list)  # use list to maintain order
-
         # ensure that no endpoint uri for a specific chain is repeated
         duplicated_endpoint_check = defaultdict(set)
 
         # Operator-configured endpoints for chains
+        configured_endpoints = defaultdict(list)
         for chain_id, chain_rpc_endpoints in operator_configured_endpoints.items():
             if not chain_rpc_endpoints:
                 raise self.ActorError(
@@ -376,11 +375,12 @@ class Operator(BaseActor):
                     self.log.warn(
                         f"Operator-configured RPC condition endpoint {uri} is unhealthy"
                     )
-                providers[int(chain_id)].append(provider)
+                configured_endpoints[int(chain_id)].append(provider)
                 duplicated_endpoint_check[chain_id].add(uri)
 
         # Ingest default/fallback RPC providers for each chain
         default_endpoints = get_healthy_default_rpc_endpoints(self.domain)
+        public_endpoints = defaultdict(list)
         for chain_id, chain_rpc_endpoints in default_endpoints.items():
             # randomize list so that the same fallback RPC endpoints aren't always used by all nodes
             random.shuffle(chain_rpc_endpoints)
@@ -391,15 +391,17 @@ class Operator(BaseActor):
                     )
                     continue
                 provider = self._make_condition_provider(uri)
-                providers[chain_id].append(provider)
+                public_endpoints[chain_id].append(provider)
                 duplicated_endpoint_check[chain_id].add(uri)
 
         self.log.info(
-            f"Connected to {sum(len(v) for v in providers.values())} RPC endpoints for condition "
-            f"checking on chain IDs {providers.keys()}"
+            f"Connected to {sum(len(v) for v in [duplicated_endpoint_check.values()])} RPC endpoints for condition "
+            f"checking on chain IDs {list(duplicated_endpoint_check.keys())}"
         )
 
-        return ConditionProviderManager(providers=providers)
+        return ConditionProviderManager(
+            providers=public_endpoints, preferential_providers=configured_endpoints
+        )
 
     def _resolve_ritual(self, ritual_id: int) -> Coordinator.Ritual:
         if not self.coordinator_agent.is_ritual_active(ritual_id=ritual_id):
