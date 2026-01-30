@@ -1016,6 +1016,7 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         result = self.contract.functions.getSigningCohortState(cohort_id).call()
         return result
 
+    @contract_api(CONTRACT_CALL)
     def is_cohort_active(self, cohort_id: int) -> bool:
         """Check if cohort is active, with caching."""
         cache_key = f"is_cohort_active:{cohort_id}"
@@ -1026,6 +1027,7 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         self._cohort_cache[cache_key] = result
         return result
 
+    @contract_api(CONTRACT_CALL)
     def is_signer(self, cohort_id: int, provider_address: ChecksumAddress) -> bool:
         """Check if provider is a signer, with caching."""
         cache_key = f"is_signer:{cohort_id}:{provider_address}"
@@ -1044,6 +1046,7 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         participant = next(iter(SigningCoordinator.SigningCohort.make_signers([data])))
         return participant
 
+    @contract_api(CONTRACT_CALL)
     def get_signing_cohort(
         self,
         cohort_id: int,
