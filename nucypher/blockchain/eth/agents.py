@@ -1066,12 +1066,9 @@ class SigningCoordinatorAgent(EthereumContractAgent):
 
         # Cache miss - fetch from chain
         signing_cohort = self._fetch_signing_cohort_from_chain(cohort_id)
-
-        # Only cache if cohort is active and has conditions configured
-        # Check that at least one chain has non-empty condition bytes
-        cohort_status = self.get_signing_cohort_status(cohort_id)
         has_conditions = any(signing_cohort.conditions.values())
-        if cohort_status == SigningCoordinator.RitualStatus.ACTIVE and has_conditions:
+
+        if has_conditions and self.is_cohort_active(cohort_id):
             self._cohort_cache[cohort_id] = signing_cohort
 
         return signing_cohort
