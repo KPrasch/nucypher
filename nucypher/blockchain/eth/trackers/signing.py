@@ -171,3 +171,13 @@ class SigningRitualTracker(RitualTracker):
 
         # Delegate to parent handler for normal event processing
         return super()._handle_event(event, get_block_when)
+
+    def scan(self):
+        """
+        Scan for events and purge expired cache entries to prevent memory leaks.
+        """
+        # Purge expired entries from the cohort cache on each scan cycle
+        self.signing_coordinator_agent.purge_expired_cache_entries()
+
+        # Delegate to parent scan
+        return super().scan()

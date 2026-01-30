@@ -237,3 +237,20 @@ class TestCacheInvalidationIntegration:
 
         # Verify cohort was removed from cache
         assert mock_signing_coordinator_agent._cohort_cache[cohort_id] is None
+
+
+class TestCachePurgeOnScan:
+    """Test that expired cache entries are purged during scan cycles."""
+
+    def test_scan_purges_expired_cache_entries(
+        self, mock_operator, mock_signing_coordinator_agent
+    ):
+        """scan() should call purge_expired_cache_entries on the agent."""
+        tracker = SigningRitualTracker(operator=mock_operator, persistent=False)
+
+        # Mock the parent scan method to avoid actual scanning
+        with patch.object(SigningRitualTracker.__bases__[0], "scan", return_value=None):
+            tracker.scan()
+
+        # Verify purge was called
+        mock_signing_coordinator_agent.purge_expired_cache_entries.assert_called_once()

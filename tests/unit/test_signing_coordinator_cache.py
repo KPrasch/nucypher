@@ -271,6 +271,27 @@ class TestCacheInvalidation:
         # Should not raise
         agent.invalidate_cohort_cache(999)
 
+    def test_purge_expired_cache_entries(self, agent, mock_contract):
+        """purge_expired_cache_entries should remove expired entries."""
+        cohort_id = 1
+        now = maya.now()
+
+        # Prime the cache
+        with patch("maya.now", return_value=now):
+            agent.get_signing_cohort(cohort_id)
+
+        # Verify cache is populated
+        with patch("maya.now", return_value=now):
+            assert agent._cohort_cache[cohort_id] is not None
+
+        # Advance time past TTL
+        with patch("maya.now", return_value=now.add(seconds=61)):
+            # Purge expired entries
+            agent.purge_expired_cache_entries()
+
+            # Cache should now be empty for this entry
+            assert agent._cohort_cache[cohort_id] is None
+
 
 class TestThreadSafety:
     """Test thread safety of cache operations."""

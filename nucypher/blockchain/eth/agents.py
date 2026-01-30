@@ -998,19 +998,14 @@ class CoordinatorAgent(EthereumContractAgent):
 class SigningCoordinatorAgent(EthereumContractAgent):
     contract_name: str = "SigningCoordinator"
 
-    # Environment variable for cohort cache TTL (default 60 seconds)
-    _COHORT_CACHE_TTL_ENV_VAR = "NUCYPHER_COHORT_CACHE_TTL"
-    _DEFAULT_COHORT_CACHE_TTL = 60
+    # Cohort cache TTL from env var or default 60 seconds
+    from nucypher.config.constants import NUCYPHER_ENVVAR_COHORT_CACHE_TTL
+
+    _COHORT_CACHE_TTL = int(os.environ.get(NUCYPHER_ENVVAR_COHORT_CACHE_TTL, 60))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Initialize cohort cache with configurable TTL
-        cache_ttl = int(
-            os.environ.get(
-                self._COHORT_CACHE_TTL_ENV_VAR, self._DEFAULT_COHORT_CACHE_TTL
-            )
-        )
-        self._cohort_cache = TTLCache(ttl=cache_ttl)
+        self._cohort_cache = TTLCache(ttl=self._COHORT_CACHE_TTL)
 
     @contract_api(CONTRACT_CALL)
     def get_timeout(self) -> int:
@@ -1112,6 +1107,10 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         self._cohort_cache.remove(f"is_cohort_active:{cohort_id}")
         # Note: is_signer entries are not invalidated here as they use
         # provider-specific keys. They will expire naturally via TTL.
+
+    def purge_expired_cache_entries(self) -> None:
+        """Remove all expired entries from the cohort cache to prevent memory leaks."""
+        self._cohort_cache.purge_expired()
 
     def _get_signers(self, cohort_id: int):
         data = self.contract.functions.getSigners(cohort_id).call()
