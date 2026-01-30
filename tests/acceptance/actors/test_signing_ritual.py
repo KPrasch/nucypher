@@ -259,6 +259,10 @@ def test_signing_request_fulfilment(
         ritual_initiator.transacting_power,
     )
 
+    # Allow time for Ursulas to process SigningCohortConditionsSet event
+    # and invalidate their cohort caches
+    time.sleep(2)
+
     responses = yield bob.request_threshold_signatures(
         signing_request=signing_request,
     )
@@ -621,7 +625,6 @@ def test_signing_request_with_signing_object_attribute_condition(
     nucypher_dependency,
     ritual_initiator,
 ):
-
     signing_cohort = signing_coordinator_agent.get_signing_cohort(cohort_id)
 
     # Test create_erc20_transfer helper
@@ -651,6 +654,10 @@ def test_signing_request_with_signing_object_attribute_condition(
         on_chain_condition_lingo,
         ritual_initiator.transacting_power,
     )
+
+    # Allow time for Ursulas to process SigningCohortConditionsSet event
+    # and invalidate their cohort caches
+    time.sleep(2)
 
     packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
     expected_hash, _ = sign_packed_user_operation(

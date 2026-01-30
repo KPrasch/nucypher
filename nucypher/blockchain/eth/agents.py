@@ -67,6 +67,7 @@ from nucypher.config.constants import (
 )
 from nucypher.crypto.powers import TransactingPower
 from nucypher.policy.conditions.lingo import ConditionLingo
+from nucypher.utilities.cache import TTLCache
 from nucypher.utilities.logging import Logger
 
 
@@ -1004,8 +1005,6 @@ class SigningCoordinatorAgent(EthereumContractAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Initialize cohort cache with configurable TTL
-        from nucypher.utilities.cache import TTLCache
-
         cache_ttl = int(
             os.environ.get(
                 self._COHORT_CACHE_TTL_ENV_VAR, self._DEFAULT_COHORT_CACHE_TTL
@@ -1054,7 +1053,14 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         self,
         cohort_id: int,
     ) -> SigningCoordinator.SigningCohort:
-        """Get signing cohort data, using cache if available."""
+        """Get signing cohort data, using cache if available.
+
+        Only caches cohort data when:
+        - The cohort is active (all signatures collected)
+        - Conditions have been configured (conditions dict is not empty)
+
+        This prevents caching incomplete cohort data during setup.
+        """
         # Check cache first
         cached = self._cohort_cache[cohort_id]
         if cached is not None:
@@ -1063,8 +1069,13 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         # Cache miss - fetch from chain
         signing_cohort = self._fetch_signing_cohort_from_chain(cohort_id)
 
-        # Store in cache
-        self._cohort_cache[cohort_id] = signing_cohort
+        # Only cache if cohort is active and has conditions configured
+        # Check that at least one chain has non-empty condition bytes
+        cohort_status = self.get_signing_cohort_status(cohort_id)
+        has_conditions = any(signing_cohort.conditions.values())
+        if cohort_status == SigningCoordinator.RitualStatus.ACTIVE and has_conditions:
+            self._cohort_cache[cohort_id] = signing_cohort
+
         return signing_cohort
 
     def _fetch_signing_cohort_from_chain(

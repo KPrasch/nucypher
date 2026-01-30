@@ -64,6 +64,9 @@ def mock_contract():
     contract.functions.isCohortActive.return_value.call.return_value = True
     contract.functions.isSigner.return_value.call.return_value = True
 
+    # Mock getSigningCohortState - return ACTIVE status (3)
+    contract.functions.getSigningCohortState.return_value.call.return_value = 3
+
     return contract
 
 
