@@ -118,24 +118,6 @@ def test_rpc_condition_evaluation_no_providers(
     GET_CONTEXT_VALUE_IMPORT_PATH,
     side_effect=_dont_validate_user_address,
 )
-def test_rpc_condition_evaluation_invalid_provider_for_chain(
-    get_context_value_mock, testerchain, accounts, rpc_condition
-):
-    context = {USER_ADDRESS_CONTEXT: {"address": accounts.unassigned_accounts[0]}}
-    new_chain = 23
-    rpc_condition.execution_call.chain = new_chain
-    condition_providers = ConditionProviderManager({new_chain: [testerchain.provider]})
-    with pytest.raises(
-        NoConnectionToChain,
-        match=f"Problematic provider endpoints for chain ID {new_chain}",
-    ):
-        _ = rpc_condition.verify(providers=condition_providers, **context)
-
-
-@mock.patch(
-    GET_CONTEXT_VALUE_IMPORT_PATH,
-    side_effect=_dont_validate_user_address,
-)
 def test_rpc_condition_evaluation(
     get_context_value_mock, accounts, rpc_condition, condition_providers
 ):
@@ -196,7 +178,6 @@ def test_rpc_condition_evaluation_multiple_providers_no_valid_fallback(
         }
     )
 
-    mocker.patch.object(condition_providers, "_check_chain_id", return_value=None)
     with pytest.raises(RPCExecutionFailed):
         _ = rpc_condition.verify(providers=condition_providers, **context)
 
@@ -220,8 +201,6 @@ def test_rpc_condition_evaluation_multiple_providers_valid_fallback(
             ]
         }
     )
-
-    mocker.patch.object(condition_providers, "_check_chain_id", return_value=None)
 
     condition_result, call_result = rpc_condition.verify(
         providers=condition_providers, **context
