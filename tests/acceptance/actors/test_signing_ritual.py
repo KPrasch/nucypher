@@ -200,6 +200,8 @@ def test_signing_request_fulfilment(
     nucypher_dependency,
     ritual_initiator,
     time_condition,
+    clock,
+    interval,
 ):
     bob.start_learning_loop(now=True)
 
@@ -259,10 +261,9 @@ def test_signing_request_fulfilment(
         ritual_initiator.transacting_power,
     )
 
-    # Allow time for Ursulas to process SigningCohortConditionsSet event
-    # and invalidate their cohort caches. Need longer delay to ensure event
-    # is processed and caches are invalidated before signing requests.
-    time.sleep(5)
+    # Advance the clock to trigger SigningRitualTracker scan, which processes
+    # the SigningCohortConditionsSet event and invalidates the cohort cache
+    yield clock.advance(interval)
 
     responses = yield bob.request_threshold_signatures(
         signing_request=signing_request,
@@ -625,6 +626,8 @@ def test_signing_request_with_signing_object_attribute_condition(
     cohort,
     nucypher_dependency,
     ritual_initiator,
+    clock,
+    interval,
 ):
     signing_cohort = signing_coordinator_agent.get_signing_cohort(cohort_id)
 
@@ -656,10 +659,9 @@ def test_signing_request_with_signing_object_attribute_condition(
         ritual_initiator.transacting_power,
     )
 
-    # Allow time for Ursulas to process SigningCohortConditionsSet event
-    # and invalidate their cohort caches. Need longer delay to ensure event
-    # is processed and caches are invalidated before signing requests.
-    time.sleep(5)
+    # Advance the clock to trigger SigningRitualTracker scan, which processes
+    # the SigningCohortConditionsSet event and invalidates the cohort cache
+    yield clock.advance(interval)
 
     packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
     expected_hash, _ = sign_packed_user_operation(
