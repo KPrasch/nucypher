@@ -260,8 +260,9 @@ def test_signing_request_fulfilment(
     )
 
     # Allow time for Ursulas to process SigningCohortConditionsSet event
-    # and invalidate their cohort caches
-    time.sleep(2)
+    # and invalidate their cohort caches. Need longer delay to ensure event
+    # is processed and caches are invalidated before signing requests.
+    time.sleep(5)
 
     responses = yield bob.request_threshold_signatures(
         signing_request=signing_request,
@@ -656,8 +657,9 @@ def test_signing_request_with_signing_object_attribute_condition(
     )
 
     # Allow time for Ursulas to process SigningCohortConditionsSet event
-    # and invalidate their cohort caches
-    time.sleep(2)
+    # and invalidate their cohort caches. Need longer delay to ensure event
+    # is processed and caches are invalidated before signing requests.
+    time.sleep(5)
 
     packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
     expected_hash, _ = sign_packed_user_operation(
