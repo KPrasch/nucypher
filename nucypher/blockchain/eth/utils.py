@@ -1,7 +1,7 @@
 import time
 from decimal import Decimal
 from functools import cache
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 from eth_typing import ChecksumAddress
@@ -109,49 +109,44 @@ def get_block_just_before(w3: Web3, how_far_back: int, sample_window_size=100):
     return expected_start_block.number - 1 if expected_start_block.number > 0 else 0
 
 
-def rpc_endpoint_health_check(endpoint: str, max_drift_seconds: int = 60) -> bool:
+def rpc_endpoint_health_check(
+    chain_id: int, endpoint: str, max_drift_seconds: int = 60
+) -> bool:
     """
     Checks the health of an Ethereum RPC endpoint by comparing the timestamp of the latest block
     with the system time. The maximum drift allowed is `max_drift_seconds`.
     """
+
+    # check chain ID
+    query = {
+        "jsonrpc": "2.0",
+        "method": "eth_chainId",
+        "params": [],
+        "id": 1,
+    }
+    LOGGER.debug(f"Checking chain ID of RPC endpoint {endpoint}")
+    result = _get_json_rpc_call_result(endpoint, query)
+    if result is None:
+        return False
+
+    provider_chain = int(result, 16)
+    if provider_chain != chain_id:
+        LOGGER.debug(
+            f"RPC endpoint is invalid for chain; expected chain ID {chain_id}, but detected {provider_chain}"
+        )
+        return False
+
+    # check latest block number timestamp
     query = {
         "jsonrpc": "2.0",
         "method": "eth_getBlockByNumber",
         "params": ["latest", False],
-        "id": 1,
+        "id": 2,
     }
     LOGGER.debug(f"Checking health of RPC endpoint {endpoint}")
-    try:
-        response = requests.post(
-            endpoint,
-            json=query,
-            headers={"Content-Type": "application/json"},
-            timeout=5,
-        )
-    except requests.exceptions.RequestException:
-        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: network error")
+    block_data = _get_json_rpc_call_result(endpoint, query)
+    if block_data is None:
         return False
-
-    if response.status_code != 200:
-        LOGGER.debug(
-            f"RPC endpoint {endpoint} is unhealthy: {response.status_code} | {response.text}"
-        )
-        return False
-
-    try:
-        data = response.json()
-        if "result" not in data:
-            LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: no response data")
-            return False
-    except requests.exceptions.RequestException:
-        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: {response.text}")
-        return False
-
-    if data["result"] is None:
-        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: no block data")
-        return False
-
-    block_data = data["result"]
     try:
         timestamp = int(block_data.get("timestamp"), 16)
     except TypeError:
@@ -168,6 +163,41 @@ def rpc_endpoint_health_check(endpoint: str, max_drift_seconds: int = 60) -> boo
 
     LOGGER.debug(f"RPC endpoint {endpoint} is healthy")
     return True  # finally!
+
+
+def _get_json_rpc_call_result(endpoint: str, query: dict) -> Optional[Any]:
+    try:
+        response = requests.post(
+            endpoint,
+            json=query,
+            headers={"Content-Type": "application/json"},
+            timeout=5,
+        )
+    except requests.exceptions.RequestException:
+        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: network error")
+        return None
+
+    if response.status_code != 200:
+        LOGGER.debug(
+            f"RPC endpoint {endpoint} is unhealthy: {response.status_code} | {response.text}"
+        )
+        return None
+
+    try:
+        data = response.json()
+        if "result" not in data:
+            LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: no response data")
+            return None
+    except requests.exceptions.RequestException:
+        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: {response.text}")
+        return None
+
+    result = data.get("result")
+    if result is None:
+        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: no result data")
+        return None
+
+    return result
 
 
 @cache
@@ -206,7 +236,7 @@ def get_healthy_default_rpc_endpoints(domain: TACoDomain) -> Dict[int, List[str]
             chain_id: [
                 endpoint
                 for endpoint in endpoints[chain_id]
-                if rpc_endpoint_health_check(endpoint)
+                if rpc_endpoint_health_check(chain_id=chain_id, endpoint=endpoint)
             ]
             for chain_id in endpoints
         }

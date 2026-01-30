@@ -370,7 +370,7 @@ class Operator(BaseActor):
                     raise self.ActorError(
                         f"Operator-configured RPC condition endpoint {uri} does not belong to chain {chain_id}"
                     )
-                healthy = rpc_endpoint_health_check(endpoint=uri)
+                healthy = rpc_endpoint_health_check(chain_id=chain_id, endpoint=uri)
                 if not healthy:
                     self.log.warn(
                         f"Operator-configured RPC condition endpoint {uri} is unhealthy"

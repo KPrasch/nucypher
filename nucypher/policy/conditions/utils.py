@@ -18,7 +18,6 @@ from nucypher.policy.conditions.exceptions import (
     ContextVariableVerificationFailed,
     InvalidCondition,
     InvalidConditionLingo,
-    InvalidConnectionToChain,
     InvalidContextVariableData,
     NoConnectionToChain,
     RequiredContextVariable,
@@ -148,15 +147,9 @@ class ConditionProviderManager:
 
         iterator_returned_at_least_one = False
         for provider in rpc_providers:
-            try:
-                w3 = self._configure_w3(provider=provider)
-                self._check_chain_id(chain_id, w3)
-                yield w3
-                iterator_returned_at_least_one = True
-            except InvalidConnectionToChain as e:
-                # don't expect to happen but must account
-                # for any misconfigurations of public endpoints
-                self.logger.warn(str(e))
+            w3 = self._configure_w3(provider=provider)
+            yield w3
+            iterator_returned_at_least_one = True
 
         # if we get here, it is because there were endpoints, but issue with configuring them
         if not iterator_returned_at_least_one:
@@ -173,18 +166,6 @@ class ConditionProviderManager:
         w3.middleware_onion.inject(geth_poa_middleware, layer=0, name="poa")
         return w3
 
-    @staticmethod
-    def _check_chain_id(chain_id: int, w3: Web3) -> None:
-        """
-        Validates that the actual web3 provider is *actually*
-        connected to the condition's chain ID by reading its RPC endpoint.
-        """
-        provider_chain = w3.eth.chain_id
-        if provider_chain != chain_id:
-            raise InvalidConnectionToChain(
-                expected_chain=chain_id,
-                actual_chain=provider_chain,
-            )
 
 
 class ConditionEvalError(Exception):
