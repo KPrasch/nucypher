@@ -997,6 +997,22 @@ class CoordinatorAgent(EthereumContractAgent):
 class SigningCoordinatorAgent(EthereumContractAgent):
     contract_name: str = "SigningCoordinator"
 
+    # Environment variable for cohort cache TTL (default 60 seconds)
+    _COHORT_CACHE_TTL_ENV_VAR = "NUCYPHER_COHORT_CACHE_TTL"
+    _DEFAULT_COHORT_CACHE_TTL = 60
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Initialize cohort cache with configurable TTL
+        from nucypher.utilities.cache import TTLCache
+
+        cache_ttl = int(
+            os.environ.get(
+                self._COHORT_CACHE_TTL_ENV_VAR, self._DEFAULT_COHORT_CACHE_TTL
+            )
+        )
+        self._cohort_cache = TTLCache(ttl=cache_ttl)
+
     @contract_api(CONTRACT_CALL)
     def get_timeout(self) -> int:
         return self.contract.functions.timeout().call()
@@ -1006,14 +1022,24 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         result = self.contract.functions.getSigningCohortState(cohort_id).call()
         return result
 
-    @contract_api(CONTRACT_CALL)
     def is_cohort_active(self, cohort_id: int) -> bool:
+        """Check if cohort is active, with caching."""
+        cache_key = f"is_cohort_active:{cohort_id}"
+        cached = self._cohort_cache[cache_key]
+        if cached is not None:
+            return cached
         result = self.contract.functions.isCohortActive(cohort_id).call()
+        self._cohort_cache[cache_key] = result
         return result
 
-    @contract_api(CONTRACT_CALL)
     def is_signer(self, cohort_id: int, provider_address: ChecksumAddress) -> bool:
+        """Check if provider is a signer, with caching."""
+        cache_key = f"is_signer:{cohort_id}:{provider_address}"
+        cached = self._cohort_cache[cache_key]
+        if cached is not None:
+            return cached
         result = self.contract.functions.isSigner(cohort_id, provider_address).call()
+        self._cohort_cache[cache_key] = result
         return result
 
     @contract_api(CONTRACT_CALL)
@@ -1024,11 +1050,28 @@ class SigningCoordinatorAgent(EthereumContractAgent):
         participant = next(iter(SigningCoordinator.SigningCohort.make_signers([data])))
         return participant
 
-    @contract_api(CONTRACT_CALL)
     def get_signing_cohort(
         self,
         cohort_id: int,
     ) -> SigningCoordinator.SigningCohort:
+        """Get signing cohort data, using cache if available."""
+        # Check cache first
+        cached = self._cohort_cache[cohort_id]
+        if cached is not None:
+            return cached
+
+        # Cache miss - fetch from chain
+        signing_cohort = self._fetch_signing_cohort_from_chain(cohort_id)
+
+        # Store in cache
+        self._cohort_cache[cohort_id] = signing_cohort
+        return signing_cohort
+
+    def _fetch_signing_cohort_from_chain(
+        self,
+        cohort_id: int,
+    ) -> SigningCoordinator.SigningCohort:
+        """Fetch signing cohort data directly from the blockchain."""
         result = self.contract.functions.signingCohorts(int(cohort_id)).call()
         signing_cohort = SigningCoordinator.SigningCohort(
             id=cohort_id,
@@ -1051,6 +1094,13 @@ class SigningCoordinatorAgent(EthereumContractAgent):
                 cohort_id=cohort_id, chain_id=chain
             )
         return signing_cohort
+
+    def invalidate_cohort_cache(self, cohort_id: int) -> None:
+        """Remove a cohort from the cache, forcing next access to fetch from chain."""
+        self._cohort_cache.remove(cohort_id)
+        self._cohort_cache.remove(f"is_cohort_active:{cohort_id}")
+        # Note: is_signer entries are not invalidated here as they use
+        # provider-specific keys. They will expire naturally via TTL.
 
     def _get_signers(self, cohort_id: int):
         data = self.contract.functions.getSigners(cohort_id).call()
@@ -1151,6 +1201,7 @@ class SigningCoordinatorAgent(EthereumContractAgent):
             contract_function=contract_function, transacting_power=transacting_power
         )
         return receipt
+
 
 class ContractAgency:
     """Where agents live and die."""
