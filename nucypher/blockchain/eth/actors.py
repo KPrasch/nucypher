@@ -393,7 +393,7 @@ class Operator(BaseActor):
                 duplicated_endpoint_check[chain_id].add(uri)
 
         self.log.info(
-            f"Connected to {sum(len(v) for v in [duplicated_endpoint_check.values()])} RPC endpoints for condition "
+            f"Connected to {sum(len(v) for v in duplicated_endpoint_check.values())} RPC endpoints for condition "
             f"checking on chain IDs {list(duplicated_endpoint_check.keys())}"
         )
 

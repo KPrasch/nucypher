@@ -22,7 +22,7 @@ def test_rpc_endpoint_health_check(mocker):
             mock_response.json.return_value = {
                 "jsonrpc": "2.0",
                 "id": 1,
-                "result": hex(chain_id),  # Chain ID 1
+                "result": hex(chain_id),  # Chain ID 2
             }
         else:
             mock_response.json.return_value = {

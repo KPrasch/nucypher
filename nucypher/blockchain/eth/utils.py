@@ -113,8 +113,9 @@ def rpc_endpoint_health_check(
     chain_id: int, endpoint: str, max_drift_seconds: int = 60
 ) -> bool:
     """
-    Checks the health of an Ethereum RPC endpoint by comparing the timestamp of the latest block
-    with the system time. The maximum drift allowed is `max_drift_seconds`.
+    Checks the health of an RPC endpoint by validating expected chain id and comparing the
+    timestamp of the latest block with the system time. The maximum drift
+    allowed is `max_drift_seconds`.
     """
 
     # check chain ID
@@ -130,9 +131,15 @@ def rpc_endpoint_health_check(
         return False
 
     provider_chain = int(result, 16)
-    if provider_chain != chain_id:
+    try:
+        if provider_chain != chain_id:
+            LOGGER.debug(
+                f"RPC endpoint is invalid for chain; expected chain ID {chain_id}, but detected {provider_chain}"
+            )
+            return False
+    except (TypeError, ValueError):
         LOGGER.debug(
-            f"RPC endpoint is invalid for chain; expected chain ID {chain_id}, but detected {provider_chain}"
+            f"RPC endpoint {endpoint} is unhealthy: invalid chain ID response {result}"
         )
         return False
 
@@ -149,7 +156,7 @@ def rpc_endpoint_health_check(
         return False
     try:
         timestamp = int(block_data.get("timestamp"), 16)
-    except TypeError:
+    except (TypeError, ValueError):
         LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: invalid block data")
         return False
 
@@ -188,7 +195,7 @@ def _get_json_rpc_call_result(endpoint: str, query: dict) -> Optional[Any]:
         if "result" not in data:
             LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: no response data")
             return None
-    except requests.exceptions.RequestException:
+    except requests.exceptions.JSONDecodeError:
         LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: {response.text}")
         return None
 
