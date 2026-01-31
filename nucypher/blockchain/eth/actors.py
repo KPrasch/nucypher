@@ -382,8 +382,6 @@ class Operator(BaseActor):
         default_endpoints = get_healthy_default_rpc_endpoints(self.domain)
         public_endpoints = defaultdict(list)
         for chain_id, chain_rpc_endpoints in default_endpoints.items():
-            # randomize list so that the same fallback RPC endpoints aren't always used by all nodes
-            random.shuffle(chain_rpc_endpoints)
             for uri in chain_rpc_endpoints:
                 if uri in duplicated_endpoint_check[chain_id]:
                     self.log.warn(
