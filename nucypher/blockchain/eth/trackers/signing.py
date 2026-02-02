@@ -1,5 +1,4 @@
-import datetime
-from typing import Callable, Optional
+from typing import Optional
 
 from web3.datastructures import AttributeDict
 
@@ -24,9 +23,6 @@ class SigningRitualTracker(RitualTracker):
             super().__init__(participating)
             self.already_posted_signature = already_posted_signature
 
-    # Events that should trigger cohort cache invalidation
-    _CACHE_INVALIDATION_EVENTS = {"SigningCohortDeployed", "SigningCohortConditionsSet"}
-
     def __init__(
         self,
         operator,
@@ -35,11 +31,12 @@ class SigningRitualTracker(RitualTracker):
         contract = operator.signing_coordinator_agent.contract
         actions = {
             contract.events.InitiateSigningCohort: operator.perform_post_signature,
+            contract.events.SigningCohortConditionsSet: operator.clear_signing_cohort_cache,
         }
         events = [
             contract.events.InitiateSigningCohort,
             contract.events.SigningCohortDeployed,
-            contract.events.SigningCohortConditionsSet,  # Track condition updates for cache invalidation
+            contract.events.SigningCohortConditionsSet,
         ]
 
         self.signing_coordinator_agent = operator.signing_coordinator_agent
@@ -151,33 +148,3 @@ class SigningRitualTracker(RitualTracker):
                 )
 
         return new_participation_state
-
-    def _handle_event(
-        self,
-        event: AttributeDict,
-        get_block_when: Callable[[int], datetime.datetime],
-    ):
-        """
-        Handle an event, invalidating cohort cache if needed before
-        delegating to parent handler.
-        """
-        # Invalidate cohort cache for events that modify cohort data
-        if event.event in self._CACHE_INVALIDATION_EVENTS:
-            cohort_id = event.args.cohortId
-            self.signing_coordinator_agent.invalidate_cohort_cache(cohort_id)
-            self.log.debug(
-                f"Invalidated cohort cache for cohort {cohort_id} due to {event.event} event"
-            )
-
-        # Delegate to parent handler for normal event processing
-        return super()._handle_event(event, get_block_when)
-
-    def scan(self):
-        """
-        Scan for events and purge expired cache entries to prevent memory leaks.
-        """
-        # Purge expired entries from the cohort cache on each scan cycle
-        self.signing_coordinator_agent.purge_expired_cache_entries()
-
-        # Delegate to parent scan
-        return super().scan()
