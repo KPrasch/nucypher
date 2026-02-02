@@ -109,6 +109,16 @@ class TTLCache:
 
             return value
 
+    def add_with_ttl(self, key, value, ttl):
+        """
+        Add the provided key entry to be the provided value with a custom TTL.
+        """
+        if key is None or value is None:
+            raise ValueError(f"Invalid key-value pair ({key}, {value})")
+
+        with self.__cache_lock:
+            self.__cache[key] = self.TTLEntry(value=value, ttl=ttl)
+
     def remove(self, key):
         """
         Remove keyed item from the cache.
