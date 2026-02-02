@@ -259,6 +259,10 @@ def test_signing_request_fulfilment(
         ritual_initiator.transacting_power,
     )
 
+    # clear caches to force re-evaluation of conditions
+    for ursula in cohort:
+        ursula.clear_signing_cohort_cache(cohort_id)
+
     responses = yield bob.request_threshold_signatures(
         signing_request=signing_request,
     )
@@ -651,6 +655,10 @@ def test_signing_request_with_signing_object_attribute_condition(
         on_chain_condition_lingo,
         ritual_initiator.transacting_power,
     )
+
+    # clear caches to force re-evaluation of conditions
+    for ursula in cohort:
+        ursula.clear_signing_cohort_cache(cohort_id)
 
     packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
     expected_hash, _ = sign_packed_user_operation(
