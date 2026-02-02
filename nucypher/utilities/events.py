@@ -291,9 +291,9 @@ class EventScanner:
         """Purge old data in the case of blockchain reorganisation."""
         self.state.delete_data(after_block)
 
-    def scan_chunk(self, start_block, end_block) -> Tuple[int, datetime.datetime, list]:
+    def scan_chunk(self, start_block, end_block) -> Tuple[int, list]:
         """Read and process events between to block numbers.
-        :return: tuple(actual end block number, when this block was mined, processed events)
+        :return: tuple(actual end block number, processed events)
         """
 
         block_timestamps = {}
@@ -323,8 +323,7 @@ class EventScanner:
             processed = self.process_event(event=evt, get_block_when=get_block_when)
             all_processed.append(processed)
 
-        end_block_timestamp = get_block_when(actual_end_block)
-        return actual_end_block, end_block_timestamp, all_processed
+        return actual_end_block, all_processed
 
     def process_event(
         self, event: AttributeDict, get_block_when: Callable[[int], datetime.datetime]
@@ -420,7 +419,7 @@ class EventScanner:
             )
 
             start = time.time()
-            actual_end_block, end_block_timestamp, new_entries = self.scan_chunk(
+            actual_end_block, new_entries = self.scan_chunk(
                 current_block, estimated_end_block
             )
 

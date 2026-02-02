@@ -328,12 +328,12 @@ class MyEventScanner(EventScanner):
         self.chunk_calls_made = []
         self.return_chunk_scan_event = return_event_for_scan_chunk
 
-    def scan_chunk(self, start_block, end_block) -> Tuple[int, datetime, list]:
+    def scan_chunk(self, start_block, end_block) -> Tuple[int, list]:
         assert start_block <= end_block
         assert end_block <= self.target_end_block
         self.chunk_calls_made.append((start_block, end_block))
         event = ["event"] if self.return_chunk_scan_event else []
-        return end_block, datetime.now(), event  # results
+        return end_block, event  # results
 
     @property
     def scan_chunk_calls_made(self):
@@ -454,7 +454,7 @@ def test_scan_chunk_alchemy_free_tier(mocker, get_random_checksum_address):
 
     get_logs_spy = mocker.spy(web3.eth, "get_logs")
 
-    actual_end_block, _, events = scanner.scan_chunk(from_block, to_block)
+    actual_end_block, events = scanner.scan_chunk(from_block, to_block)
 
     assert events == []
     assert get_logs_spy.call_count == 2  # first raises error, second returns empty list
@@ -527,7 +527,7 @@ def test_scan_chunk_not_alchemy_free_tier(mocker, get_random_checksum_address):
 
     # no decreases
     web3.eth.get_logs.side_effect = [[]]  # everything works, returns empty list
-    actual_end_block, _, events = scanner.scan_chunk(
+    actual_end_block, events = scanner.scan_chunk(
         from_block,
         to_block,
     )
@@ -549,7 +549,7 @@ def test_scan_chunk_not_alchemy_free_tier(mocker, get_random_checksum_address):
         [],
     ]  # first call raises error, second returns empty list
     get_logs_spy.reset_mock()
-    actual_end_block, _, events = scanner.scan_chunk(
+    actual_end_block, events = scanner.scan_chunk(
         from_block,
         to_block,
     )
@@ -574,7 +574,7 @@ def test_scan_chunk_not_alchemy_free_tier(mocker, get_random_checksum_address):
         [],
     ]  # first two calls raises error, third returns empty list
     get_logs_spy.reset_mock()
-    actual_end_block, _, events = scanner.scan_chunk(
+    actual_end_block, events = scanner.scan_chunk(
         from_block,
         to_block,
     )
@@ -631,7 +631,7 @@ def test_scan_chunk_not_alchemy_free_tier(mocker, get_random_checksum_address):
         [],
     ]  # first two calls raise exception but last call uses MIN_CHUNK_NUM_BLOCKS instead of lower value from calc
     get_logs_spy.reset_mock()
-    actual_end_block, _, events = scanner.scan_chunk(
+    actual_end_block, events = scanner.scan_chunk(
         from_block,
         to_block,
     )
