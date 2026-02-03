@@ -25,7 +25,9 @@ class SigningRitualTracker(RitualTracker):
             self.already_posted_signature = already_posted_signature
 
     # Events that should trigger cohort cache invalidation
-    _CACHE_INVALIDATION_EVENTS = {"SigningCohortDeployed", "SigningCohortConditionsSet"}
+    # Note: SigningCohortConditionsSet is intentionally excluded because conditions
+    # are always fetched directly from the contract (never cached)
+    _CACHE_INVALIDATION_EVENTS = {"SigningCohortDeployed"}
 
     def __init__(
         self,
@@ -39,7 +41,6 @@ class SigningRitualTracker(RitualTracker):
         events = [
             contract.events.InitiateSigningCohort,
             contract.events.SigningCohortDeployed,
-            contract.events.SigningCohortConditionsSet,
         ]
 
         self.signing_coordinator_agent = operator.signing_coordinator_agent
