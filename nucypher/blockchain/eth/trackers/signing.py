@@ -31,12 +31,10 @@ class SigningRitualTracker(RitualTracker):
         contract = operator.signing_coordinator_agent.contract
         actions = {
             contract.events.InitiateSigningCohort: operator.perform_post_signature,
-            contract.events.SigningCohortConditionsSet: operator.clear_signing_cohort_cache,
         }
         events = [
             contract.events.InitiateSigningCohort,
             contract.events.SigningCohortDeployed,
-            contract.events.SigningCohortConditionsSet,
         ]
 
         self.signing_coordinator_agent = operator.signing_coordinator_agent

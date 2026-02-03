@@ -206,8 +206,6 @@ class SigningCoordinator:
         num_signers: int
         threshold: int
         signers: List = field(default_factory=list)
-        chains: List = field(default_factory=list)
-        conditions: Dict = field(default_factory=dict)
 
         @staticmethod
         def make_signers(

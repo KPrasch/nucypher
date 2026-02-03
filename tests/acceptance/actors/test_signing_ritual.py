@@ -145,7 +145,9 @@ def test_signing_cohort_finality(
     yield
 
 
-def test_signature_publication(signing_coordinator_agent, cohort, cohort_id, dkg_size):
+def test_signature_publication(
+    signing_coordinator_agent, chain, cohort, cohort_id, dkg_size
+):
     print("==================== VERIFYING DKG FINALITY ====================")
     for ursula in cohort:
         assert (
@@ -157,8 +159,6 @@ def test_signature_publication(signing_coordinator_agent, cohort, cohort_id, dkg
             )
             > 0
         ), "no signature found for ursula"
-
-    assert len(signing_coordinator_agent.get_signing_cohort(cohort_id).conditions) > 0
 
 
 def test_get_signers(
@@ -258,10 +258,6 @@ def test_signing_request_fulfilment(
         on_chain_condition_lingo,
         ritual_initiator.transacting_power,
     )
-
-    # clear caches to force re-evaluation of conditions
-    for ursula in cohort:
-        ursula.clear_signing_cohort_cache(cohort_id)
 
     responses = yield bob.request_threshold_signatures(
         signing_request=signing_request,
@@ -655,10 +651,6 @@ def test_signing_request_with_signing_object_attribute_condition(
         on_chain_condition_lingo,
         ritual_initiator.transacting_power,
     )
-
-    # clear caches to force re-evaluation of conditions
-    for ursula in cohort:
-        ursula.clear_signing_cohort_cache(cohort_id)
 
     packed_user_op = PackedUserOperation.from_user_operation(erc20_transfer_op)
     expected_hash, _ = sign_packed_user_operation(

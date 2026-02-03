@@ -1040,16 +1040,8 @@ class SigningCoordinatorAgent(EthereumContractAgent):
             num_signers=result[5],
             threshold=result[6],
             signers=[],  # solidity does not return sub-structs
-            chains=[],
-            conditions={},
         )
         signing_cohort.signers = list(self._get_signers(cohort_id=cohort_id))
-        signing_cohort.chains = self.get_chains(cohort_id)
-
-        for chain in signing_cohort.chains:
-            signing_cohort.conditions[chain] = self.get_signing_cohort_conditions(
-                cohort_id=cohort_id, chain_id=chain
-            )
         return signing_cohort
 
     def _get_signers(self, cohort_id: int):

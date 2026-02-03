@@ -117,7 +117,8 @@ def test_initiate_signing_cohort(
     assert signing_cohort.authority == authority
     assert [p.provider for p in signing_cohort.signers] == cohort_providers
 
-    assert signing_cohort.chains == [chain.chain_id]
+    chains = agent.get_chains(cohort_id)
+    assert chains == [chain.chain_id]
 
     assert (
         agent.get_signing_cohort_status(cohort_id=cohort_id)
