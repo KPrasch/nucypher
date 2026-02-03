@@ -1,5 +1,4 @@
-import datetime
-from typing import Callable, Optional
+from typing import Optional
 
 from web3.datastructures import AttributeDict
 
@@ -23,11 +22,6 @@ class SigningRitualTracker(RitualTracker):
         ):
             super().__init__(participating)
             self.already_posted_signature = already_posted_signature
-
-    # Events that should trigger cohort cache invalidation
-    # Note: SigningCohortConditionsSet is intentionally excluded because conditions
-    # are always fetched directly from the contract (never cached)
-    _CACHE_INVALIDATION_EVENTS = {"SigningCohortDeployed"}
 
     def __init__(
         self,
@@ -152,23 +146,3 @@ class SigningRitualTracker(RitualTracker):
                 )
 
         return new_participation_state
-
-    def _handle_event(
-        self,
-        event: AttributeDict,
-        get_block_when: Callable[[int], datetime.datetime],
-    ):
-        """
-        Handle an event, invalidating cohort cache if needed before
-        delegating to parent handler.
-        """
-        # Invalidate cohort cache for events that modify cohort data
-        if event.event in self._CACHE_INVALIDATION_EVENTS:
-            cohort_id = event.args.cohortId
-            self.operator.clear_signing_cohort_cache(cohort_id)
-            self.log.debug(
-                f"Invalidated cohort cache for cohort {cohort_id} due to {event.event} event"
-            )
-
-        # Delegate to parent handler for normal event processing
-        return super()._handle_event(event, get_block_when)
