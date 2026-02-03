@@ -320,7 +320,7 @@ class Operator(BaseActor):
             operator=self,
         )
 
-        self._cohort_cache = TTLCache(ttl=self._COHORT_CACHE_TTL)
+        self._signing_cohort_cache = TTLCache(ttl=self._COHORT_CACHE_TTL)
 
     def set_provider_public_key(self) -> Union[TxReceipt, None]:
         # TODO: Here we're assuming there is one global key per node. See nucypher/#3167
@@ -1464,9 +1464,9 @@ class Operator(BaseActor):
         return decryption_share
 
     def _get_signing_cohort(self, cohort_id: int) -> SigningCoordinator.SigningCohort:
-        self._cohort_cache.purge_expired()
+        self._signing_cohort_cache.purge_expired()
 
-        cached_cohort = self._cohort_cache[cohort_id]
+        cached_cohort = self._signing_cohort_cache[cohort_id]
         if cached_cohort is not None:
             return cached_cohort
 
@@ -1476,9 +1476,12 @@ class Operator(BaseActor):
             )
             # safety measure that cohort doesn't expire before caching TTL
             custom_ttl = min(
-                signing_cohort.end_timestamp - maya.now().epoch, self._cohort_cache.ttl
+                signing_cohort.end_timestamp - maya.now().epoch,
+                self._signing_cohort_cache.ttl,
             )
-            self._cohort_cache.add_with_ttl(cohort_id, signing_cohort, custom_ttl)
+            self._signing_cohort_cache.add_with_ttl(
+                cohort_id, signing_cohort, custom_ttl
+            )
             return signing_cohort
 
         raise self.UnauthorizedRequest(
@@ -1486,7 +1489,7 @@ class Operator(BaseActor):
         )
 
     def clear_signing_cohort_cache(self, cohort_id: int, **kwargs) -> None:
-        self._cohort_cache.remove(cohort_id)
+        self._signing_cohort_cache.remove(cohort_id)
 
     def handle_threshold_signing_request(
         self,
