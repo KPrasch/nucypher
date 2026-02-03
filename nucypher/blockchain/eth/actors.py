@@ -341,7 +341,6 @@ class Operator(BaseActor):
     def get_condition_provider_manager(
         self, operator_configured_endpoints: Dict[int, List[str]]
     ) -> ConditionProviderManager:
-
         # check that we have mandatory user configured endpoints
         mandatory_configured_chains = {
             self.domain.eth_chain.id,
@@ -509,7 +508,6 @@ class Operator(BaseActor):
     def _setup_dkg_async_tx_hooks(
         self, phase_id: PhaseId, *args
     ) -> BlockchainInterface.AsyncTxHooks:
-
         tx_types = {
             DKG_PHASE_1: "POST_TRANSCRIPT",
             DKG_PHASE_2: "POST_AGGREGATE",
@@ -1210,7 +1208,6 @@ class Operator(BaseActor):
     def _setup_signing_async_tx_hooks(
         self, phase_id: PhaseId, *args
     ) -> BlockchainInterface.AsyncTxHooks:
-
         tx_types = {
             SIGNING_AWAITING_SIGNATURES: "SIGNING_AWAITING_SIGNATURES",
         }
@@ -1470,23 +1467,17 @@ class Operator(BaseActor):
         if cached_cohort is not None:
             return cached_cohort
 
-        if self.signing_coordinator_agent.is_cohort_active(cohort_id):
-            signing_cohort = self.signing_coordinator_agent.get_signing_cohort(
-                cohort_id
+        if not self.signing_coordinator_agent.is_cohort_active(cohort_id):
+            raise self.UnauthorizedRequest(
+                f"Cohort #{cohort_id} is not active",
             )
-            # safety measure that cohort doesn't expire before caching TTL
-            custom_ttl = min(
-                signing_cohort.end_timestamp - maya.now().epoch,
-                self._signing_cohort_cache.ttl,
-            )
-            self._signing_cohort_cache.add_with_ttl(
-                cohort_id, signing_cohort, custom_ttl
-            )
-            return signing_cohort
 
-        raise self.UnauthorizedRequest(
-            f"Cohort #{cohort_id} is not active",
-        )
+        signing_cohort = self.signing_coordinator_agent.get_signing_cohort(cohort_id)
+        # safety measure that cohort doesn't expire before caching TTL
+        time_remaining = signing_cohort.end_timestamp - maya.now().epoch
+        custom_ttl = min(time_remaining, self._signing_cohort_cache.ttl)
+        self._signing_cohort_cache.add_with_ttl(cohort_id, signing_cohort, custom_ttl)
+        return signing_cohort
 
     def clear_signing_cohort_cache(self, cohort_id: int, **kwargs) -> None:
         self._signing_cohort_cache.remove(cohort_id)
