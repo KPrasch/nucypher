@@ -306,6 +306,12 @@ def test_cache_items_custom_ttl():
     ttl_cache.add_with_ttl(3, "c", ttl=ttl * 2)  # 120s
     ttl_cache.add_with_ttl(4, "d", ttl=ttl // 3)  # 20s
 
+    # invalid ttl raises error
+    invalid_ttls = [0, -10]
+    for invalid_ttl in invalid_ttls:
+        with pytest.raises(ValueError):
+            ttl_cache.add_with_ttl(5, "e", ttl=invalid_ttl)
+
     assert len(ttl_cache) == 4
 
     def maya_now_1():

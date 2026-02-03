@@ -115,6 +115,8 @@ class TTLCache:
         """
         if key is None or value is None:
             raise ValueError(f"Invalid key-value pair ({key}, {value})")
+        if ttl <= 0:
+            raise ValueError(f"Invalid time-to-live {ttl}")
 
         with self.__cache_lock:
             self.__cache[key] = self.TTLEntry(value=value, ttl=ttl)
