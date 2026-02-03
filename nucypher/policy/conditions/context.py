@@ -108,7 +108,7 @@ def _resolve_null_address(
     Note: The `providers` and `**context` parameters are unused but maintained
     for interface consistency with other resolver functions in `_DIRECTIVES`.
     """
-    return to_checksum_address(NULL_ADDRESS)
+    return ChecksumAddress(NULL_ADDRESS)
 
 
 _DIRECTIVES = {
