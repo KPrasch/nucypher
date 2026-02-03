@@ -1479,9 +1479,6 @@ class Operator(BaseActor):
         self._signing_cohort_cache.add_with_ttl(cohort_id, signing_cohort, custom_ttl)
         return signing_cohort
 
-    def clear_signing_cohort_cache(self, cohort_id: int, **kwargs) -> None:
-        self._signing_cohort_cache.remove(cohort_id)
-
     def handle_threshold_signing_request(
         self,
         encrypted_signing_request: EncryptedThresholdSignatureRequest,
