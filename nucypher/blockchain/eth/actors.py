@@ -1506,8 +1506,11 @@ class Operator(BaseActor):
                 f"Not a member of signing cohort {signing_request.cohort_id}"
             )
 
-        # evaluate condition
-        condition_bytes = signing_cohort.conditions.get(signing_request.chain_id)
+        # get condition directly from canonical source to ensure latest
+        # and prevent signing on stale conditions
+        condition_bytes = self.signing_coordinator_agent.get_signing_cohort_conditions(
+            cohort_id=signing_request.cohort_id, chain_id=signing_request.chain_id
+        )
         if not condition_bytes:
             raise self.NoConditionConfigured(
                 f"Condition not configured on chain {signing_request.chain_id} for signing cohort {signing_request.cohort_id} "
