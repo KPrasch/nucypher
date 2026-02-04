@@ -709,3 +709,35 @@ def test_create2_missing_value_fields():
         TypeError, match="requires 'deployerAddress' and 'bytecodeHash'"
     ):
         VariableOperation.evaluate_operations(operations, salt)
+
+
+def test_create2_cascading_operations():
+    """Test create2 in a chain of operations: str -> concat -> keccak -> create2."""
+    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+
+    # Start with a discord-like ID
+    discord_id = 123456789012345678
+
+    operations = [
+        VariableOperation(operation="str"),  # "123456789012345678"
+        VariableOperation(
+            operation="+=", value="|Discord|Collab.Land"
+        ),  # "123456789012345678|Discord|Collab.Land"
+        VariableOperation(operation="keccak"),  # bytes32 hash
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    result = VariableOperation.evaluate_operations(operations, discord_id)
+
+    # Result should be a checksummed address
+    assert result.startswith("0x")
+    assert len(result) == 42
+    # Verify it's checksummed (has mixed case)
+    assert result != result.lower()
