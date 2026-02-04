@@ -284,3 +284,25 @@ def test_operator_caching_of_signing_cohort(mocker, ursulas):
         # cache attempted to be repopulated by all nodes but cohort is realized to be inactive
         #  after checking on-chain
         assert agent.is_cohort_active.call_count == len(cohort)
+        assert agent.get_signing_cohort.call_count == 0
+
+    # very unlikely case where cohort was active but expired after we check on-chain
+    #  but before we cache it
+    agent.reset_mock()
+    with mocker.patch(
+        "maya.now", return_value=now.add(seconds=expiry_before_ttl_seconds + 1)
+    ):
+        # cohort is active
+        agent.is_cohort_active.return_value = True
+
+        # cache should have expired now, so contract agent should have been called
+        for u in cohort:
+            with pytest.raises(Operator.UnauthorizedRequest, match="is not active"):
+                _ = u._get_signing_cohort(cohort_id)
+
+        # cache attempted to be repopulated by all nodes but cohort is realized to be inactive
+        #  after checking on-chain
+        assert agent.is_cohort_active.call_count == len(cohort)
+        assert agent.get_signing_cohort.call_count == len(
+            cohort
+        )  # actually called this time

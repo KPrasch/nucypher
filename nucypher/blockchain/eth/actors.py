@@ -1473,8 +1473,14 @@ class Operator(BaseActor):
             )
 
         signing_cohort = self.signing_coordinator_agent.get_signing_cohort(cohort_id)
-        # safety measure that cohort doesn't expire before caching TTL
+        # very unlikely: safety measure that cohort doesn't reach end timestamp between
+        #  checking whether active via agent and caching
         time_remaining = signing_cohort.end_timestamp - maya.now().epoch
+        if time_remaining <= 0:
+            raise self.UnauthorizedRequest(
+                f"Cohort #{cohort_id} is not active",
+            )
+
         custom_ttl = min(time_remaining, self._signing_cohort_cache.ttl)
         self._signing_cohort_cache.add_with_ttl(cohort_id, signing_cohort, custom_ttl)
         return signing_cohort
