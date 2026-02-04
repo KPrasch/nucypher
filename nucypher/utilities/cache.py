@@ -50,11 +50,7 @@ class TTLCache:
         """
         Add the provided key entry to be the provided value.
         """
-        if key is None or value is None:
-            raise ValueError(f"Invalid key-value pair ({key}, {value})")
-
-        with self.__cache_lock:
-            self.__cache[key] = self.TTLEntry(value=value, ttl=self.ttl)
+        self.add_with_ttl(key, value, self.ttl)
 
     def __getitem__(self, key):
         """
