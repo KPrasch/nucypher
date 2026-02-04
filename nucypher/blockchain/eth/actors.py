@@ -1488,8 +1488,9 @@ class Operator(BaseActor):
         )
         signing_cohort = self._get_signing_cohort(signing_request.cohort_id)
 
-        provider_addresses = [s.provider for s in signing_cohort.signers]
-        if self.staking_provider_address not in provider_addresses:
+        if not any(
+            s.provider == self.staking_provider_address for s in signing_cohort.signers
+        ):
             raise self.UnauthorizedRequest(
                 f"Not a member of signing cohort {signing_request.cohort_id}"
             )
