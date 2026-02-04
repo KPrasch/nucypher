@@ -17,7 +17,35 @@ from nucypher.utilities.logging import Logger
 LOGGER = Logger("utility")
 
 
-def prettify_eth_amount(amount, original_denomination: str = 'wei') -> str:
+def obfuscate_rpc_url(url: str) -> str:
+    """
+    Obfuscates sensitive parts of an RPC URL for safe logging.
+    Replaces API keys and other path segments after the host with asterisks.
+    Example: https://mainnet.infura.io/v3/abc123 -> https://mainnet.infura.io/v3/abc***
+    """
+    try:
+        from urllib.parse import urlparse, urlunparse
+
+        parsed = urlparse(url)
+        if parsed.path:
+            # Split path into segments and obfuscate segments that look like API keys
+            segments = parsed.path.split("/")
+            obfuscated_segments = []
+            for segment in segments:
+                # Obfuscate segments that are 16+ chars (likely API keys/secrets)
+                if len(segment) >= 16:
+                    obfuscated_segments.append(segment[:3] + "***")
+                else:
+                    obfuscated_segments.append(segment)
+            obfuscated_path = "/".join(obfuscated_segments)
+            parsed = parsed._replace(path=obfuscated_path)
+        return urlunparse(parsed)
+    except Exception:
+        # If parsing fails, return a safe placeholder
+        return "<RPC endpoint>"
+
+
+def prettify_eth_amount(amount, original_denomination: str = "wei") -> str:
     """
     Converts any ether `amount` in `original_denomination` and finds a suitable representation based on its length.
     The options in consideration are representing the amount in wei, gwei or ETH.
@@ -29,29 +57,33 @@ def prettify_eth_amount(amount, original_denomination: str = 'wei') -> str:
         # First obtain canonical representation in wei. Works for int, float, Decimal and str amounts
         amount_in_wei = Web3.to_wei(Decimal(amount), original_denomination)
 
-        common_denominations = ('wei', 'gwei', 'ether')
+        common_denominations = ("wei", "gwei", "ether")
 
         options = [str(Web3.from_wei(amount_in_wei, d)) for d in common_denominations]
 
         best_option = min(zip(map(len, options), options, common_denominations))
         _length, pretty_amount, denomination = best_option
 
-        if denomination == 'ether':
-            denomination = 'ETH'
+        if denomination == "ether":
+            denomination = "ETH"
         pretty_amount += " " + denomination
 
-    except Exception:  # Worst case scenario, we just print the str representation of amount
+    except (
+        Exception
+    ):  # Worst case scenario, we just print the str representation of amount
         pretty_amount = str(amount)
 
     return pretty_amount
 
 
-def get_transaction_name(contract_function: Union[ContractFunction, ContractConstructor]) -> str:
+def get_transaction_name(
+    contract_function: Union[ContractFunction, ContractConstructor],
+) -> str:
     deployment = isinstance(contract_function, ContractConstructor)
     try:
         transaction_name = contract_function.fn_name.upper()
     except AttributeError:
-        transaction_name = 'DEPLOY' if deployment else 'UNKNOWN'
+        transaction_name = "DEPLOY" if deployment else "UNKNOWN"
     return transaction_name
 
 
@@ -125,7 +157,7 @@ def rpc_endpoint_health_check(
         "params": [],
         "id": 1,
     }
-    LOGGER.debug(f"Checking chain ID of RPC endpoint {endpoint}")
+    LOGGER.debug(f"Checking chain ID of RPC endpoint {obfuscate_rpc_url(endpoint)}")
     result = _get_json_rpc_call_result(endpoint, query)
     if result is None:
         return False
@@ -139,7 +171,7 @@ def rpc_endpoint_health_check(
             return False
     except (TypeError, ValueError):
         LOGGER.debug(
-            f"RPC endpoint {endpoint} is unhealthy: invalid chain ID response {result}"
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: invalid chain ID response {result}"
         )
         return False
 
@@ -150,25 +182,27 @@ def rpc_endpoint_health_check(
         "params": ["latest", False],
         "id": 2,
     }
-    LOGGER.debug(f"Checking health of RPC endpoint {endpoint}")
+    LOGGER.debug(f"Checking health of RPC endpoint {obfuscate_rpc_url(endpoint)}")
     block_data = _get_json_rpc_call_result(endpoint, query)
     if block_data is None:
         return False
     try:
         timestamp = int(block_data.get("timestamp"), 16)
     except (TypeError, ValueError):
-        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: invalid block data")
+        LOGGER.debug(
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: invalid block data"
+        )
         return False
 
     system_time = time.time()
     drift = abs(system_time - timestamp)
     if drift > max_drift_seconds:
         LOGGER.debug(
-            f"RPC endpoint {endpoint} is unhealthy: drift too large ({drift} seconds)"
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: drift too large ({drift} seconds)"
         )
         return False
 
-    LOGGER.debug(f"RPC endpoint {endpoint} is healthy")
+    LOGGER.debug(f"RPC endpoint {obfuscate_rpc_url(endpoint)} is healthy")
     return True  # finally!
 
 
@@ -181,27 +215,35 @@ def _get_json_rpc_call_result(endpoint: str, query: dict) -> Optional[Any]:
             timeout=5,
         )
     except requests.exceptions.RequestException:
-        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: network error")
+        LOGGER.debug(
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: network error"
+        )
         return None
 
     if response.status_code != 200:
         LOGGER.debug(
-            f"RPC endpoint {endpoint} is unhealthy: {response.status_code} | {response.text}"
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: {response.status_code} | {response.text}"
         )
         return None
 
     try:
         data = response.json()
         if "result" not in data:
-            LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: no response data")
+            LOGGER.debug(
+                f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: no response data"
+            )
             return None
     except requests.exceptions.JSONDecodeError:
-        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: {response.text}")
+        LOGGER.debug(
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: {response.text}"
+        )
         return None
 
     result = data.get("result")
     if result is None:
-        LOGGER.debug(f"RPC endpoint {endpoint} is unhealthy: no result data")
+        LOGGER.debug(
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: no result data"
+        )
         return None
 
     return result
