@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import time
 import traceback
@@ -72,6 +73,7 @@ from nucypher.blockchain.eth.utils import (
     rpc_endpoint_health_check,
     truncate_checksum_address,
 )
+from nucypher.config.constants import NUCYPHER_ENVVAR_COHORT_CACHE_TTL
 from nucypher.crypto.ferveo.exceptions import FerveoKeyMismatch
 from nucypher.crypto.powers import (
     CryptoPower,
@@ -100,6 +102,7 @@ from nucypher.types import (
     PhaseId,
     PhaseNumber,
 )
+from nucypher.utilities.cache import TTLCache
 from nucypher.utilities.emitters import StdoutEmitter
 from nucypher.utilities.logging import Logger
 from nucypher.utilities.warnings import render_ferveo_key_mismatch_warning
@@ -187,6 +190,9 @@ class Operator(BaseActor):
     AGGREGATION_SUBMISSION_MAX_DELAY = 60
     POST_SIGNATURE_MAX_DELAY = 60
     LOG = Logger("operator")
+
+    # Cohort cache TTL from env var or default 60 seconds
+    _COHORT_CACHE_TTL = int(os.environ.get(NUCYPHER_ENVVAR_COHORT_CACHE_TTL, 60))
 
     class OperatorError(BaseActor.ActorError):
         """Operator-specific errors."""
@@ -314,6 +320,8 @@ class Operator(BaseActor):
             operator=self,
         )
 
+        self._signing_cohort_cache = TTLCache(ttl=self._COHORT_CACHE_TTL)
+
     def set_provider_public_key(self) -> Union[TxReceipt, None]:
         # TODO: Here we're assuming there is one global key per node. See nucypher/#3167
         node_global_ferveo_key_set = self.coordinator_agent.is_provider_public_key_set(
@@ -333,7 +341,6 @@ class Operator(BaseActor):
     def get_condition_provider_manager(
         self, operator_configured_endpoints: Dict[int, List[str]]
     ) -> ConditionProviderManager:
-
         # check that we have mandatory user configured endpoints
         mandatory_configured_chains = {
             self.domain.eth_chain.id,
@@ -501,7 +508,6 @@ class Operator(BaseActor):
     def _setup_dkg_async_tx_hooks(
         self, phase_id: PhaseId, *args
     ) -> BlockchainInterface.AsyncTxHooks:
-
         tx_types = {
             DKG_PHASE_1: "POST_TRANSCRIPT",
             DKG_PHASE_2: "POST_AGGREGATE",
@@ -1202,7 +1208,6 @@ class Operator(BaseActor):
     def _setup_signing_async_tx_hooks(
         self, phase_id: PhaseId, *args
     ) -> BlockchainInterface.AsyncTxHooks:
-
         tx_types = {
             SIGNING_AWAITING_SIGNATURES: "SIGNING_AWAITING_SIGNATURES",
         }
@@ -1455,6 +1460,31 @@ class Operator(BaseActor):
 
         return decryption_share
 
+    def _get_signing_cohort(self, cohort_id: int) -> SigningCoordinator.SigningCohort:
+        self._signing_cohort_cache.purge_expired()
+
+        cached_cohort = self._signing_cohort_cache[cohort_id]
+        if cached_cohort is not None:
+            return cached_cohort
+
+        if not self.signing_coordinator_agent.is_cohort_active(cohort_id):
+            raise self.UnauthorizedRequest(
+                f"Cohort #{cohort_id} is not active",
+            )
+
+        signing_cohort = self.signing_coordinator_agent.get_signing_cohort(cohort_id)
+        # very unlikely: safety measure that cohort doesn't reach end timestamp between
+        #  checking whether active via agent and caching
+        time_remaining = signing_cohort.end_timestamp - maya.now().epoch
+        if time_remaining <= 0:
+            raise self.UnauthorizedRequest(
+                f"Cohort #{cohort_id} is not active",
+            )
+
+        custom_ttl = min(time_remaining, self._signing_cohort_cache.ttl)
+        self._signing_cohort_cache.add_with_ttl(cohort_id, signing_cohort, custom_ttl)
+        return signing_cohort
+
     def handle_threshold_signing_request(
         self,
         encrypted_signing_request: EncryptedThresholdSignatureRequest,
@@ -1462,27 +1492,20 @@ class Operator(BaseActor):
         signing_request = self.signing_request_power.decrypt_encrypted_request(
             encrypted_signing_request
         )
-        if not self.signing_coordinator_agent.is_cohort_active(
-            signing_request.cohort_id
-        ):
-            raise self.UnauthorizedRequest(
-                f"Cohort #{signing_request.cohort_id} is not active",
-            )
+        signing_cohort = self._get_signing_cohort(signing_request.cohort_id)
 
-        if not self.signing_coordinator_agent.is_signer(
-            cohort_id=signing_request.cohort_id,
-            provider_address=self.staking_provider_address,
+        if not any(
+            s.provider == self.staking_provider_address for s in signing_cohort.signers
         ):
             raise self.UnauthorizedRequest(
                 f"Not a member of signing cohort {signing_request.cohort_id}"
             )
 
-        signing_cohort = self.signing_coordinator_agent.get_signing_cohort(
-            signing_request.cohort_id
+        # get condition directly from canonical source to ensure latest
+        # and prevent signing on stale conditions
+        condition_bytes = self.signing_coordinator_agent.get_signing_cohort_conditions(
+            cohort_id=signing_request.cohort_id, chain_id=signing_request.chain_id
         )
-
-        # evaluate condition
-        condition_bytes = signing_cohort.conditions.get(signing_request.chain_id)
         if not condition_bytes:
             raise self.NoConditionConfigured(
                 f"Condition not configured on chain {signing_request.chain_id} for signing cohort {signing_request.cohort_id} "

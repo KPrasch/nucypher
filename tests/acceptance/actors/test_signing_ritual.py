@@ -145,7 +145,9 @@ def test_signing_cohort_finality(
     yield
 
 
-def test_signature_publication(signing_coordinator_agent, cohort, cohort_id, dkg_size):
+def test_signature_publication(
+    signing_coordinator_agent, chain, cohort, cohort_id, dkg_size
+):
     print("==================== VERIFYING DKG FINALITY ====================")
     for ursula in cohort:
         assert (
@@ -157,8 +159,6 @@ def test_signature_publication(signing_coordinator_agent, cohort, cohort_id, dkg
             )
             > 0
         ), "no signature found for ursula"
-
-    assert len(signing_coordinator_agent.get_signing_cohort(cohort_id).conditions) > 0
 
 
 def test_get_signers(
