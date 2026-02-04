@@ -591,3 +591,121 @@ def test_create2_operation():
 
     # Expected address computed from CREATE2 formula
     assert result == "0x879F8Ee9B69D56E3cd4bb78FBf5C0dA93E29bBAb"
+
+
+def test_create2_invalid_salt_length():
+    """Test that create2 fails with non-32-byte salt."""
+    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+
+    # 16-byte salt (too short)
+    short_salt = bytes.fromhex("e18a34eb0e04b04f7a0ac29a6e807400")
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    with pytest.raises(TypeError, match="salt must be 32 bytes"):
+        VariableOperation.evaluate_operations(operations, short_salt)
+
+
+def test_create2_invalid_deployer_length():
+    """Test that create2 fails with non-20-byte deployer address."""
+    # 10-byte address (too short)
+    deployer = "0x5C69bEe701ef814a2B6a"
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    with pytest.raises(TypeError, match="deployerAddress must be 20 bytes"):
+        VariableOperation.evaluate_operations(operations, salt)
+
+
+def test_create2_invalid_bytecode_hash_length():
+    """Test that create2 fails with non-32-byte bytecode hash."""
+    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    # 16-byte hash (too short)
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f"
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    with pytest.raises(TypeError, match="bytecodeHash must be 32 bytes"):
+        VariableOperation.evaluate_operations(operations, salt)
+
+
+def test_create2_missing_value_fields():
+    """Test that create2 fails when required fields are missing from value."""
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    # Missing bytecodeHash
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+            },
+        ),
+    ]
+
+    with pytest.raises(
+        TypeError, match="requires 'deployerAddress' and 'bytecodeHash'"
+    ):
+        VariableOperation.evaluate_operations(operations, salt)
+
+    # Missing deployerAddress
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "bytecodeHash": "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
+            },
+        ),
+    ]
+
+    with pytest.raises(
+        TypeError, match="requires 'deployerAddress' and 'bytecodeHash'"
+    ):
+        VariableOperation.evaluate_operations(operations, salt)
+
+    # Empty value
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={},
+        ),
+    ]
+
+    with pytest.raises(
+        TypeError, match="requires 'deployerAddress' and 'bytecodeHash'"
+    ):
+        VariableOperation.evaluate_operations(operations, salt)
