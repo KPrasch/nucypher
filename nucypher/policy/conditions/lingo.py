@@ -10,7 +10,7 @@ from hashlib import md5
 from inspect import signature
 from typing import Any, List, Optional, Tuple, Type, Union
 
-from eth_utils import is_hexstr, keccak
+from eth_utils import is_hexstr, keccak, to_checksum_address
 from hexbytes import HexBytes
 from marshmallow import (
     Schema,
@@ -367,6 +367,58 @@ def _to_hex(value):
         raise TypeError(f"Invalid value for hex conversion: {e}")
 
 
+def _compute_create2_address(salt: bytes, value: dict) -> str:
+    """
+    Compute CREATE2 address locally.
+
+    Formula: keccak256(0xff ++ deployer ++ salt ++ bytecode_hash)[12:]
+
+    :param salt: The salt value (must be 32 bytes)
+    :param value: Dict containing 'deployerAddress' and 'bytecodeHash'
+    :return: Checksummed Ethereum address
+    :raises TypeError: If inputs are invalid
+    """
+    try:
+        deployer_address = value["deployerAddress"]
+        bytecode_hash = value["bytecodeHash"]
+    except (KeyError, TypeError) as e:
+        raise TypeError(
+            f"create2 operation requires 'deployerAddress' and 'bytecodeHash' in value: {e}"
+        )
+
+    # Validate and convert deployer address
+    try:
+        deployer_bytes = HexBytes(deployer_address)
+    except Exception as e:
+        raise TypeError(f"Invalid deployerAddress: {e}")
+    if len(deployer_bytes) != 20:
+        raise TypeError(f"deployerAddress must be 20 bytes, got {len(deployer_bytes)}")
+
+    # Validate and convert salt
+    try:
+        salt_bytes = HexBytes(salt)
+    except Exception as e:
+        raise TypeError(f"Invalid salt: {e}")
+    if len(salt_bytes) != 32:
+        raise TypeError(f"salt must be 32 bytes, got {len(salt_bytes)}")
+
+    # Validate and convert bytecode hash
+    try:
+        bytecode_hash_bytes = HexBytes(bytecode_hash)
+    except Exception as e:
+        raise TypeError(f"Invalid bytecodeHash: {e}")
+    if len(bytecode_hash_bytes) != 32:
+        raise TypeError(
+            f"bytecodeHash must be 32 bytes, got {len(bytecode_hash_bytes)}"
+        )
+
+    # CREATE2: keccak256(0xff ++ deployer ++ salt ++ bytecode_hash)[12:]
+    pre_image = b"\xff" + deployer_bytes + salt_bytes + bytecode_hash_bytes
+    address_bytes = keccak(pre_image)[12:]
+
+    return to_checksum_address(address_bytes)
+
+
 # should raise TypeError for invalid inputs
 _OPERATOR_FUNCTIONS = {
     # We can add all kinds of operators over time, this is just a base start - given that
@@ -405,6 +457,8 @@ _OPERATOR_FUNCTIONS = {
     "toHex": _to_hex,
     # hashing
     "keccak": lambda a: keccak(a.encode() if isinstance(a, str) else a),
+    # address computation
+    "create2": _compute_create2_address,
 }
 
 MAX_VARIABLE_OPERATIONS = 5
@@ -1133,7 +1187,7 @@ class ConditionLingo(_Serializable):
             raise InvalidConditionLingo(f"Invalid condition grammar: {e}")
 
     @classmethod
-    def from_json(cls, data: str) -> 'ConditionLingo':
+    def from_json(cls, data: str) -> "ConditionLingo":
         try:
             return super().from_json(data)
         except ValidationError as e:

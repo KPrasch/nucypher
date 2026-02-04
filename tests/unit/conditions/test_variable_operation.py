@@ -564,3 +564,30 @@ def test_to_token_base_units_type_errors():
     # Test that list raises TypeError
     with pytest.raises(TypeError, match="Invalid value for toTokenBaseUnits"):
         VariableOperation.evaluate_operations([op], [1, 2, 3])
+
+
+def test_create2_operation():
+    """Test CREATE2 address computation with known values."""
+    # Known test vectors - deployer, salt, bytecode_hash -> expected address
+    # Using the Uniswap V2 pair creation as reference pattern
+    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"  # Uniswap V2 Factory
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+
+    # Salt from keccak256 of token pair
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+    result = VariableOperation.evaluate_operations(operations, salt)
+
+    # Expected address computed from CREATE2 formula
+    assert result == "0x879F8Ee9B69D56E3cd4bb78FBf5C0dA93E29bBAb"
