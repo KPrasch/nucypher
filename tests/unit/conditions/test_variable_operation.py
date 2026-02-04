@@ -102,6 +102,18 @@ OPERATION_TEST_CASES = [
         b"testing",
         b"_\x16\xf4\xc7\xf1I\xacO\x95\x10\xd9\xcf\x8c\xf3\x84\x03\x8a\xd3H\xb3\xbc\xdc\x01\x91_\x95\xde\x12\xdf\x9d\x1b\x02",
     ),  # bytes
+    # create2 - computes CREATE2 address
+    (
+        "create2",
+        {
+            "deployerAddress": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+            "bytecodeHash": "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
+        },
+        bytes.fromhex(
+            "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+        ),
+        "0x879F8Ee9B69D56E3cd4bb78FBf5C0dA93E29bBAb",
+    ),
 ]
 
 
@@ -711,20 +723,62 @@ def test_create2_missing_value_fields():
         VariableOperation.evaluate_operations(operations, salt)
 
 
-def test_create2_cascading_operations():
-    """Test create2 in a chain of operations: str -> concat -> keccak -> create2."""
-    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
-    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+def test_create2_with_context_variables():
+    """Test that create2 value fields support context variable resolution."""
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
 
-    # Start with a discord-like ID
-    discord_id = 123456789012345678
+    context = {
+        ":factoryAddress": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+        ":initCodeHash": "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
+    }
 
     operations = [
-        VariableOperation(operation="str"),  # "123456789012345678"
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": ":factoryAddress",
+                "bytecodeHash": ":initCodeHash",
+            },
+        ),
+    ]
+
+    # Resolve context variables
+    resolved_operations = VariableOperation.with_resolved_context(operations, **context)
+
+    # Execute
+    result = VariableOperation.evaluate_operations(resolved_operations, salt)
+
+    assert result == "0x879F8Ee9B69D56E3cd4bb78FBf5C0dA93E29bBAb"
+
+
+def test_create2_discord_id_to_aa_address():
+    """
+    Test the full pipeline from Discord ID to AA address.
+
+    This replicates the real-world use case:
+    1. Start with a Discord user ID
+    2. Concatenate with "|Discord|Collab.Land"
+    3. Hash with keccak256 to get the salt
+    4. Compute CREATE2 address using SimpleFactory on Base Sepolia
+
+    Values from discord-taco-web validate-aa-derivation.ts script.
+    """
+    # Real Discord user ID
+    discord_id = 405651072460259339
+
+    # SimpleFactory on Base Sepolia
+    deployer = "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c"
+    # Bytecode hash for MetaMask Delegation Toolkit MultiSig
+    bytecode_hash = "0x210ffc0da7f274285c4d6116aaef8420ecb9054faced33862197d6b951cb32f5"
+
+    operations = [
+        VariableOperation(operation="str"),  # "405651072460259339"
         VariableOperation(
             operation="+=", value="|Discord|Collab.Land"
-        ),  # "123456789012345678|Discord|Collab.Land"
-        VariableOperation(operation="keccak"),  # bytes32 hash
+        ),  # "405651072460259339|Discord|Collab.Land"
+        VariableOperation(operation="keccak"),  # salt as bytes32
         VariableOperation(
             operation="create2",
             value={
@@ -736,8 +790,5 @@ def test_create2_cascading_operations():
 
     result = VariableOperation.evaluate_operations(operations, discord_id)
 
-    # Result should be a checksummed address
-    assert result.startswith("0x")
-    assert len(result) == 42
-    # Verify it's checksummed (has mixed case)
-    assert result != result.lower()
+    # Expected AA address for this Discord ID
+    assert result == "0x420AcFa51fdB2821dFb407e212A882144807737C"
