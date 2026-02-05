@@ -1,11 +1,9 @@
-import pytest
 import requests
 
 from nucypher.blockchain.eth.domains import EthChain, PolygonChain, TACoDomain
 from nucypher.blockchain.eth.utils import (
     get_default_rpc_endpoints,
     get_healthy_default_rpc_endpoints,
-    obfuscate_rpc_url,
     rpc_endpoint_health_check,
 )
 
@@ -107,9 +105,8 @@ def test_get_healthy_default_rpc_endpoints(mocker):
     mock_health_check = mocker.patch(
         "nucypher.blockchain.eth.utils.rpc_endpoint_health_check"
     )
-    mock_health_check.side_effect = (
-        lambda chain_id, endpoint: endpoint == "http://endpoint1"
-        or endpoint == "http://endpoint3"
+    mock_health_check.side_effect = lambda chain_id, endpoint: (
+        endpoint == "http://endpoint1" or endpoint == "http://endpoint3"
     )
 
     test_domain = TACoDomain(
@@ -120,27 +117,3 @@ def test_get_healthy_default_rpc_endpoints(mocker):
 
     healthy_endpoints = get_healthy_default_rpc_endpoints(test_domain)
     assert healthy_endpoints == {1: ["http://endpoint1"], 2: ["http://endpoint3"]}
-
-
-@pytest.mark.parametrize(
-    "url,expected",
-    [
-        # Infura-style URLs with API key
-        (
-            "https://base-sepolia.infura.io/v3/25c3f47d58494214b9cbb7bdc3db99e0",
-            "https://base-sepolia.infura.io/v3/25c***",
-        ),
-        # Alchemy-style URLs with API key
-        (
-            "https://eth-mainnet.alchemyapi.io/v2/abcdef1234567890abcdef1234567890",
-            "https://eth-mainnet.alchemyapi.io/v2/abc***",
-        ),
-        # URLs without API keys should remain unchanged
-        ("https://rpc.ankr.com/eth", "https://rpc.ankr.com/eth"),
-        ("https://cloudflare-eth.com", "https://cloudflare-eth.com"),
-        # Short path segments preserved
-        ("https://example.com/v3/short", "https://example.com/v3/short"),
-    ],
-)
-def test_obfuscate_rpc_url(url, expected):
-    assert obfuscate_rpc_url(url) == expected

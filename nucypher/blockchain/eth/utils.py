@@ -2,6 +2,7 @@ import time
 from decimal import Decimal
 from functools import cache
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from eth_typing import ChecksumAddress
@@ -24,8 +25,6 @@ def obfuscate_rpc_url(url: str) -> str:
     Example: https://mainnet.infura.io/v3/abc123 -> https://mainnet.infura.io/v3/abc***
     """
     try:
-        from urllib.parse import urlparse, urlunparse
-
         parsed = urlparse(url)
         if parsed.path:
             # Split path into segments and obfuscate segments that look like API keys
