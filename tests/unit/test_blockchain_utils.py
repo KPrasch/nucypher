@@ -24,6 +24,8 @@ from nucypher.blockchain.eth.utils import (
         ("https://cloudflare-eth.com", "https://cloudflare-eth.com"),
         # Short path segments preserved
         ("https://example.com/v3/short", "https://example.com/v3/short"),
+        # Invalid input falls back to placeholder
+        (123, "<RPC endpoint>"),
     ],
 )
 def test_obfuscate_rpc_url(url, expected):
