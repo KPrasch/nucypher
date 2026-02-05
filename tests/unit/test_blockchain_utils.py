@@ -1,6 +1,9 @@
 import pytest
 
-from nucypher.blockchain.eth.utils import obfuscate_rpc_url
+from nucypher.blockchain.eth.utils import (
+    _truncate_response_text,
+    obfuscate_rpc_url,
+)
 
 
 @pytest.mark.parametrize(
@@ -25,3 +28,20 @@ from nucypher.blockchain.eth.utils import obfuscate_rpc_url
 )
 def test_obfuscate_rpc_url(url, expected):
     assert obfuscate_rpc_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        # Short text unchanged
+        ("Short error", "Short error"),
+        # Exactly 200 chars unchanged
+        ("x" * 200, "x" * 200),
+        # Long text truncated with ellipsis
+        ("x" * 250, "x" * 200 + "..."),
+        # Empty string unchanged
+        ("", ""),
+    ],
+)
+def test_truncate_response_text(text, expected):
+    assert _truncate_response_text(text) == expected
