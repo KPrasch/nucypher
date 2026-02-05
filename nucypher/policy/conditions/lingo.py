@@ -383,7 +383,7 @@ def _compute_create2_address(salt: bytes, value: dict) -> str:
         bytecode_hash = value["bytecodeHash"]
     except (KeyError, TypeError) as e:
         raise TypeError(
-            f"create2 operation requires 'deployerAddress' and 'bytecodeHash' in value: {e}"
+            f"create2 operation requires dictionary with 'deployerAddress' and 'bytecodeHash' values: {e}"
         )
 
     # Validate and convert deployer address
