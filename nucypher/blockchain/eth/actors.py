@@ -70,6 +70,7 @@ from nucypher.blockchain.eth.trackers import dkg, signing
 from nucypher.blockchain.eth.trackers.bonding import OperatorBondedTracker
 from nucypher.blockchain.eth.utils import (
     get_healthy_default_rpc_endpoints,
+    obfuscate_rpc_url,
     rpc_endpoint_health_check,
     truncate_checksum_address,
 )
@@ -368,19 +369,19 @@ class Operator(BaseActor):
             for uri in chain_rpc_endpoints:
                 if uri in duplicated_endpoint_check[chain_id]:
                     self.log.warn(
-                        f"Operator-configured condition endpoint {uri} is duplicated for condition evaluation on chain {chain_id}; skipping."
+                        f"Operator-configured condition endpoint {obfuscate_rpc_url(uri)} is duplicated for condition evaluation on chain {chain_id}; skipping."
                     )
                     continue
 
                 provider = self._make_condition_provider(uri)
                 if int(Web3(provider).eth.chain_id) != int(chain_id):
                     raise self.ActorError(
-                        f"Operator-configured RPC condition endpoint {uri} does not belong to chain {chain_id}"
+                        f"Operator-configured RPC condition endpoint {obfuscate_rpc_url(uri)} does not belong to chain {chain_id}"
                     )
                 healthy = rpc_endpoint_health_check(chain_id=chain_id, endpoint=uri)
                 if not healthy:
                     self.log.warn(
-                        f"Operator-configured RPC condition endpoint {uri} is unhealthy"
+                        f"Operator-configured RPC condition endpoint {obfuscate_rpc_url(uri)} is unhealthy"
                     )
                 configured_endpoints[int(chain_id)].append(provider)
                 duplicated_endpoint_check[chain_id].add(uri)
@@ -392,7 +393,7 @@ class Operator(BaseActor):
             for uri in chain_rpc_endpoints:
                 if uri in duplicated_endpoint_check[chain_id]:
                     self.log.warn(
-                        f"Fallback blockchain endpoint, {uri}, is duplicated for condition evaluation on chain {chain_id}; skipping"
+                        f"Fallback blockchain endpoint, {obfuscate_rpc_url(uri)}, is duplicated for condition evaluation on chain {chain_id}; skipping"
                     )
                     continue
                 provider = self._make_condition_provider(uri)

@@ -17,6 +17,16 @@ from nucypher.utilities.logging import Logger
 
 LOGGER = Logger("utility")
 
+# Maximum length for response text in log messages
+_MAX_RESPONSE_TEXT_LENGTH = 200
+
+
+def _truncate_response_text(text: str) -> str:
+    """Truncates response text for logging to avoid huge error messages."""
+    if len(text) <= _MAX_RESPONSE_TEXT_LENGTH:
+        return text
+    return text[:_MAX_RESPONSE_TEXT_LENGTH] + "..."
+
 
 def obfuscate_rpc_url(url: str) -> str:
     """
@@ -221,7 +231,7 @@ def _get_json_rpc_call_result(endpoint: str, query: dict) -> Optional[Any]:
 
     if response.status_code != 200:
         LOGGER.debug(
-            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: {response.status_code} | {response.text}"
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: {response.status_code} | {_truncate_response_text(response.text)}"
         )
         return None
 
@@ -234,7 +244,7 @@ def _get_json_rpc_call_result(endpoint: str, query: dict) -> Optional[Any]:
             return None
     except requests.exceptions.JSONDecodeError:
         LOGGER.debug(
-            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: {response.text}"
+            f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: {_truncate_response_text(response.text)}"
         )
         return None
 
@@ -269,7 +279,7 @@ def get_default_rpc_endpoints(domain: TACoDomain) -> Dict[int, List[str]]:
         }
     else:
         LOGGER.error(
-            f"Failed to fetch default RPC endpoints: {response.status_code} | {response.text}"
+            f"Failed to fetch default RPC endpoints: {response.status_code} | {_truncate_response_text(response.text)}"
         )
         return {}
 

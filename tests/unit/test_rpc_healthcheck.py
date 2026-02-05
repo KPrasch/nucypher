@@ -90,6 +90,7 @@ def test_get_default_rpc_endpoints(mocker):
 
     # Mock a failed response
     mock_get.return_value.status_code = 500
+    mock_get.return_value.text = "Internal Server Error"
     assert get_default_rpc_endpoints(test_domain) == {}
 
 
