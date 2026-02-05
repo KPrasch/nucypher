@@ -690,7 +690,8 @@ def test_create2_missing_value_fields():
     ]
 
     with pytest.raises(
-        TypeError, match="requires 'deployerAddress' and 'bytecodeHash'"
+        TypeError,
+        match="create2 operation requires dictionary with 'deployerAddress' and 'bytecodeHash' values",
     ):
         VariableOperation.evaluate_operations(operations, salt)
 
@@ -705,7 +706,8 @@ def test_create2_missing_value_fields():
     ]
 
     with pytest.raises(
-        TypeError, match="requires 'deployerAddress' and 'bytecodeHash'"
+        TypeError,
+        match="create2 operation requires dictionary with 'deployerAddress' and 'bytecodeHash' values",
     ):
         VariableOperation.evaluate_operations(operations, salt)
 
@@ -718,7 +720,8 @@ def test_create2_missing_value_fields():
     ]
 
     with pytest.raises(
-        TypeError, match="requires 'deployerAddress' and 'bytecodeHash'"
+        TypeError,
+        match="create2 operation requires dictionary with 'deployerAddress' and 'bytecodeHash' values",
     ):
         VariableOperation.evaluate_operations(operations, salt)
 
