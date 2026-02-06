@@ -102,6 +102,18 @@ OPERATION_TEST_CASES = [
         b"testing",
         b"_\x16\xf4\xc7\xf1I\xacO\x95\x10\xd9\xcf\x8c\xf3\x84\x03\x8a\xd3H\xb3\xbc\xdc\x01\x91_\x95\xde\x12\xdf\x9d\x1b\x02",
     ),  # bytes
+    # create2 - computes CREATE2 address
+    (
+        "create2",
+        {
+            "deployerAddress": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+            "bytecodeHash": "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
+        },
+        bytes.fromhex(
+            "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+        ),
+        "0x879F8Ee9B69D56E3cd4bb78FBf5C0dA93E29bBAb",
+    ),
 ]
 
 
@@ -564,3 +576,222 @@ def test_to_token_base_units_type_errors():
     # Test that list raises TypeError
     with pytest.raises(TypeError, match="Invalid value for toTokenBaseUnits"):
         VariableOperation.evaluate_operations([op], [1, 2, 3])
+
+
+def test_create2_operation():
+    """Test CREATE2 address computation with known values."""
+    # Known test vectors - deployer, salt, bytecode_hash -> expected address
+    # Using the Uniswap V2 pair creation as reference pattern
+    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"  # Uniswap V2 Factory
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+
+    # Salt from keccak256 of token pair
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+    result = VariableOperation.evaluate_operations(operations, salt)
+
+    # Expected address computed from CREATE2 formula
+    assert result == "0x879F8Ee9B69D56E3cd4bb78FBf5C0dA93E29bBAb"
+
+
+def test_create2_invalid_salt_length():
+    """Test that create2 fails with non-32-byte salt."""
+    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+
+    # 16-byte salt (too short)
+    short_salt = bytes.fromhex("e18a34eb0e04b04f7a0ac29a6e807400")
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    with pytest.raises(TypeError, match="salt must be 32 bytes"):
+        VariableOperation.evaluate_operations(operations, short_salt)
+
+
+def test_create2_invalid_deployer_length():
+    """Test that create2 fails with non-20-byte deployer address."""
+    # 10-byte address (too short)
+    deployer = "0x5C69bEe701ef814a2B6a"
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    with pytest.raises(TypeError, match="deployerAddress must be 20 bytes"):
+        VariableOperation.evaluate_operations(operations, salt)
+
+
+def test_create2_invalid_bytecode_hash_length():
+    """Test that create2 fails with non-32-byte bytecode hash."""
+    deployer = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
+    # 16-byte hash (too short)
+    bytecode_hash = "0x96e8ac4277198ff8b6f785478aa9a39f"
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    with pytest.raises(TypeError, match="bytecodeHash must be 32 bytes"):
+        VariableOperation.evaluate_operations(operations, salt)
+
+
+def test_create2_missing_value_fields():
+    """Test that create2 fails when required fields are missing from value."""
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    # Missing bytecodeHash
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+            },
+        ),
+    ]
+
+    with pytest.raises(
+        TypeError,
+        match="create2 operation requires dictionary with 'deployerAddress' and 'bytecodeHash' values",
+    ):
+        VariableOperation.evaluate_operations(operations, salt)
+
+    # Missing deployerAddress
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "bytecodeHash": "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
+            },
+        ),
+    ]
+
+    with pytest.raises(
+        TypeError,
+        match="create2 operation requires dictionary with 'deployerAddress' and 'bytecodeHash' values",
+    ):
+        VariableOperation.evaluate_operations(operations, salt)
+
+    # Empty value
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={},
+        ),
+    ]
+
+    with pytest.raises(
+        TypeError,
+        match="create2 operation requires dictionary with 'deployerAddress' and 'bytecodeHash' values",
+    ):
+        VariableOperation.evaluate_operations(operations, salt)
+
+
+def test_create2_with_context_variables():
+    """Test that create2 value fields support context variable resolution."""
+    salt = bytes.fromhex(
+        "e18a34eb0e04b04f7a0ac29a6e80748dca96319b42c54d679cb821dca90c6303"
+    )
+
+    context = {
+        ":factoryAddress": "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+        ":initCodeHash": "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
+    }
+
+    operations = [
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": ":factoryAddress",
+                "bytecodeHash": ":initCodeHash",
+            },
+        ),
+    ]
+
+    # Resolve context variables
+    resolved_operations = VariableOperation.with_resolved_context(operations, **context)
+
+    # Execute
+    result = VariableOperation.evaluate_operations(resolved_operations, salt)
+
+    assert result == "0x879F8Ee9B69D56E3cd4bb78FBf5C0dA93E29bBAb"
+
+
+def test_create2_discord_id_to_aa_address():
+    """
+    Test the full pipeline from Discord ID to AA address.
+
+    This replicates the real-world use case:
+    1. Start with a Discord user ID
+    2. Concatenate with "|Discord|Collab.Land"
+    3. Hash with keccak256 to get the salt
+    4. Compute CREATE2 address using SimpleFactory on Base Sepolia
+
+    Values from discord-taco-web validate-aa-derivation.ts script.
+    """
+    # Real Discord user ID
+    discord_id = 405651072460259339
+
+    # SimpleFactory on Base Sepolia
+    deployer = "0x69Aa2f9fe1572F1B640E1bbc512f5c3a734fc77c"
+    # Bytecode hash for MetaMask Delegation Toolkit MultiSig
+    bytecode_hash = "0x210ffc0da7f274285c4d6116aaef8420ecb9054faced33862197d6b951cb32f5"
+
+    operations = [
+        VariableOperation(operation="str"),  # "405651072460259339"
+        VariableOperation(
+            operation="+=", value="|Discord|Collab.Land"
+        ),  # "405651072460259339|Discord|Collab.Land"
+        VariableOperation(operation="keccak"),  # salt as bytes32
+        VariableOperation(
+            operation="create2",
+            value={
+                "deployerAddress": deployer,
+                "bytecodeHash": bytecode_hash,
+            },
+        ),
+    ]
+
+    result = VariableOperation.evaluate_operations(operations, discord_id)
+
+    # Expected AA address for this Discord ID
+    assert result == "0x420AcFa51fdB2821dFb407e212A882144807737C"
