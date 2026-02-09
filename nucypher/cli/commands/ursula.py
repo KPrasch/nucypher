@@ -2,6 +2,7 @@ from pathlib import Path
 
 import click
 
+import nucypher
 from nucypher.cli.actions.auth import (
     collect_mnemonic,
     get_client_password,
@@ -630,11 +631,17 @@ def run(
 ):
     """Run an "Ursula" node."""
 
-    emitter = setup_emitter(general_config)
+    emitter = setup_emitter(
+        general_config, character_options.config_options.operator_address
+    )
     dev_mode = character_options.config_options.dev
     lonely = character_options.config_options.lonely
 
     _pre_launch_warnings(emitter, dev=dev_mode, force=None)
+
+    emitter.message(
+        f"Starting Ursula node (v{nucypher.__version__}) ...", color="green", bold=True
+    )
 
     prometheus_config = None
     if prometheus:
