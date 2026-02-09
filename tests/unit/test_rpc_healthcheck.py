@@ -90,6 +90,7 @@ def test_get_default_rpc_endpoints(mocker):
 
     # Mock a failed response
     mock_get.return_value.status_code = 500
+    mock_get.return_value.text = "Internal Server Error"
     assert get_default_rpc_endpoints(test_domain) == {}
 
 
@@ -105,9 +106,8 @@ def test_get_healthy_default_rpc_endpoints(mocker):
     mock_health_check = mocker.patch(
         "nucypher.blockchain.eth.utils.rpc_endpoint_health_check"
     )
-    mock_health_check.side_effect = (
-        lambda chain_id, endpoint: endpoint == "http://endpoint1"
-        or endpoint == "http://endpoint3"
+    mock_health_check.side_effect = lambda chain_id, endpoint: (
+        endpoint == "http://endpoint1" or endpoint == "http://endpoint3"
     )
 
     test_domain = TACoDomain(
