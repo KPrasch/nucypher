@@ -334,7 +334,7 @@ def init(
     general_config, config_options, force, config_root, key_material, with_mnemonic
 ):
     """Create a new Ursula node configuration."""
-    emitter = setup_emitter(general_config, config_options.operator_address)
+    emitter = setup_emitter(general_config)
     _pre_launch_warnings(emitter, dev=None, force=force)
 
     if not config_root:
@@ -533,7 +533,7 @@ def recover(config_file, keystore_filepath):
 @group_general_config
 def destroy(general_config, config_options, config_file, force):
     """Delete Ursula node configuration."""
-    emitter = setup_emitter(general_config, config_options.operator_address)
+    emitter = setup_emitter(general_config)
     _pre_launch_warnings(emitter, dev=config_options.dev, force=force)
     ursula_config = config_options.create_config(emitter, config_file)
     destroy_configuration(emitter, character_config=ursula_config, force=force)
@@ -631,9 +631,7 @@ def run(
 ):
     """Run an "Ursula" node."""
 
-    emitter = setup_emitter(
-        general_config, character_options.config_options.operator_address
-    )
+    emitter = setup_emitter(general_config)
     dev_mode = character_options.config_options.dev
     lonely = character_options.config_options.lonely
 
@@ -685,7 +683,7 @@ def config(general_config, config_options, config_file, force, action):
     ip-address - automatically detect and configure the external IP address.
     migrate    - migrate existing configuration file to the latest version.
     """
-    emitter = setup_emitter(general_config, config_options.operator_address)
+    emitter = setup_emitter(general_config)
 
     if not config_file:
         if action == "migrate":
