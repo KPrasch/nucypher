@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import threading
 import time
 import traceback
 from collections import defaultdict
@@ -74,7 +75,10 @@ from nucypher.blockchain.eth.utils import (
     rpc_endpoint_health_check,
     truncate_checksum_address,
 )
-from nucypher.config.constants import NUCYPHER_ENVVAR_COHORT_CACHE_TTL
+from nucypher.config.constants import (
+    NUCYPHER_ENVVAR_COHORT_CACHE_TTL,
+    NUCYPHER_ENVVAR_CONDITION_CACHE_TTL,
+)
 from nucypher.crypto.ferveo.exceptions import FerveoKeyMismatch
 from nucypher.crypto.powers import (
     CryptoPower,
@@ -194,6 +198,8 @@ class Operator(BaseActor):
 
     # Cohort cache TTL from env var or default 60 seconds
     _COHORT_CACHE_TTL = int(os.environ.get(NUCYPHER_ENVVAR_COHORT_CACHE_TTL, 60))
+    # Condition definition cache TTL from env var or default 15 seconds
+    _CONDITION_CACHE_TTL = int(os.environ.get(NUCYPHER_ENVVAR_CONDITION_CACHE_TTL, 15))
 
     class OperatorError(BaseActor.ActorError):
         """Operator-specific errors."""
@@ -322,6 +328,9 @@ class Operator(BaseActor):
         )
 
         self._signing_cohort_cache = TTLCache(ttl=self._COHORT_CACHE_TTL)
+        self._condition_cache = TTLCache(ttl=self._CONDITION_CACHE_TTL)
+        self._condition_fetch_locks: Dict[tuple, threading.Lock] = {}
+        self._condition_fetch_locks_lock = threading.Lock()
 
     def set_provider_public_key(self) -> Union[TxReceipt, None]:
         # TODO: Here we're assuming there is one global key per node. See nucypher/#3167
@@ -1486,6 +1495,37 @@ class Operator(BaseActor):
         self._signing_cohort_cache.add_with_ttl(cohort_id, signing_cohort, custom_ttl)
         return signing_cohort
 
+    def _get_signing_conditions(self, cohort_id: int, chain_id: int) -> bytes:
+        """Fetch condition bytes with short-TTL cache and single-flight dedup."""
+        cache_key = (cohort_id, chain_id)
+
+        # Fast path: cache hit
+        cached = self._condition_cache[cache_key]
+        if cached is not None:
+            return cached
+
+        # Get or create per-key lock for single-flight dedup
+        with self._condition_fetch_locks_lock:
+            if cache_key not in self._condition_fetch_locks:
+                self._condition_fetch_locks[cache_key] = threading.Lock()
+            key_lock = self._condition_fetch_locks[cache_key]
+
+        # Only one thread fetches; others wait then hit warm cache
+        with key_lock:
+            # Double-check after acquiring lock
+            cached = self._condition_cache[cache_key]
+            if cached is not None:
+                return cached
+
+            condition_bytes = (
+                self.signing_coordinator_agent.get_signing_cohort_conditions(
+                    cohort_id=cohort_id, chain_id=chain_id
+                )
+            )
+            if condition_bytes:
+                self._condition_cache[cache_key] = condition_bytes
+            return condition_bytes
+
     def handle_threshold_signing_request(
         self,
         encrypted_signing_request: EncryptedThresholdSignatureRequest,
@@ -1502,9 +1542,9 @@ class Operator(BaseActor):
                 f"Not a member of signing cohort {signing_request.cohort_id}"
             )
 
-        # get condition directly from canonical source to ensure latest
-        # and prevent signing on stale conditions
-        condition_bytes = self.signing_coordinator_agent.get_signing_cohort_conditions(
+        # Condition bytes cached with short TTL + single-flight dedup.
+        # Staleness bounded by NUCYPHER_CONDITION_CACHE_TTL (default 15s).
+        condition_bytes = self._get_signing_conditions(
             cohort_id=signing_request.cohort_id, chain_id=signing_request.chain_id
         )
         if not condition_bytes:
