@@ -1474,14 +1474,7 @@ class Operator(BaseActor):
         if cached_cohort is not None:
             return cached_cohort
 
-        if not self.signing_coordinator_agent.is_cohort_active(cohort_id):
-            raise self.UnauthorizedRequest(
-                f"Cohort #{cohort_id} is not active",
-            )
-
         signing_cohort = self.signing_coordinator_agent.get_signing_cohort(cohort_id)
-        # very unlikely: safety measure that cohort doesn't reach end timestamp between
-        #  checking whether active via agent and caching
         time_remaining = signing_cohort.end_timestamp - maya.now().epoch
         if time_remaining <= 0:
             raise self.UnauthorizedRequest(
