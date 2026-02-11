@@ -1,5 +1,3 @@
-import threading
-import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,50 +9,29 @@ from nucypher.utilities.cache import TTLCache
 class ConditionCacheFixture:
     """
     Minimal harness that mirrors the caching state and _get_signing_conditions
-    method that will be added to Operator. We test against this fixture so we
-    don't need to instantiate the full Operator dependency tree.
+    method in Operator. We test against this fixture so we don't need to
+    instantiate the full Operator dependency tree.
 
-    Once the implementation lands in actors.py, these tests should be updated
-    to exercise the real Operator._get_signing_conditions if a lightweight
-    construction path becomes available.
+    Once a lightweight Operator construction path becomes available, these
+    tests should exercise the real Operator._get_signing_conditions directly.
     """
 
     def __init__(self, agent, ttl: int = 2):
         self.signing_coordinator_agent = agent
         self._condition_cache = TTLCache(ttl=ttl)
-        self._condition_fetch_locks: dict = {}
-        self._condition_fetch_locks_lock = threading.Lock()
 
     def _get_signing_conditions(self, cohort_id: int, chain_id: int) -> bytes:
-        """Fetch condition bytes with short-TTL cache and single-flight dedup."""
+        """Fetch condition bytes with short-TTL cache."""
         cache_key = (cohort_id, chain_id)
-
-        # Fast path: cache hit
         cached = self._condition_cache[cache_key]
         if cached is not None:
             return cached
-
-        # Get or create per-key lock for single-flight dedup
-        with self._condition_fetch_locks_lock:
-            if cache_key not in self._condition_fetch_locks:
-                self._condition_fetch_locks[cache_key] = threading.Lock()
-            key_lock = self._condition_fetch_locks[cache_key]
-
-        # Only one thread fetches; others wait then hit warm cache
-        with key_lock:
-            # Double-check after acquiring lock
-            cached = self._condition_cache[cache_key]
-            if cached is not None:
-                return cached
-
-            condition_bytes = (
-                self.signing_coordinator_agent.get_signing_cohort_conditions(
-                    cohort_id=cohort_id, chain_id=chain_id
-                )
-            )
-            if condition_bytes:
-                self._condition_cache[cache_key] = condition_bytes
-            return condition_bytes
+        condition_bytes = self.signing_coordinator_agent.get_signing_cohort_conditions(
+            cohort_id=cohort_id, chain_id=chain_id
+        )
+        if condition_bytes:
+            self._condition_cache[cache_key] = condition_bytes
+        return condition_bytes
 
 
 @pytest.fixture
@@ -130,54 +107,6 @@ class TestConditionCacheDifferentKeys:
         assert mock_agent.get_signing_cohort_conditions.call_count == 2
 
 
-class TestConditionCacheSingleFlight:
-    """Multiple concurrent requests for the same key should result in a single RPC call."""
-
-    def test_concurrent_requests_single_fetch(self, mock_agent):
-        # Use a slower agent to widen the race window
-        call_count = 0
-        call_lock = threading.Lock()
-        condition_bytes = (
-            b'{"version": "1.0.0", "condition": {"conditionType": "time"}}'
-        )
-
-        def slow_fetch(cohort_id, chain_id):
-            nonlocal call_count
-            with call_lock:
-                call_count += 1
-            time.sleep(0.2)  # simulate RPC latency
-            return condition_bytes
-
-        mock_agent.get_signing_cohort_conditions.side_effect = slow_fetch
-        fixture = ConditionCacheFixture(agent=mock_agent, ttl=10)
-
-        num_threads = 10
-        barrier = threading.Barrier(num_threads)
-        results = [None] * num_threads
-        errors = []
-
-        def worker(idx):
-            try:
-                barrier.wait(timeout=5)
-                results[idx] = fixture._get_signing_conditions(
-                    cohort_id=1, chain_id=137
-                )
-            except Exception as e:
-                errors.append(e)
-
-        threads = [
-            threading.Thread(target=worker, args=(i,)) for i in range(num_threads)
-        ]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join(timeout=10)
-
-        assert not errors, f"Worker threads raised errors: {errors}"
-        assert call_count == 1, f"Expected 1 RPC call, got {call_count}"
-        assert all(r == condition_bytes for r in results)
-
-
 class TestConditionCacheEmptyNotCached:
     """Empty/falsy condition bytes should not be cached."""
 
@@ -234,23 +163,3 @@ class TestConditionCacheRPCFailure:
         result = fixture._get_signing_conditions(cohort_id=1, chain_id=1)
         assert result == condition_bytes
         assert mock_agent.get_signing_cohort_conditions.call_count == 2
-
-
-class TestConditionCacheSingleFlightWithFailure:
-    """When the single-flight leader fails, subsequent requests should retry."""
-
-    def test_leader_failure_allows_retry(self, mock_agent):
-        condition_bytes = (
-            b'{"version": "1.0.0", "condition": {"conditionType": "time"}}'
-        )
-        call_sequence = [ConnectionError("RPC down"), condition_bytes]
-        mock_agent.get_signing_cohort_conditions.side_effect = call_sequence
-        fixture = ConditionCacheFixture(agent=mock_agent, ttl=10)
-
-        # First call fails
-        with pytest.raises(ConnectionError):
-            fixture._get_signing_conditions(cohort_id=1, chain_id=1)
-
-        # Second call should retry and succeed
-        result = fixture._get_signing_conditions(cohort_id=1, chain_id=1)
-        assert result == condition_bytes

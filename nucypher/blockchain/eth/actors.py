@@ -1,7 +1,6 @@
 import json
 import os
 import random
-import threading
 import time
 import traceback
 from collections import defaultdict
@@ -329,8 +328,6 @@ class Operator(BaseActor):
 
         self._signing_cohort_cache = TTLCache(ttl=self._COHORT_CACHE_TTL)
         self._condition_cache = TTLCache(ttl=self._CONDITION_CACHE_TTL)
-        self._condition_fetch_locks: Dict[tuple, threading.Lock] = {}
-        self._condition_fetch_locks_lock = threading.Lock()
 
     def set_provider_public_key(self) -> Union[TxReceipt, None]:
         # TODO: Here we're assuming there is one global key per node. See nucypher/#3167
@@ -1496,35 +1493,17 @@ class Operator(BaseActor):
         return signing_cohort
 
     def _get_signing_conditions(self, cohort_id: int, chain_id: int) -> bytes:
-        """Fetch condition bytes with short-TTL cache and single-flight dedup."""
+        """Fetch condition bytes with short-TTL cache."""
         cache_key = (cohort_id, chain_id)
-
-        # Fast path: cache hit
         cached = self._condition_cache[cache_key]
         if cached is not None:
             return cached
-
-        # Get or create per-key lock for single-flight dedup
-        with self._condition_fetch_locks_lock:
-            if cache_key not in self._condition_fetch_locks:
-                self._condition_fetch_locks[cache_key] = threading.Lock()
-            key_lock = self._condition_fetch_locks[cache_key]
-
-        # Only one thread fetches; others wait then hit warm cache
-        with key_lock:
-            # Double-check after acquiring lock
-            cached = self._condition_cache[cache_key]
-            if cached is not None:
-                return cached
-
-            condition_bytes = (
-                self.signing_coordinator_agent.get_signing_cohort_conditions(
-                    cohort_id=cohort_id, chain_id=chain_id
-                )
-            )
-            if condition_bytes:
-                self._condition_cache[cache_key] = condition_bytes
-            return condition_bytes
+        condition_bytes = self.signing_coordinator_agent.get_signing_cohort_conditions(
+            cohort_id=cohort_id, chain_id=chain_id
+        )
+        if condition_bytes:
+            self._condition_cache[cache_key] = condition_bytes
+        return condition_bytes
 
     def handle_threshold_signing_request(
         self,
