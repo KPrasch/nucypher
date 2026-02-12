@@ -37,6 +37,6 @@ def query_json_data(data: Any, query: Optional[str], **context) -> Any:
     return result
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=512)
 def parse_jsonpath(expr: str):
     return parse(expr)
