@@ -73,13 +73,16 @@ class _Serializable:
         instance = cls.from_json(json_payload)
         return instance
 
+    def _force_validate_with_schema(self):
+        # perform actual validation since object instantiation is not being done by marshmallow's post_load
+        errors = self.Schema().validate(data=self.to_dict())
+        if errors:
+            error_message = extract_single_error_message_from_schema_errors(errors)
+            raise ValueError(f"Invalid {self.__class__.__name__}: {error_message}")
+
     def _validate(self, **kwargs):
         if not constructed_from_marshmallow_postload():
-            # perform actual validation since object instantiation is not being done by marshmallow's post_load
-            errors = self.Schema().validate(data=self.to_dict())
-            if errors:
-                error_message = extract_single_error_message_from_schema_errors(errors)
-                raise ValueError(f"Invalid {self.__class__.__name__}: {error_message}")
+            self._force_validate_with_schema()
 
 
 class Condition(_Serializable, ABC):
