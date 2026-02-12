@@ -5,7 +5,6 @@ from typing import Any, Optional, Tuple
 
 import requests
 from jsonpath_ng.exceptions import JsonPathLexerError, JsonPathParserError
-from jsonpath_ng.ext import parse
 from marshmallow.fields import String
 
 from nucypher.policy.conditions.base import ExecutionCall
@@ -17,7 +16,7 @@ from nucypher.policy.conditions.exceptions import (
     JsonRequestException,
 )
 from nucypher.policy.conditions.json.auth import AuthorizationType
-from nucypher.policy.conditions.json.utils import query_json_data
+from nucypher.policy.conditions.json.utils import parse_jsonpath, query_json_data
 from nucypher.policy.conditions.lingo import ExecutionCallCondition
 from nucypher.utilities.logging import Logger
 
@@ -121,7 +120,7 @@ class JSONPathField(String):
             raise self.make_error("invalidType", value=type(value))
         try:
             if not string_contains_context_variable(value):
-                parse(value)
+                parse_jsonpath(value)
         except (JsonPathLexerError, JsonPathParserError) as e:
             raise self.make_error("invalid", value=value) from e
         return value
