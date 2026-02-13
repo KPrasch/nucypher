@@ -7,6 +7,7 @@ from packaging.version import parse as parse_version
 
 import nucypher
 from nucypher.blockchain.eth.constants import NULL_ADDRESS
+from nucypher.policy.conditions.base import Condition
 from nucypher.policy.conditions.context import USER_ADDRESS_CONTEXT
 from nucypher.policy.conditions.exceptions import (
     InvalidConditionLingo,
@@ -18,6 +19,7 @@ from nucypher.policy.conditions.lingo import (
     ConditionType,
 )
 from nucypher.policy.conditions.signing.base import SIGNING_CONDITION_OBJECT_CONTEXT_VAR
+from nucypher.policy.conditions.time import TimeCondition
 from tests.constants import INT256_MIN, TESTERCHAIN_CHAIN_ID, UINT256_MAX
 
 
@@ -590,3 +592,38 @@ def test_any_large_integer_field(json_value, expected_deserialized_value):
         # expected to fail
         with pytest.raises(ValidationError, match="Not a valid integer."):
             _ = field.deserialize(json_value)
+
+
+def test_single_schema_validation_on_condition_creation(mocker, time_condition):
+    time_condition_lingo = ConditionLingo(time_condition)
+
+    validate_spy = mocker.spy(Condition, "_force_validate_with_schema")
+
+    # from dict
+    condition_dict = time_condition_lingo.to_dict()
+    _ = ConditionLingo.from_dict(condition_dict)
+    assert validate_spy.call_count == 0  # already validated since created from lingo
+
+    # from json
+    condition_json = time_condition_lingo.to_json()
+    _ = ConditionLingo.from_json(condition_json)
+    assert validate_spy.call_count == 0  # already validated since created from lingo
+
+    # from bytes
+    condition_bytes = bytes(time_condition_lingo)
+    _ = ConditionLingo.from_bytes(condition_bytes)
+    assert validate_spy.call_count == 0  # already validated since created from lingo
+
+    # directly from constructor
+    new_time_condition = TimeCondition(
+        return_value_test=time_condition.return_value_test,
+        chain=time_condition.chain,
+        method=time_condition.method,
+    )
+    # actually validated since created directly from constructor, not from lingo
+    assert validate_spy.call_count == 1
+
+    # condition lingo from condition constructor
+    _ = ConditionLingo(new_time_condition)
+    # no change in call count since condition already previously created in previous step
+    assert validate_spy.call_count == 1

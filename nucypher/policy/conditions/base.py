@@ -1,6 +1,8 @@
 import json
 from abc import ABC, abstractmethod
 from base64 import b64decode, b64encode
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, List, Optional, Tuple
 
 from marshmallow import Schema, ValidationError, fields
@@ -14,6 +16,24 @@ from nucypher.policy.conditions.utils import (
     extract_single_error_message_from_schema_errors,
 )
 
+_in_marshmallow_postload_construction: ContextVar[bool] = ContextVar(
+    "_in_marshmallow_postload_construction",
+    default=False,
+)
+
+
+@contextmanager
+def marshmallow_postload_construction():
+    token = _in_marshmallow_postload_construction.set(True)
+    try:
+        yield
+    finally:
+        _in_marshmallow_postload_construction.reset(token)
+
+
+def constructed_from_marshmallow_postload() -> bool:
+    return _in_marshmallow_postload_construction.get()
+
 
 class _Serializable:
     class Schema(Schema):
@@ -26,10 +46,8 @@ class _Serializable:
 
     @classmethod
     def from_json(cls, data) -> '_Serializable':
-        data = json.loads(data)
-        schema = cls.Schema()
-        instance = schema.load(data)
-        return instance
+        data_dict = json.loads(data)
+        return cls.from_dict(data_dict)
 
     def to_dict(self):
         schema = self.Schema()
@@ -39,7 +57,9 @@ class _Serializable:
     @classmethod
     def from_dict(cls, data) -> '_Serializable':
         schema = cls.Schema()
-        instance = schema.load(data)
+        with marshmallow_postload_construction():
+            # set context variable to indicate that we're constructing from marshmallow's post_load
+            instance = schema.load(data)
         return instance
 
     def __bytes__(self) -> bytes:
@@ -53,11 +73,16 @@ class _Serializable:
         instance = cls.from_json(json_payload)
         return instance
 
-    def _validate(self, **kwargs):
+    def _force_validate_with_schema(self):
+        # perform actual validation since object instantiation is not being done by marshmallow's post_load
         errors = self.Schema().validate(data=self.to_dict())
         if errors:
             error_message = extract_single_error_message_from_schema_errors(errors)
             raise ValueError(f"Invalid {self.__class__.__name__}: {error_message}")
+
+    def _validate(self, **kwargs):
+        if not constructed_from_marshmallow_postload():
+            self._force_validate_with_schema()
 
 
 class Condition(_Serializable, ABC):
