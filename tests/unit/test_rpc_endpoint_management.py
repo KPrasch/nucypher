@@ -148,10 +148,6 @@ class TestRPCEndpoint:
             with pytest.raises(ValueError, match="ewma_alpha must be between 0 and 1"):
                 RPCEndpoint(endpoint_uri=self.URI, ewma_alpha=value)
 
-        for value in [-5, -0.5, -0.1, 0, 1, 1.5, 5]:
-            with pytest.raises(ValueError, match="ewma_alpha must be between 0 and 1"):
-                RPCEndpoint(endpoint_uri=self.URI, ewma_alpha=value)
-
         for value in [0, -1, -1000]:
             with pytest.raises(ValueError, match="target_latency_ms must be positive"):
                 RPCEndpoint(endpoint_uri=self.URI, target_latency_ms=value)
