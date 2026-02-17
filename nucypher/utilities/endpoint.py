@@ -422,10 +422,9 @@ class RPCEndpointManager:
                 continue
             else:
                 endpoint.report_success(latency_ms)
+                return result
             finally:
                 endpoint.release()
-
-            return result
 
         if last_exc is not None:
             raise last_exc
