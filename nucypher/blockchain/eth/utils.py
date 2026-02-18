@@ -288,17 +288,14 @@ def get_healthy_default_rpc_endpoints(domain: TACoDomain) -> Dict[int, List[str]
     """Returns a mapping of chain id to healthy RPC endpoints for a given domain."""
     endpoints = get_default_rpc_endpoints(domain)
 
-    if not domain.is_testnet:
-        # iterate over all chains and filter out unhealthy endpoints
-        healthy = {
-            chain_id: [
-                endpoint
-                for endpoint in endpoints[chain_id]
-                if rpc_endpoint_health_check(chain_id=chain_id, endpoint=endpoint)
-            ]
-            for chain_id in endpoints
-        }
-    else:
-        healthy = endpoints
+    # iterate over all chains and filter out unhealthy endpoints
+    healthy = {
+        chain_id: [
+            endpoint
+            for endpoint in endpoints[chain_id]
+            if rpc_endpoint_health_check(chain_id=chain_id, endpoint=endpoint)
+        ]
+        for chain_id in endpoints
+    }
 
     return healthy
