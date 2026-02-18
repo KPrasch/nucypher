@@ -147,6 +147,49 @@ class RPCEndpoint:
         with self._lock:
             return self._cool_down_until <= now
 
+    def consider_increasing_in_flight_capacity(self) -> bool:
+        """
+        Consider increasing in-flight capacity due to already being at high utilization without
+        failures: we are not in cool down, no consecutive failures, and we are at high utilization.
+
+        This is a proactive adjustment to allow the endpoint to handle more load if current
+        in flight capacity is deemed to be the bottleneck rather than health.
+
+        NOTE: should only be called by RPCEndpointManager.
+
+        :return True if the endpoint increased capacity, False otherwise
+        """
+        now = time.monotonic()
+        with self._lock:
+            # check that not in cool down
+            if self._cool_down_until > now:
+                # if we are in cool down state, it means we had recent failures and
+                # should not increase capacity
+                return False
+
+            # check that there weren't consecutive failures recently
+            if self._consecutive_failures > 0:
+                # if we had recent failures, it means the endpoint is unstable and we should not increase
+                # capacity even if we are not currently in cool down
+                return False
+
+            # check in high-utilization state
+            utilization_factor = self._num_in_flight_usage / self._in_flight_capacity
+            if utilization_factor < self.scale_up_utilization_threshold:
+                # utilization is low, no need to increase capacity
+                return False
+
+            # check that we are not already at max capacity
+            if self._in_flight_capacity >= self.max_in_flight_capacity:
+                return False
+
+            # if we are here, it means we are not in cool down, and we are at high utilization,
+            # so we can increase capacity
+            self._in_flight_capacity = min(
+                self.max_in_flight_capacity, self._in_flight_capacity + 2
+            )
+            return True
+
     @contextmanager
     def get_web3(
         self,
@@ -381,7 +424,16 @@ class RPCEndpointManager:
                 time.sleep(self.saturated_retry_delay_s)  # brief sleep before retrying
 
         # If we get here, everything was saturated for all rounds
+        self.consider_increasing_capacity_on_saturation()
         raise self.NoEndpointsAvailable("All endpoints at capacity or in cool down")
+
+    def consider_increasing_capacity_on_saturation(self) -> None:
+        """
+        Consider proactively increasing in-flight capacity on all endpoints if endpoints are
+        hitting capacity limits without failures.
+        """
+        for endpoint in self.preferred_endpoints + self.endpoints:
+            endpoint.consider_increasing_in_flight_capacity()
 
     def call(
         self,
@@ -429,4 +481,7 @@ class RPCEndpointManager:
         if last_exc is not None:
             raise last_exc
 
+        # if we are here it means we had candidates, but they were all at capacity or in
+        # cool down by the time we tried to acquire them
+        self.consider_increasing_capacity_on_saturation()
         raise self.NoEndpointsAvailable("All endpoints at capacity or in cool down")
