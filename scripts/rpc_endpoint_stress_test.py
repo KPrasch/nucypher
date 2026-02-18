@@ -228,7 +228,7 @@ def rpc_stress_test(
     test_executions: int,
     timeout: int,
     preferred_endpoint: str,
-    sort_strategy: str,
+    sort_strategy: Optional[str] = None,
 ) -> None:
     """
     Runs a stress test that can use either the new load balancing strategy or the legacy strategy
