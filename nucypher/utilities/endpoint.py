@@ -429,5 +429,4 @@ class RPCEndpointManager:
         if last_exc is not None:
             raise last_exc
 
-        # should never happen
-        raise RuntimeError("No endpoints tried (unexpected)")
+        raise self.NoEndpointsAvailable("All endpoints at capacity or in cool down")
