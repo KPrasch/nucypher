@@ -177,7 +177,7 @@ class ConditionProviderManager:
         """
         return (
             stats.consecutive_unreachable_failures,
-            stats.consecutive_exec_failures,
+            stats.consecutive_request_failures,
             stats.ewma_latency_ms,
         )
 

@@ -321,13 +321,13 @@ class TestConditionProviderManager:
     )
     def test_sort_by_failures_then_latency(self, stats_2_sort_scenario):
         ewma_latency_ms = 6.4
-        consecutive_exec_failures = 3
+        consecutive_request_failures = 3
         consecutive_unreachable_failures = 0
 
         stats = RPCEndpoint.EndpointStats(
             latest_latency_ms=4.2,
             ewma_latency_ms=ewma_latency_ms,
-            consecutive_exec_failures=consecutive_exec_failures,
+            consecutive_request_failures=consecutive_request_failures,
             consecutive_unreachable_failures=consecutive_unreachable_failures,
             num_in_flight_usage=4,
             in_flight_capacity=20,
@@ -335,7 +335,7 @@ class TestConditionProviderManager:
         )
         assert ConditionProviderManager._sort_by_failures_then_latency(stats) == (
             consecutive_unreachable_failures,
-            consecutive_exec_failures,
+            consecutive_request_failures,
             ewma_latency_ms,
         )
 
@@ -350,16 +350,16 @@ class TestConditionProviderManager:
             if stats_2_sort_scenario != "lower_unreachable_failures"
             else stats.consecutive_unreachable_failures - 2
         )
-        stats_2_consecutive_exec_failures = (
-            stats.consecutive_exec_failures
+        stats_2_consecutive_request_failures = (
+            stats.consecutive_request_failures
             if stats_2_sort_scenario != "higher_unreachable_failures"
-            else stats.consecutive_exec_failures + 1
+            else stats.consecutive_request_failures + 1
         )
 
         stats_2 = RPCEndpoint.EndpointStats(
             latest_latency_ms=stats.latest_latency_ms,
             ewma_latency_ms=stats_2_ewma_latency_ms,
-            consecutive_exec_failures=stats_2_consecutive_exec_failures,
+            consecutive_request_failures=stats_2_consecutive_request_failures,
             consecutive_unreachable_failures=stats_2_consecutive_unreachable_failures,
             num_in_flight_usage=stats.num_in_flight_usage,
             in_flight_capacity=stats.in_flight_capacity,

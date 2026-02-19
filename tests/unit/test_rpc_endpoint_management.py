@@ -325,8 +325,8 @@ class TestRPCEndpoint:
             )
 
             # check failure counts
-            assert endpoint._consecutive_exec_failures == 0
-            assert endpoint.get_stats_snapshot().consecutive_exec_failures == 0
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
             assert endpoint._consecutive_unreachable_failures == 0
             assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
@@ -391,8 +391,8 @@ class TestRPCEndpoint:
                 endpoint.report_success(latency_ms=random_latency_ms)
 
                 # check failure counts
-                assert endpoint._consecutive_exec_failures == 0
-                assert endpoint.get_stats_snapshot().consecutive_exec_failures == 0
+                assert endpoint._consecutive_request_failures == 0
+                assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
                 assert endpoint._consecutive_unreachable_failures == 0
                 assert (
                     endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
@@ -500,8 +500,8 @@ class TestRPCEndpoint:
             assert endpoint.get_stats_snapshot().in_flight_capacity == expected_capacity
 
             # failure noted
-            assert endpoint._consecutive_exec_failures == 1
-            assert endpoint.get_stats_snapshot().consecutive_exec_failures == 1
+            assert endpoint._consecutive_request_failures == 1
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 1
 
             # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
             assert endpoint._consecutive_unreachable_failures == 0
@@ -523,8 +523,8 @@ class TestRPCEndpoint:
             )  # below target latency
 
             # success wipes out consecutive failures
-            assert endpoint._consecutive_exec_failures == 0
-            assert endpoint.get_stats_snapshot().consecutive_exec_failures == 0
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
             assert endpoint._consecutive_unreachable_failures == 0
             assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
@@ -566,8 +566,8 @@ class TestRPCEndpoint:
             assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             # failure noted
-            assert endpoint._consecutive_exec_failures == 1
-            assert endpoint.get_stats_snapshot().consecutive_exec_failures == 1
+            assert endpoint._consecutive_request_failures == 1
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 1
 
 
             current_capacity = max(current_capacity // 2, initial_min_capacity)
@@ -589,8 +589,8 @@ class TestRPCEndpoint:
             assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             # failure noted
-            assert endpoint._consecutive_exec_failures == 2
-            assert endpoint.get_stats_snapshot().consecutive_exec_failures == 2
+            assert endpoint._consecutive_request_failures == 2
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 2
 
             # capacity should decrease by half since failure until at min capacity
             current_capacity = current_capacity // 2
@@ -677,8 +677,8 @@ class TestRPCEndpoint:
             endpoint.report_failure(Exception("simulated failure"))
 
             # failure noted
-            assert endpoint._consecutive_exec_failures == 1
-            assert endpoint.get_stats_snapshot().consecutive_exec_failures == 1
+            assert endpoint._consecutive_request_failures == 1
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 1
 
             # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
             assert endpoint._consecutive_unreachable_failures == 0
@@ -732,9 +732,11 @@ class TestRPCEndpoint:
                 num_consecutive_failures += 1
 
                 # failure noted
-                assert endpoint._consecutive_exec_failures == num_consecutive_failures
                 assert (
-                    endpoint.get_stats_snapshot().consecutive_exec_failures
+                    endpoint._consecutive_request_failures == num_consecutive_failures
+                )
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_request_failures
                     == num_consecutive_failures
                 )
 
@@ -773,9 +775,9 @@ class TestRPCEndpoint:
             num_consecutive_failures += 1
 
             # failure noted
-            assert endpoint._consecutive_exec_failures == num_consecutive_failures
+            assert endpoint._consecutive_request_failures == num_consecutive_failures
             assert (
-                endpoint.get_stats_snapshot().consecutive_exec_failures
+                endpoint.get_stats_snapshot().consecutive_request_failures
                 == num_consecutive_failures
             )
 
@@ -898,7 +900,7 @@ class TestRPCEndpointManager:
         for e in manager.endpoints:
             # each endpoint should have recorded at least 1 failure
             stats = e.get_stats_snapshot()
-            assert stats.consecutive_exec_failures >= 1
+            assert stats.consecutive_request_failures >= 1
             assert stats.last_used > 0
 
     def test_no_endpoints_available_raises_when_all_in_cooldown(self):

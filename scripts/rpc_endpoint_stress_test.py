@@ -145,7 +145,7 @@ def get_endpoint_sort_strategy(
         # sort by fewest unreachable failures, then exec failures, then latency
         return lambda stats: (
             stats.consecutive_unreachable_failures,
-            stats.consecutive_exec_failures,
+            stats.consecutive_request_failures,
             stats.ewma_latency_ms,
         )
 

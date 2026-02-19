@@ -68,7 +68,7 @@ class RPCEndpoint:
         Snapshot of the endpoint's current health and usage stats for external inspection or sorting.
          - latest_latency_ms: most recent latency measurement in milliseconds.
          - ewma_latency_ms: exponentially weighted moving average of latency for trend tracking.
-         - consecutive_exec_failures: number of consecutive failures since last success.
+         - consecutive_request_failures: number of consecutive non-unreachable failures since last success.
          - consecutive_unreachable_failures: number of failures that indicate the endpoint is unreachable (e.g. connection errors).
          - num_in_flight_usage: current number of in-flight usages of this endpoint.
          - in_flight_capacity: current maximum allowed in-flight usages based on health.
@@ -77,7 +77,7 @@ class RPCEndpoint:
 
         latest_latency_ms: float
         ewma_latency_ms: float
-        consecutive_exec_failures: int
+        consecutive_request_failures: int
         consecutive_unreachable_failures: int
         num_in_flight_usage: int
         in_flight_capacity: int
@@ -87,7 +87,7 @@ class RPCEndpoint:
             return (
                 f"EndpointStats(latency={self.latest_latency_ms:.2f}ms, "
                 f"ewma_latency={self.ewma_latency_ms:.2f}ms, "
-                f"consecutive_exec_failures={self.consecutive_exec_failures}, "
+                f"consecutive_request_failures={self.consecutive_request_failures}, "
                 f"consecutive_unreachable_failures={self.consecutive_unreachable_failures}, "
                 f"in_flight_usage={self.num_in_flight_usage}, "
                 f"in_flight_cap={self.in_flight_capacity}, "
@@ -126,7 +126,7 @@ class RPCEndpoint:
         self.max_backoff_s = max_backoff_s
 
         self._latest_latency_ms = 0.0
-        self._consecutive_exec_failures = 0
+        self._consecutive_request_failures = 0
         self._cool_down_until = 0.0
         self._last_used = 0.0
 
@@ -177,7 +177,7 @@ class RPCEndpoint:
                 return False
 
             # check that there weren't consecutive failures recently
-            if self._consecutive_exec_failures > 0:
+            if self._consecutive_request_failures > 0:
                 # if we had recent failures, it means the endpoint is unstable and we should
                 # not increase capacity even if we are not currently in cool down
                 return False
@@ -268,7 +268,7 @@ class RPCEndpoint:
             self._latest_latency_ms = latency_ms
 
             # reset failure counts on success
-            self._consecutive_exec_failures = 0
+            self._consecutive_request_failures = 0
             self._consecutive_unreachable_failures = 0
 
             # reset cool down on success
@@ -314,7 +314,7 @@ class RPCEndpoint:
             if is_unreachable:
                 # endpoint is unreachable
                 self._consecutive_unreachable_failures += 1
-                self._consecutive_exec_failures = 0  # reset non-unreachable failures
+                self._consecutive_request_failures = 0  # reset non-unreachable failures
 
                 # start going down in capacity more quickly on unreachable failures
                 self._in_flight_capacity = max(1, self._in_flight_capacity // 2)
@@ -336,7 +336,7 @@ class RPCEndpoint:
                 return
 
             # non-unreachable failure
-            self._consecutive_exec_failures += 1
+            self._consecutive_request_failures += 1
             self._consecutive_unreachable_failures = 0  # reset unreachable failures
 
             # decrease in flight capacity on failure, but never below minimum
@@ -345,9 +345,9 @@ class RPCEndpoint:
                 self.min_in_flight_capacity, self._in_flight_capacity // 2
             )
 
-            if self._consecutive_exec_failures >= 2:
+            if self._consecutive_request_failures >= 2:
                 backoff = min(
-                    self.max_backoff_s, 2 ** (self._consecutive_exec_failures - 1)
+                    self.max_backoff_s, 2 ** (self._consecutive_request_failures - 1)
                 )
                 # add some jitter to avoid common backoff patterns
                 backoff_jitter = min(
@@ -359,7 +359,7 @@ class RPCEndpoint:
         with self._lock:
             return self.EndpointStats(
                 latest_latency_ms=self._latest_latency_ms,
-                consecutive_exec_failures=self._consecutive_exec_failures,
+                consecutive_request_failures=self._consecutive_request_failures,
                 consecutive_unreachable_failures=self._consecutive_unreachable_failures,
                 num_in_flight_usage=self._num_in_flight_usage,
                 in_flight_capacity=self._in_flight_capacity,
