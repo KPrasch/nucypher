@@ -165,6 +165,9 @@ class TestRPCEndpoint:
         max_inflight_capacity = 500
         ewma_alpha = 0.1
         target_latency_ms = 3000.0
+        scale_up_utilization_threshold = 0.4
+        max_unreachable_quarantine_s = 900  # 15 minutes
+        unreachable_quarantine_after = 1
 
         for with_rng in [True, False]:
             rng = random.Random() if with_rng else None
@@ -175,6 +178,9 @@ class TestRPCEndpoint:
                 max_in_flight_capacity=max_inflight_capacity,
                 ewma_alpha=ewma_alpha,
                 target_latency_ms=target_latency_ms,
+                scale_up_utilization_threshold=scale_up_utilization_threshold,
+                max_unreachable_quarantine_s=max_unreachable_quarantine_s,
+                unreachable_quarantine_after=unreachable_quarantine_after,
                 rng=rng,
             )
             assert endpoint.endpoint_uri == self.URI
@@ -183,6 +189,12 @@ class TestRPCEndpoint:
             assert endpoint.max_in_flight_capacity == max_inflight_capacity
             assert endpoint.ewma_alpha == ewma_alpha
             assert endpoint.target_latency_ms == target_latency_ms
+            assert (
+                endpoint.scale_up_utilization_threshold
+                == scale_up_utilization_threshold
+            )
+            assert endpoint.max_unreachable_quarantine_s == max_unreachable_quarantine_s
+            assert endpoint.unreachable_quarantine_after == unreachable_quarantine_after
 
             if with_rng:
                 assert endpoint.rng == rng
@@ -312,6 +324,12 @@ class TestRPCEndpoint:
                 == num_in_flight_usages
             )
 
+            # check failure counts
+            assert endpoint._consecutive_exec_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_exec_failures == 0
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
             # capacity increased since successful, below target latency, and utilization > 50%
             if utilization >= scale_up_utilization:
                 current_capacity += 1
@@ -371,6 +389,14 @@ class TestRPCEndpoint:
                 # must be high to make ewma > 150% target latency to trigger backoff
                 random_latency_ms = endpoint.target_latency_ms * 20
                 endpoint.report_success(latency_ms=random_latency_ms)
+
+                # check failure counts
+                assert endpoint._consecutive_exec_failures == 0
+                assert endpoint.get_stats_snapshot().consecutive_exec_failures == 0
+                assert endpoint._consecutive_unreachable_failures == 0
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+                )
 
                 # check current usage
                 assert endpoint._num_in_flight_usage == num_in_flight_usages
@@ -476,6 +502,10 @@ class TestRPCEndpoint:
             # failure noted
             assert endpoint._consecutive_exec_failures == 1
             assert endpoint.get_stats_snapshot().consecutive_exec_failures == 1
+
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
         finally:
             endpoint.release()
             num_inflight_usages -= 1
@@ -495,6 +525,8 @@ class TestRPCEndpoint:
             # success wipes out consecutive failures
             assert endpoint._consecutive_exec_failures == 0
             assert endpoint.get_stats_snapshot().consecutive_exec_failures == 0
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             # capacity should increase since successful, below target latency, and utilization > 50%
             assert endpoint._num_in_flight_usage == num_inflight_usages
@@ -529,9 +561,14 @@ class TestRPCEndpoint:
         try:
             endpoint.report_failure(Exception("simulated failure"))
 
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
             # failure noted
             assert endpoint._consecutive_exec_failures == 1
             assert endpoint.get_stats_snapshot().consecutive_exec_failures == 1
+
 
             current_capacity = max(current_capacity // 2, initial_min_capacity)
             assert endpoint._in_flight_capacity == current_capacity
@@ -546,6 +583,10 @@ class TestRPCEndpoint:
         try:
             report_time = time.monotonic()
             endpoint.report_failure(Exception("simulated failure"))
+
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             # failure noted
             assert endpoint._consecutive_exec_failures == 2
@@ -639,6 +680,10 @@ class TestRPCEndpoint:
             assert endpoint._consecutive_exec_failures == 1
             assert endpoint.get_stats_snapshot().consecutive_exec_failures == 1
 
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
             current_capacity = max(current_capacity // 2, initial_min_capacity)
             assert endpoint._in_flight_capacity == current_capacity
             assert endpoint.get_stats_snapshot().in_flight_capacity == current_capacity
@@ -693,6 +738,12 @@ class TestRPCEndpoint:
                     == num_consecutive_failures
                 )
 
+                # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+                assert endpoint._consecutive_unreachable_failures == 0
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+                )
+
                 if num_consecutive_failures >= 2:
                     backoff = 2 ** (num_consecutive_failures - 1)
 
@@ -727,6 +778,10 @@ class TestRPCEndpoint:
                 endpoint.get_stats_snapshot().consecutive_exec_failures
                 == num_consecutive_failures
             )
+
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             assert endpoint._cool_down_until >= now + (
                 0.8 * endpoint.max_backoff_s
