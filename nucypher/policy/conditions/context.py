@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
 
+from nucypher.blockchain.eth.constants import NULL_ADDRESS
 from nucypher.policy.conditions.auth.evm import EvmAuth
 from nucypher.policy.conditions.exceptions import (
     ContextVariableVerificationFailed,
@@ -18,6 +19,7 @@ from nucypher.policy.conditions.utils import (
 
 USER_ADDRESS_CONTEXT = ":userAddress"
 USER_ADDRESS_EIP4361_EXTERNAL_CONTEXT = ":userAddressExternalEIP4361"
+NULL_ADDRESS_CONTEXT = ":nullAddress"
 
 CONTEXT_PREFIX = ":"
 CONTEXT_REGEX = re.compile(":[a-zA-Z_][a-zA-Z0-9_]*")
@@ -94,6 +96,21 @@ def _resolve_user_address(
     return expected_address
 
 
+def _resolve_null_address(
+    providers: Optional[ConditionProviderManager] = None,
+    **context,
+) -> ChecksumAddress:
+    """
+    Returns the null address (0x0000000000000000000000000000000000000000).
+
+    This is a protected context variable that doesn't require any input data.
+
+    Note: The `providers` and `**context` parameters are unused but maintained
+    for interface consistency with other resolver functions in `_DIRECTIVES`.
+    """
+    return ChecksumAddress(NULL_ADDRESS)
+
+
 _DIRECTIVES = {
     USER_ADDRESS_CONTEXT: partial(
         _resolve_user_address, user_address_context_variable=USER_ADDRESS_CONTEXT
@@ -102,6 +119,7 @@ _DIRECTIVES = {
         _resolve_user_address,
         user_address_context_variable=USER_ADDRESS_EIP4361_EXTERNAL_CONTEXT,
     ),
+    NULL_ADDRESS_CONTEXT: _resolve_null_address,
 }
 
 
