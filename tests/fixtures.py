@@ -914,7 +914,7 @@ def mock_rpc_endpoint_health_check(session_mocker):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def mock_web3_http_provider(session_mocker, testerchain):
+def mock_web3_http_provider(module_mocker, testerchain):
     def _mock_make_provider(endpoint, session, request_timeout):
         if endpoint == TEST_ETH_PROVIDER_URI:
             return testerchain.provider
@@ -925,6 +925,6 @@ def mock_web3_http_provider(session_mocker, testerchain):
                 request_kwargs={"timeout": request_timeout},
             )
 
-    session_mocker.patch.object(
+    module_mocker.patch.object(
         RPCEndpoint, "_make_provider", side_effect=_mock_make_provider
     )
