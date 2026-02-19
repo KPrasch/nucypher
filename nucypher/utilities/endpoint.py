@@ -103,7 +103,7 @@ class RPCEndpoint:
         ewma_alpha: float = 0.5,
         target_latency_ms: float = 2000.0,  # 2s
         scale_up_utilization_threshold: float = 0.5,
-        max_unreachable_backoff_s: float = 600.0,  # 10 minutes
+        max_unreachable_quarantine_s: float = 600.0,  # 10 minutes
         unreachable_quarantine_after: int = 2,  # number of consecutive unreachable failures before considering the endpoint essentially unreachable and applying a long backoff
         rng: Optional[random.Random] = None,
     ):
@@ -143,7 +143,7 @@ class RPCEndpoint:
 
         self.scale_up_utilization_threshold = scale_up_utilization_threshold
 
-        self.max_unreachable_backoff_s = max_unreachable_backoff_s
+        self.max_unreachable_quarantine_s = max_unreachable_quarantine_s
         self.unreachable_quarantine_after = unreachable_quarantine_after
         self._consecutive_unreachable_failures = 0
 
@@ -327,11 +327,11 @@ class RPCEndpoint:
                     # until it proves it can be reachable again, at which point report_success
                     # will reset capacity and failures
                     self._in_flight_capacity = 1
-                    unreachable_backoff_jitter = min(
-                        self.rng.uniform(0.8, 1.2) * self.max_unreachable_backoff_s,
-                        self.max_unreachable_backoff_s,
+                    unreachable_quarantine_jitter = min(
+                        self.rng.uniform(0.8, 1.2) * self.max_unreachable_quarantine_s,
+                        self.max_unreachable_quarantine_s,
                     )
-                    self._cool_down_until = now + unreachable_backoff_jitter
+                    self._cool_down_until = now + unreachable_quarantine_jitter
 
                 return
 
