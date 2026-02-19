@@ -1207,11 +1207,53 @@ class TestRPCEndpointManager:
                     e._cool_down_until = 0.0
 
         # patch the time.sleep used inside the endpoint manager to avoid real waiting
-        mocker.patch("nucypher.utilities.endpoint.time.sleep", fake_sleep)
+        mocker.patch("nucypher.utilities.endpoint.time.sleep", side_effect=fake_sleep)
 
         result = manager.call(lambda w3: "worked", request_timeout=1.0)
         assert result == "worked"
         assert sleep_calls["count"] == saturated_retries
+
+    def test_saturated_retries_exhausted_due_to_no_candidates(self, mocker):
+        # the exception is raised after trying multiple rounds to
+        # get candidate endpoints, but there are none (eg. all in cool down)
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        saturated_retries = 3
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+            saturated_retries=saturated_retries,
+        )
+
+        try_acquire_spy = mocker.spy(RPCEndpoint, "try_acquire")
+
+        def fake_sleep(duration):
+            # do nothing
+            pass
+
+        # patch the time.sleep used inside the endpoint manager to avoid real waiting
+        mocked_sleep = mocker.patch(
+            "nucypher.utilities.endpoint.time.sleep", side_effect=fake_sleep
+        )
+
+        # patch manager so that _get_candidates is actually called but has no candidates to return
+        mocker.patch.object(manager, "_cooled_down_and_sorted", return_value=[])
+
+        with pytest.raises(
+            RPCEndpointManager.NoEndpointsAvailable,
+            match=f"All endpoints at capacity or in cool down after {saturated_retries} retries",
+        ):
+            _ = manager.call(lambda w3: "worked", request_timeout=1.0)
+
+        # viable candidates available so try_acquire is called for each candidate
+        assert (
+            try_acquire_spy.call_count == 0
+        ), "no try acquire since no candidates available "
+
+        assert (
+            mocked_sleep.call_count == saturated_retries
+        ), "should have slept for each retry when no candidates available"
 
     def test_consider_increasing_in_flight_capacity(self, mocker):
         session_manager = ThreadLocalSessionManager(max_pool_size=2)
@@ -1236,11 +1278,11 @@ class TestRPCEndpointManager:
             n_times_manager_called * len(endpoints)
         ), "every endpoint called"
 
-    def test_proactive_increase_of_in_flight_capacity_due_to_cant_acquire_candidate(
+    def test_proactive_increase_of_in_flight_capacity_due_to_cant_try_acquire_candidate(
         self, mocker
     ):
-        # in this test case (vs above), the exception is raised after having possible candidates
-        # but then try_acquire() on the candidate fails because candidate no longer viable i.e. there
+        # the exception is raised after having possible candidates
+        # but then try_acquire() on the candidate fails because candidate is no longer viable i.e. there
         # was a change in situation between getting candidate and using candidate
         session_manager = ThreadLocalSessionManager(max_pool_size=2)
         endpoints = ["https://a.example", "https://b.example", "https://c.example"]
