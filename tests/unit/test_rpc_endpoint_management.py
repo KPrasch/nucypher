@@ -569,7 +569,6 @@ class TestRPCEndpoint:
             assert endpoint._consecutive_request_failures == 1
             assert endpoint.get_stats_snapshot().consecutive_request_failures == 1
 
-
             current_capacity = max(current_capacity // 2, initial_min_capacity)
             assert endpoint._in_flight_capacity == current_capacity
             assert endpoint.get_stats_snapshot().in_flight_capacity == current_capacity

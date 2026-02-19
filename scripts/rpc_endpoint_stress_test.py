@@ -239,7 +239,6 @@ def rpc_stress_test(
     # if chain_id == 42:
     #     public_rpc_endpoints.append("https://rpc.lukso.sigmacore.io")
 
-
     if new_strategy:
         thread_local_session_manager = ThreadLocalSessionManager()
         rpc_endpoint_manager = RPCEndpointManager(
