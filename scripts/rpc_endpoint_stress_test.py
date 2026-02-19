@@ -217,8 +217,9 @@ def rpc_stress_test(
         raise click.UsageError(
             "The --sort-strategy option can only be used with the --new-strategy option."
         )
+    sort_strategy = sort_strategy or "failures_then_latency"
     endpoint_sort_strategy = get_endpoint_sort_strategy(
-        sort_strategy or "failures_then_latency"
+        sort_strategy
     )  # same default as ConditionProviderManager
 
     condition_provider_manager = None
@@ -237,7 +238,7 @@ def rpc_stress_test(
     # for testing with unreachable endpoint for chain 42
     # if chain_id == 42:
     #     public_rpc_endpoints.append("https://rpc.lukso.sigmacore.io")
-    #
+
 
     if new_strategy:
         thread_local_session_manager = ThreadLocalSessionManager()
@@ -289,7 +290,7 @@ def rpc_stress_test(
     click.secho(
         f"Strategy used: {'NEW STRATEGY' if new_strategy else 'LEGACY'}", bold=True
     )
-    if sort_strategy:
+    if new_strategy:
         click.echo(f"\tEndpoint sort strategy: {sort_strategy}")
     click.secho(
         f"\tNum failures: {failures.get_value()}",
