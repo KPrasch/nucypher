@@ -314,7 +314,7 @@ class TestConditionProviderManager:
         "stats_2_sort_scenario",
         [
             "lower_latency",
-            "lower_exec_failures",
+            "lower_request_failures",
             "higher_unreachable_failures",
             "equal_stats",
         ],
@@ -345,15 +345,15 @@ class TestConditionProviderManager:
             if stats_2_sort_scenario != "lower_latency"
             else stats.ewma_latency_ms - 1
         )
-        stats_2_consecutive_unreachable_failures = (
-            stats.consecutive_unreachable_failures
-            if stats_2_sort_scenario != "lower_unreachable_failures"
-            else stats.consecutive_unreachable_failures - 2
-        )
         stats_2_consecutive_request_failures = (
             stats.consecutive_request_failures
+            if stats_2_sort_scenario != "lower_request_failures"
+            else stats.consecutive_request_failures - 2
+        )
+        stats_2_consecutive_unreachable_failures = (
+            stats.consecutive_unreachable_failures
             if stats_2_sort_scenario != "higher_unreachable_failures"
-            else stats.consecutive_request_failures + 1
+            else stats.consecutive_unreachable_failures + 1
         )
 
         stats_2 = RPCEndpoint.EndpointStats(
