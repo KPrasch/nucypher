@@ -187,14 +187,14 @@ class RPCEndpoint:
                 # we should not increase capacity even if we are not currently in cool down
                 return False
 
+            # check that we are not already at max capacity
+            if self._in_flight_capacity >= self.max_in_flight_capacity:
+                return False
+
             # check in high-utilization state
             utilization_factor = self._num_in_flight_usage / self._in_flight_capacity
             if utilization_factor < self.scale_up_utilization_threshold:
                 # utilization is low, no need to increase capacity
-                return False
-
-            # check that we are not already at max capacity
-            if self._in_flight_capacity >= self.max_in_flight_capacity:
                 return False
 
             # if we are here, it means we are not in cool down, and we are at high utilization,

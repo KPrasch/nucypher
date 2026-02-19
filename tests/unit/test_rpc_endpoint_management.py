@@ -880,9 +880,23 @@ class TestRPCEndpoint:
             not endpoint.consider_increasing_in_flight_capacity()
         ), "won't because at max capacity"
         assert endpoint._in_flight_capacity == max_capacity, "capacity unchanged"
-        endpoint._in_flight_capacity = initial_min_capacity  # reset capacity
+        endpoint._in_flight_capacity = (
+            initial_min_capacity  # reset capacity to be at min
+        )
+
+        # 5. min utilization factor not met
+        endpoint._num_in_flight_usage = int(
+            (initial_min_capacity * scale_up_utilization) - 1
+        )
+        endpoint._in_flight_capacity = initial_min_capacity
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because utilization not met"
 
         # Now let's try again with all conditions favorable and test that capacity does proactively increase
+        endpoint._num_in_flight_usage = (
+            initial_min_capacity - 1
+        )  # set usage just below full utilization
         assert (
             endpoint.consider_increasing_in_flight_capacity()
         ), "capacity proactively increased"
