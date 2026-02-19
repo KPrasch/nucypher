@@ -472,7 +472,7 @@ class TestRPCEndpoint:
         finally:
             endpoint.release()
 
-    def test_report_failure(self):
+    def test_report_request_failure(self):
         initial_min_capacity = 10
         max_capacity = 100
         endpoint = RPCEndpoint(
@@ -795,6 +795,102 @@ class TestRPCEndpoint:
         finally:
             endpoint.release()
 
+    def test_consider_increasing_in_flight_capacity(self):
+        initial_min_capacity = 10
+        max_capacity = 50
+        scale_up_utilization = 0.5
+        endpoint = RPCEndpoint(
+            endpoint_uri=self.URI,
+            min_in_flight_capacity=initial_min_capacity,
+            max_in_flight_capacity=max_capacity,
+            scale_up_utilization_threshold=scale_up_utilization,
+        )
+
+        # hasn't been used yet, so shouldn't increase capacity even if utilization is high
+        assert not endpoint.consider_increasing_in_flight_capacity()
+
+        num_inflight_usages = 0
+        # acquire just below scale up utilization (without any success reporting or release
+        # this mimics a scenario where we are hitting capacity but haven't yet had a chance to
+        # report successes to trigger capacity increase
+        for i in range(int((initial_min_capacity * scale_up_utilization) - 1)):
+            assert endpoint.try_acquire()
+            num_inflight_usages += 1
+
+            # utilization should be at threshold, so should increase capacity
+            assert not endpoint.consider_increasing_in_flight_capacity()
+
+            assert (
+                endpoint._in_flight_capacity == initial_min_capacity
+            )  # unchanged since we haven't reported successes to trigger increase yet
+            assert (
+                endpoint.get_stats_snapshot().in_flight_capacity == initial_min_capacity
+            )
+
+        # even after that we are still just below scale up utilization, so should not increase capacity
+        assert num_inflight_usages // initial_min_capacity < scale_up_utilization
+        assert endpoint._num_in_flight_usage == num_inflight_usages
+        assert num_inflight_usages < initial_min_capacity
+        assert not endpoint.consider_increasing_in_flight_capacity()
+
+        # now we go just over the utilization to consider proactively increasing capacity without any reporting
+        minimum_threshold = int((initial_min_capacity * scale_up_utilization) + 1)
+        while num_inflight_usages < minimum_threshold:
+            assert endpoint.try_acquire()
+            num_inflight_usages += 1
+
+        assert endpoint._num_in_flight_usage == num_inflight_usages
+        assert endpoint._in_flight_capacity == initial_min_capacity
+
+        # now we should be able to increase capacity proactively
+        # let's test other scenarios that would prevent increasing capacity first, eg. existing failures etc.
+        # 1. in cool down
+        endpoint._cool_down_until = time.monotonic() + 60
+        assert not endpoint.is_cooled_down()
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because in cool down"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity
+        ), "capacity unchanged"
+        endpoint._cool_down_until = 0.0  # reset cool down
+
+        # 2. has had consecutive request failures (some prior reporting was received)
+        endpoint._consecutive_request_failures = 3
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because has consecutive failures"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity
+        ), "capacity unchanged"
+        endpoint._consecutive_request_failures = 0  # reset failure count
+
+        # 3. has had consecutive unreachable failures (some prior reporting was received)
+        endpoint._consecutive_unreachable_failures = 2
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because has consecutive unreachable failures"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity
+        ), "capacity unchanged"
+        endpoint._consecutive_unreachable_failures = 0  # reset failure count
+
+        # 4. Already at max capacity
+        endpoint._in_flight_capacity = max_capacity
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because at max capacity"
+        assert endpoint._in_flight_capacity == max_capacity, "capacity unchanged"
+        endpoint._in_flight_capacity = initial_min_capacity  # reset capacity
+
+        # Now let's try again with all conditions favorable and test that capacity does proactively increase
+        assert (
+            endpoint.consider_increasing_in_flight_capacity()
+        ), "capacity proactively increased"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity + 2
+        ), "proactively increased capacity by 2"
+
 
 class TestRPCEndpointManager:
     """Focused unit tests for RPCEndpointManager behavior."""
@@ -955,3 +1051,79 @@ class TestRPCEndpointManager:
         result = manager.call(lambda w3: "worked", request_timeout=1.0)
         assert result == "worked"
         assert sleep_calls["count"] == saturated_retries
+
+    def test_consider_increasing_in_flight_capacity(self, mocker):
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+        )
+
+        consider_increasing_spy = mocker.spy(
+            RPCEndpoint, "consider_increasing_in_flight_capacity"
+        )
+
+        # call consider_increasing_in_flight_capacity multiple times and ensure it's being called
+        n_times_manager_called = 5
+        for i in range(n_times_manager_called):
+            manager.consider_increasing_capacity_on_saturation()
+
+        # manager asks endpoints to consider increasing capacity so the next call could potentially succeed
+        assert consider_increasing_spy.call_count == (
+            n_times_manager_called * len(endpoints)
+        ), "every endpoint called"
+
+    def test_proactive_increase_of_in_flight_capacity_due_to_cant_acquire_candidate(
+        self, mocker
+    ):
+        # in this test case (vs above), the exception is raised after having possible candidates
+        # but then try_acquire() on the candidate fails because candidate no longer viable i.e. there
+        # was a change in situation between getting candidate and using candidate
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+        )
+        consider_increasing_spy = mocker.spy(
+            RPCEndpoint, "consider_increasing_in_flight_capacity"
+        )
+        try_acquire_spy = mocker.spy(RPCEndpoint, "try_acquire")
+
+        def fake_sleep(duration):
+            # do nothing
+            pass
+
+        # patch the time.sleep used inside the endpoint manager to avoid real waiting
+        mocker.patch("nucypher.utilities.endpoint.time.sleep", fake_sleep)
+
+        # only first 2
+        num_candidates = 2
+        mocker.patch.object(
+            manager, "_get_candidates", return_value=manager.endpoints[:num_candidates]
+        )
+
+        # simulate all endpoints being at high utilization to trigger proactive capacity increase
+        for e in manager.endpoints:
+            e._num_in_flight_usage = (
+                e._in_flight_capacity
+            )  # max out usage to not have any endpoint candidates for use and trigger increase
+
+        with pytest.raises(
+            RPCEndpointManager.NoEndpointsAvailable,
+            match="All endpoints at capacity or in cool down",
+        ):
+            _ = manager.call(lambda w3: "worked", request_timeout=1.0)
+
+        # viable candidates available so try_acquire is called for each candidate
+        assert (
+            try_acquire_spy.call_count == num_candidates
+        ), "should have tried to acquire all candidates and failed"
+
+        # manager asks endpoints to consider increasing capacity so the next call could potentially succeed
+        assert consider_increasing_spy.call_count == len(
+            endpoints
+        ), "should have called consider_increasing_in_flight_capacity on all endpoints"

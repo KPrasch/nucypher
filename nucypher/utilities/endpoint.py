@@ -476,9 +476,10 @@ class RPCEndpointManager:
             if round_idx < self.saturated_retries:
                 time.sleep(self.saturated_retry_delay_s)  # brief sleep before retrying
 
-        # If we get here, everything was saturated for all rounds
-        self.consider_increasing_capacity_on_saturation()
-        raise self.NoEndpointsAvailable("All endpoints at capacity or in cool down")
+        # If we get here, all endpoints are in cool down phase; and none available to use
+        raise self.NoEndpointsAvailable(
+            f"All endpoints at capacity or in cool down after {self.saturated_retries} retries"
+        )
 
     def consider_increasing_capacity_on_saturation(self) -> None:
         """
