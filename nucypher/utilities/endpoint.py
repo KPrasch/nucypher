@@ -448,7 +448,7 @@ class RPCEndpointManager:
     def _get_candidates(
         self, endpoint_sort_strategy: Optional[EndpointSortStrategy] = None
     ) -> List[RPCEndpoint]:
-        # Attempt rounds: try each endpoint up to max_attempts.
+        # Attempt rounds: try each endpoint up to saturated_retries additional retries.
         # If all saturated, optionally sleep briefly and retry a few times.
         rounds = 1 + self.saturated_retries
         for round_idx in range(rounds):

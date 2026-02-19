@@ -989,7 +989,7 @@ class TestRPCEndpoint:
 
             endpoint.report_failure(connection_failure)  # report failure
 
-            # quanratine immediately enacted again
+            # quarantine immediately enacted again
             assert endpoint._consecutive_request_failures == 0
             assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
             assert (
@@ -1023,7 +1023,7 @@ class TestRPCEndpoint:
             return_value=first_quarantine_now + 2 * max_unreachable_quarantine_s + 1,
         )
 
-        # log fist success after coming out of quarantine
+        # log first success after coming out of quarantine
         assert endpoint.try_acquire(), "we can acquire after quarantine period"
         try:
             assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
