@@ -249,7 +249,9 @@ def rpc_stress_test(
     else:
         condition_provider_manager = OldConditionProviderManagerStrategy(
             providers=[HTTPProvider(endpoint) for endpoint in public_rpc_endpoints],
-            preferential_providers=[HTTPProvider(preferred_endpoint)],
+            preferential_providers=(
+                [HTTPProvider(preferred_endpoint)] if preferred_endpoint else []
+            ),
         )
 
     failures = AtomicCounter()
