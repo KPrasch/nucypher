@@ -1344,3 +1344,92 @@ class TestRPCEndpointManager:
         assert consider_increasing_spy.call_count == len(
             endpoints
         ), "should have called consider_increasing_in_flight_capacity on all endpoints"
+
+    def test_sorting_endpoints_for_call(self):
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+        )
+
+        endpoint_0 = manager.endpoints[0]
+        endpoint_0._ewma_latency_ms = 857.2
+        endpoint_0._latest_latency_ms = 200.1
+
+        endpoint_1 = manager.endpoints[1]
+        # lower ewma, higher latest latency than endpoint_0
+        endpoint_1._ewma_latency_ms = endpoint_0._ewma_latency_ms - 123.4
+        endpoint_1._latest_latency_ms = endpoint_0._latest_latency_ms + 50.5
+
+        endpoint_2 = manager.endpoints[2]
+        # same as endpoint_0
+        endpoint_2._ewma_latency_ms = endpoint_0._ewma_latency_ms
+        endpoint_2._latest_latency_ms = endpoint_0._latest_latency_ms
+
+        # capture w3 instances used for calls
+        w3_instances = []
+        def failing_fn(w3):
+            w3_instances.append(w3)
+            raise Exception("boom")
+
+        # sort by lowest ewma latency
+        with pytest.raises(Exception, match="boom"):
+            manager.call(
+                failing_fn,
+                request_timeout=1,
+                endpoint_sort_strategy=lambda stats: (stats.ewma_latency_ms,),
+            )
+        assert len(w3_instances) == 3, "all endpoints tried due to fallback"
+        assert w3_instances[0].provider.endpoint_uri == endpoint_1.endpoint_uri
+        assert w3_instances[1].provider.endpoint_uri == endpoint_0.endpoint_uri
+        assert w3_instances[2].provider.endpoint_uri == endpoint_2.endpoint_uri
+
+        # sort by lowest ewma latency then lowest last used
+        # (careful because _last_used gets updated on call, so we set it manually here to have a deterministic order)
+        now = time.time()
+        endpoint_0._last_used = now
+        endpoint_1._last_used = endpoint_0._last_used - 100
+        endpoint_2._last_used = endpoint_0._last_used - 200
+
+        w3_instances.clear()  # reset instances
+        # reset failures so that nodes aren't excluded / set to cool down
+        for e in manager.endpoints:
+            e._consecutive_request_failures = 0
+        with pytest.raises(Exception, match="boom"):
+            manager.call(
+                failing_fn,
+                request_timeout=1,
+                endpoint_sort_strategy=lambda stats: (
+                    stats.ewma_latency_ms,
+                    stats.last_used,
+                ),
+            )
+        assert len(w3_instances) == 3, "all endpoints tried due to fallback"
+        assert (
+            w3_instances[0].provider.endpoint_uri == endpoint_1.endpoint_uri
+        )  # lowest ewma latency
+        assert (
+            w3_instances[1].provider.endpoint_uri == endpoint_2.endpoint_uri
+        )  # tie-breaker is last used so endpoint_2 should be preferred over endpoint_0
+        assert w3_instances[2].provider.endpoint_uri == endpoint_0.endpoint_uri
+
+        # sort by lowest latest latency
+        w3_instances.clear()  # reset instances
+        # reset failures so that nodes aren't excluded / set to cool down
+        for e in manager.endpoints:
+            e._consecutive_request_failures = 0
+        with pytest.raises(Exception, match="boom"):
+            manager.call(
+                failing_fn,
+                request_timeout=1,
+                endpoint_sort_strategy=lambda stats: (stats.latest_latency_ms,),
+            )
+
+        assert len(w3_instances) == 3, "all endpoints tried due to fallback"
+        assert (
+            w3_instances[0].provider.endpoint_uri == endpoint_0.endpoint_uri
+        )  # lowest latest latency (tie-breaker with endpoint_2 is pre-existing order)
+        assert w3_instances[1].provider.endpoint_uri == endpoint_2.endpoint_uri
+        assert w3_instances[2].provider.endpoint_uri == endpoint_1.endpoint_uri
