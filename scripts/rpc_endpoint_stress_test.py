@@ -116,6 +116,7 @@ STRATEGIES = [
     "headroom_then_latency",
     "fewest_in_flight_then_latency",
     "last_used",
+    "failures_then_latency",
 ]
 
 
@@ -140,6 +141,13 @@ def get_endpoint_sort_strategy(
     elif strategy == "last_used":
         # sort by last used time (oldest first)
         return lambda stats: (stats.last_used,)
+    elif strategy == "failures_then_latency":
+        # sort by fewest unreachable failures, then exec failures, then latency
+        return lambda stats: (
+            stats.consecutive_unreachable_failures,
+            stats.consecutive_exec_failures,
+            stats.ewma_latency_ms,
+        )
 
     raise ValueError(f"Strategy '{strategy}' not implemented")
 
@@ -209,9 +217,9 @@ def rpc_stress_test(
         raise click.UsageError(
             "The --sort-strategy option can only be used with the --new-strategy option."
         )
-    endpoint_sort_strategy = (
-        get_endpoint_sort_strategy(sort_strategy) if sort_strategy else None
-    )
+    endpoint_sort_strategy = get_endpoint_sort_strategy(
+        sort_strategy or "failures_then_latency"
+    )  # same default as ConditionProviderManager
 
     condition_provider_manager = None
     rpc_endpoint_manager = None
@@ -226,6 +234,10 @@ def rpc_stress_test(
         )
 
     public_rpc_endpoints = default_rpc_endpoints.get(chain_id, [])
+    # for testing with unreachable endpoint for chain 42
+    # if chain_id == 42:
+    #     public_rpc_endpoints.append("https://rpc.lukso.sigmacore.io")
+    #
 
     if new_strategy:
         thread_local_session_manager = ThreadLocalSessionManager()
@@ -285,8 +297,9 @@ def rpc_stress_test(
     )
     click.echo("\tEndpoints:")
     if preferred_endpoint:
-        click.echo(
-            f"\t\t {obfuscate_rpc_url(preferred_endpoint)} was used {endpoint_usage_stats[preferred_endpoint].get_value()} times."
+        click.secho(
+            f"\t\t Preferred Endpoint {obfuscate_rpc_url(preferred_endpoint)} was used {endpoint_usage_stats[preferred_endpoint].get_value()} times.",
+            fg="green",
         )
         if new_strategy:
             click.echo(
