@@ -314,7 +314,8 @@ class TestConditionProviderManager:
         stats = RPCEndpoint.EndpointStats(
             latest_latency_ms=4.2,
             ewma_latency_ms=ewma_latency_ms,
-            consecutive_failures=1,
+            consecutive_exec_failures=1,
+            consecutive_unreachable_failures=0,
             num_in_flight_usage=4,
             in_flight_capacity=20,
             last_used=time.time() - 10,

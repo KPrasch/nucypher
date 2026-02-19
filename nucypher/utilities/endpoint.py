@@ -68,7 +68,8 @@ class RPCEndpoint:
         Snapshot of the endpoint's current health and usage stats for external inspection or sorting.
          - latest_latency_ms: most recent latency measurement in milliseconds.
          - ewma_latency_ms: exponentially weighted moving average of latency for trend tracking.
-         - consecutive_failures: number of consecutive failures since last success.
+         - consecutive_exec_failures: number of consecutive failures since last success.
+         - consecutive_unreachable_failures: number of failures that indicate the endpoint is unreachable (e.g. connection errors).
          - num_in_flight_usage: current number of in-flight usages of this endpoint.
          - in_flight_capacity: current maximum allowed in-flight usages based on health.
          - last_used: real-world timestamp of the last time this endpoint was used (success or failure).
@@ -76,7 +77,8 @@ class RPCEndpoint:
 
         latest_latency_ms: float
         ewma_latency_ms: float
-        consecutive_failures: int
+        consecutive_exec_failures: int
+        consecutive_unreachable_failures: int
         num_in_flight_usage: int
         in_flight_capacity: int
         last_used: float
@@ -85,7 +87,8 @@ class RPCEndpoint:
             return (
                 f"EndpointStats(latency={self.latest_latency_ms:.2f}ms, "
                 f"ewma_latency={self.ewma_latency_ms:.2f}ms, "
-                f"consecutive_failures={self.consecutive_failures}, "
+                f"consecutive_exec_failures={self.consecutive_exec_failures}, "
+                f"consecutive_unreachable_failures={self.consecutive_unreachable_failures}, "
                 f"in_flight_usage={self.num_in_flight_usage}, "
                 f"in_flight_cap={self.in_flight_capacity}, "
                 f"last_used={self.last_used})"
@@ -100,6 +103,8 @@ class RPCEndpoint:
         ewma_alpha: float = 0.5,
         target_latency_ms: float = 2000.0,  # 2s
         scale_up_utilization_threshold: float = 0.5,
+        max_unreachable_backoff_s: float = 600.0,  # 10 minutes
+        unreachable_quarantine_after: int = 2,  # number of consecutive unreachable failures before considering the endpoint essentially unreachable and applying a long backoff
         rng: Optional[random.Random] = None,
     ):
         if max_backoff_s <= 0:
@@ -121,7 +126,7 @@ class RPCEndpoint:
         self.max_backoff_s = max_backoff_s
 
         self._latest_latency_ms = 0.0
-        self._consecutive_failures = 0
+        self._consecutive_exec_failures = 0
         self._cool_down_until = 0.0
         self._last_used = 0.0
 
@@ -136,9 +141,13 @@ class RPCEndpoint:
         self.ewma_alpha = ewma_alpha
         self._ewma_latency_ms = 0.0
 
-        self.rng = rng or random.Random()
-
         self.scale_up_utilization_threshold = scale_up_utilization_threshold
+
+        self.max_unreachable_backoff_s = max_unreachable_backoff_s
+        self.unreachable_quarantine_after = unreachable_quarantine_after
+        self._consecutive_unreachable_failures = 0
+
+        self.rng = rng or random.Random()
 
         self._lock = threading.Lock()
 
@@ -168,9 +177,14 @@ class RPCEndpoint:
                 return False
 
             # check that there weren't consecutive failures recently
-            if self._consecutive_failures > 0:
-                # if we had recent failures, it means the endpoint is unstable and we should not increase
-                # capacity even if we are not currently in cool down
+            if self._consecutive_exec_failures > 0:
+                # if we had recent failures, it means the endpoint is unstable and we should
+                # not increase capacity even if we are not currently in cool down
+                return False
+
+            if self._consecutive_unreachable_failures > 0:
+                # if we had recent unreachable failures, it means the endpoint can't be reached and
+                # we should not increase capacity even if we are not currently in cool down
                 return False
 
             # check in high-utilization state
@@ -252,8 +266,13 @@ class RPCEndpoint:
         with self._lock:
             self._last_used = time.time()
             self._latest_latency_ms = latency_ms
-            self._consecutive_failures = 0
-            self._cool_down_until = 0.0  # reset cool down on success
+
+            # reset failure counts on success
+            self._consecutive_exec_failures = 0
+            self._consecutive_unreachable_failures = 0
+
+            # reset cool down on success
+            self._cool_down_until = 0.0
 
             self._ewma_latency_ms = (
                 latency_ms
@@ -264,6 +283,11 @@ class RPCEndpoint:
                     + (1 - self.ewma_alpha) * self._ewma_latency_ms
                 )
             )
+
+            if self._in_flight_capacity < self.min_in_flight_capacity:
+                # this can happen if endpoint was previously unreachable
+                self._in_flight_capacity = self.min_in_flight_capacity
+                return
 
             # proactive decrease on slow-but-successful responses
             if self._ewma_latency_ms > self.target_latency_ms * 1.5:
@@ -286,8 +310,34 @@ class RPCEndpoint:
             self._last_used = time.time()
             now = time.monotonic()
 
-            # TODO - handle rate limit failures more specifically
-            self._consecutive_failures += 1
+            is_unreachable = isinstance(exc, requests.exceptions.ConnectionError)
+            if is_unreachable:
+                # endpoint is unreachable
+                self._consecutive_unreachable_failures += 1
+                self._consecutive_exec_failures = 0  # reset non-unreachable failures
+
+                # start going down in capacity more quickly on unreachable failures
+                self._in_flight_capacity = max(1, self._in_flight_capacity // 2)
+
+                if (
+                    self._consecutive_unreachable_failures
+                    >= self.unreachable_quarantine_after
+                ):
+                    # severely limit capacity to essentially quarantine the endpoint due to being unreachable
+                    # until it proves it can be reachable again, at which point report_success
+                    # will reset capacity and failures
+                    self._in_flight_capacity = 1
+                    unreachable_backoff_jitter = min(
+                        self.rng.uniform(0.8, 1.2) * self.max_unreachable_backoff_s,
+                        self.max_unreachable_backoff_s,
+                    )
+                    self._cool_down_until = now + unreachable_backoff_jitter
+
+                return
+
+            # non-unreachable failure
+            self._consecutive_exec_failures += 1
+            self._consecutive_unreachable_failures = 0  # reset unreachable failures
 
             # decrease in flight capacity on failure, but never below minimum
             # either back to min or 1/2 of current capacity, whichever is higher
@@ -295,8 +345,10 @@ class RPCEndpoint:
                 self.min_in_flight_capacity, self._in_flight_capacity // 2
             )
 
-            if self._consecutive_failures >= 2:
-                backoff = min(self.max_backoff_s, 2 ** (self._consecutive_failures - 1))
+            if self._consecutive_exec_failures >= 2:
+                backoff = min(
+                    self.max_backoff_s, 2 ** (self._consecutive_exec_failures - 1)
+                )
                 # add some jitter to avoid common backoff patterns
                 backoff_jitter = min(
                     self.rng.uniform(0.8, 1.2) * backoff, self.max_backoff_s
@@ -307,7 +359,8 @@ class RPCEndpoint:
         with self._lock:
             return self.EndpointStats(
                 latest_latency_ms=self._latest_latency_ms,
-                consecutive_failures=self._consecutive_failures,
+                consecutive_exec_failures=self._consecutive_exec_failures,
+                consecutive_unreachable_failures=self._consecutive_unreachable_failures,
                 num_in_flight_usage=self._num_in_flight_usage,
                 in_flight_capacity=self._in_flight_capacity,
                 last_used=self._last_used,
@@ -438,7 +491,10 @@ class RPCEndpointManager:
     def call(
         self,
         fn: Callable[[Web3], Any],
-        request_timeout: Union[float, Tuple[float, float]] = 5.0,
+        request_timeout: Union[float, Tuple[float, float]] = (
+            3.05,
+            5.0,
+        ),  # https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
         endpoint_sort_strategy: Optional[EndpointSortStrategy] = None,
         override_middleware_stack: Optional[Sequence[Tuple[Middleware, str]]] = None,
     ) -> Any:
