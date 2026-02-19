@@ -891,6 +891,168 @@ class TestRPCEndpoint:
             endpoint._in_flight_capacity == initial_min_capacity + 2
         ), "proactively increased capacity by 2"
 
+    def test_report_unreachable_failure(self, mocker):
+        initial_min_capacity = 10
+        max_capacity = 50
+        scale_up_utilization = 0.5
+        unreachable_quarantine_after = 3
+        max_unreachable_quarantine_s = 900
+        endpoint = RPCEndpoint(
+            endpoint_uri=self.URI,
+            min_in_flight_capacity=initial_min_capacity,
+            max_in_flight_capacity=max_capacity,
+            scale_up_utilization_threshold=scale_up_utilization,
+            unreachable_quarantine_after=unreachable_quarantine_after,
+            max_unreachable_quarantine_s=max_unreachable_quarantine_s,
+        )
+
+        connection_failure = requests.exceptions.ConnectionError(
+            "simulated connection error"
+        )
+
+        # one less than unreachable_quarantine_after failures should not trigger unreachable quarantine
+        for i in range(unreachable_quarantine_after - 1):
+            assert endpoint.try_acquire()
+            try:
+                endpoint.report_failure(connection_failure)
+
+                # check request failure count (no change since separate counts for exec vs unreachable failures)
+                assert endpoint._consecutive_request_failures == 0
+                assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+
+                # unreachable failure noted
+                assert endpoint._consecutive_unreachable_failures == (
+                    i + 1
+                ), "should have recorded 1 consecutive unreachable failure"
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_unreachable_failures
+                    == (i + 1)
+                )
+
+                # no cool down enacted as yet
+                assert endpoint._cool_down_until == 0.0, "should not be in cooldown yet"
+            finally:
+                endpoint.release()
+
+        # in flight capacity has been dropped by half twice
+        assert endpoint._in_flight_capacity == (initial_min_capacity // 2) // 2
+
+        first_quarantine_now = time.monotonic()
+
+        # last failure should trigger unreachable quarantine
+        assert endpoint.try_acquire()
+        try:
+            endpoint.report_failure(connection_failure)
+            # we should now be in quarantine
+
+            # check request failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+
+            # check unreachable failure cound
+            assert (
+                endpoint._consecutive_unreachable_failures
+                == unreachable_quarantine_after
+            )
+            assert (
+                endpoint.get_stats_snapshot().consecutive_unreachable_failures
+                == unreachable_quarantine_after
+            )
+
+            # check updated capacity
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            # in quarantine (with some minimum jitter)
+            assert (
+                endpoint._cool_down_until
+                >= first_quarantine_now + 0.8 * endpoint.max_unreachable_quarantine_s
+            ), "cooldown should be at least 80% of quarantine time after report time"
+        finally:
+            endpoint.release()
+
+        assert not endpoint.try_acquire(), "can't acquire endpoint in quarantine"
+        assert (
+            endpoint._num_in_flight_usage == 0
+        ), "all acquires have been already released"
+
+        # jump forward to after quarantine period
+        mocker.patch(
+            "time.monotonic",
+            return_value=first_quarantine_now + max_unreachable_quarantine_s + 1,
+        )
+
+        # still failing after 1st quarantine
+        assert endpoint.try_acquire(), "we can acquire after quarantine period"
+        try:
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            endpoint.report_failure(connection_failure)  # report failure
+
+            # quanratine immediately enacted again
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+            assert (
+                endpoint._consecutive_unreachable_failures
+                == unreachable_quarantine_after + 1
+            )
+            assert (
+                endpoint.get_stats_snapshot().consecutive_unreachable_failures
+                == unreachable_quarantine_after + 1
+            )
+
+            # check capacity still unchanged
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            # still in quarantine (with some minimum jitter)
+            assert endpoint._cool_down_until >= (
+                first_quarantine_now + 0.8 * endpoint.max_unreachable_quarantine_s * 2
+            ), "2nd straight quarantine"
+        finally:
+            endpoint.release()
+
+        assert not endpoint.try_acquire(), "can't acquire endpoint in quarantine"
+        assert (
+            endpoint._num_in_flight_usage == 0
+        ), "all acquires have been already released"
+
+        # jump forward to after 2nd quarantine period
+        mocker.patch(
+            "time.monotonic",
+            return_value=first_quarantine_now + 2 * max_unreachable_quarantine_s + 1,
+        )
+
+        # log fist success after coming out of quarantine
+        assert endpoint.try_acquire(), "we can acquire after quarantine period"
+        try:
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            endpoint.report_success(
+                latency_ms=1000
+            )  # report success to exit quarantine
+
+            # failure counts reset
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
+            # cooled down reset
+            assert endpoint._cool_down_until == 0.0
+
+            # capacity restored in min_in_flight_capacity since a success was reported
+            assert (
+                endpoint._in_flight_capacity == initial_min_capacity
+            ), "capacity should be restored to min capacity after success"
+            assert (
+                endpoint.get_stats_snapshot().in_flight_capacity == initial_min_capacity
+            )
+        finally:
+            endpoint.release()
+
 
 class TestRPCEndpointManager:
     """Focused unit tests for RPCEndpointManager behavior."""
