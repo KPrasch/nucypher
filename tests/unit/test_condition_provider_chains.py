@@ -31,7 +31,9 @@ class TestConditionProviderChainValidation:
         )
         Operator.get_condition_provider_manager(mock_operator, endpoints)
 
-    def test_failed_rpc_health_raises_error(self, mock_operator, mocker):
+    def test_failed_rpc_health_user_configured_endpoint_raises_error(
+        self, mock_operator, mocker
+    ):
         poly2_uri = "http://poly2"
         user_configured_endpoints = {
             1: ["http://eth"],
