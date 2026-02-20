@@ -359,12 +359,12 @@ class RPCEndpoint:
         with self._lock:
             return self.EndpointStats(
                 latest_latency_ms=self._latest_latency_ms,
+                ewma_latency_ms=self._ewma_latency_ms,
                 consecutive_request_failures=self._consecutive_request_failures,
                 consecutive_unreachable_failures=self._consecutive_unreachable_failures,
                 num_in_flight_usage=self._num_in_flight_usage,
                 in_flight_capacity=self._in_flight_capacity,
                 last_used=self._last_used,
-                ewma_latency_ms=self._ewma_latency_ms,
             )
 
 
@@ -507,7 +507,7 @@ class RPCEndpointManager:
         :param override_middleware_stack: Optional sequence of (middleware, name) tuples to override Web3 default middlewares
         :return: The result of the provided function executed with a Web3 instance from a healthy endpoint.
         """
-        endpoints = self._get_candidates(endpoint_sort_strategy)
+        endpoints = self._get_candidates(endpoint_sort_strategy=endpoint_sort_strategy)
         last_exc = None
         session = self.session_manager.get_session()
         for endpoint in endpoints:

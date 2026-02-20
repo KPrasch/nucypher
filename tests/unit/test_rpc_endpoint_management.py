@@ -726,8 +726,8 @@ class TestRPCEndpoint:
             assert endpoint.try_acquire()
             try:
                 now = 20_002.123  # fixed time for testing
-                with mocker.patch("time.monotonic", return_value=now):
-                    endpoint.report_failure(Exception("simulated failure"))
+                mocker.patch("time.monotonic", return_value=now)
+                endpoint.report_failure(Exception("simulated failure"))
                 num_consecutive_failures += 1
 
                 # failure noted
@@ -769,8 +769,8 @@ class TestRPCEndpoint:
         assert endpoint.try_acquire()
         try:
             now = 30_123.456  # fixed time for testing
-            with mocker.patch("time.monotonic", return_value=now):
-                endpoint.report_failure(Exception("simulated failure"))
+            mocker.patch("time.monotonic", return_value=now)
+            endpoint.report_failure(Exception("simulated failure"))
             num_consecutive_failures += 1
 
             # failure noted
@@ -1370,6 +1370,7 @@ class TestRPCEndpointManager:
 
         # capture w3 instances used for calls
         w3_instances = []
+
         def failing_fn(w3):
             w3_instances.append(w3)
             raise Exception("boom")
