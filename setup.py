@@ -53,7 +53,7 @@ setup(
 
     # Package Data
     packages=find_namespace_packages(
-        exclude=["scripts", "nucypher.utilities.templates"]
+        exclude=["scripts", "scripts.*", "nucypher.utilities.templates"]
     ),
     include_package_data=True,
     zip_safe=True,
