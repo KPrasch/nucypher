@@ -17,7 +17,7 @@ from eth_utils import to_checksum_address
 from nucypher_core.ferveo import AggregatedTranscript, DkgPublicKey, Keypair, Validator
 from siwe import SiweMessage
 from twisted.internet.task import Clock
-from web3 import Web3
+from web3 import HTTPProvider, Web3
 
 import tests
 from nucypher.blockchain.eth.actors import Operator
@@ -51,6 +51,7 @@ from nucypher.policy.conditions.lingo import (
 from nucypher.policy.conditions.time import TimeCondition
 from nucypher.policy.payment import SubscriptionManagerPayment
 from nucypher.utilities.emitters import StdoutEmitter
+from nucypher.utilities.endpoint import RPCEndpoint
 from nucypher.utilities.logging import GlobalLoggerSettings, Logger
 from nucypher.utilities.networking import LOOPBACK_ADDRESS
 from nucypher.utilities.task import SimpleTask
@@ -895,4 +896,35 @@ def mock_default_rpc_endpoint_fetch(session_mocker):
     session_mocker.patch(
         "nucypher.blockchain.eth.utils.get_default_rpc_endpoints",
         return_value={TESTERCHAIN_CHAIN_ID: [TEST_ETH_PROVIDER_URI]},
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_rpc_endpoint_health_check(session_mocker):
+    # utils used for default endpoint health check
+    session_mocker.patch(
+        "nucypher.blockchain.eth.utils.rpc_endpoint_health_check",
+        return_value=True,
+    )
+    # actors used for user-configured endpoint health check
+    session_mocker.patch(
+        "nucypher.blockchain.eth.actors.rpc_endpoint_health_check",
+        return_value=True,
+    )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_web3_http_provider(module_mocker, testerchain):
+    def _mock_make_provider(endpoint, session, request_timeout):
+        if endpoint == TEST_ETH_PROVIDER_URI:
+            return testerchain.provider
+        else:
+            return HTTPProvider(
+                endpoint_uri=endpoint,
+                session=session,
+                request_kwargs={"timeout": request_timeout},
+            )
+
+    module_mocker.patch.object(
+        RPCEndpoint, "_make_provider", side_effect=_mock_make_provider
     )

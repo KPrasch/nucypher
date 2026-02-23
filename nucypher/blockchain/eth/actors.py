@@ -31,7 +31,7 @@ from nucypher_core.ferveo import (
     Validator,
     ValidatorMessage,
 )
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 from web3.types import TxReceipt
 
 from nucypher.acumen.nicknames import Nickname
@@ -334,11 +334,6 @@ class Operator(BaseActor):
             )
             return receipt
 
-    @staticmethod
-    def _make_condition_provider(uri: str) -> HTTPProvider:
-        provider = HTTPProvider(endpoint_uri=uri)
-        return provider
-
     def get_condition_provider_manager(
         self, operator_configured_endpoints: Dict[int, List[str]]
     ) -> ConditionProviderManager:
@@ -373,15 +368,13 @@ class Operator(BaseActor):
                     )
                     continue
 
-                provider = self._make_condition_provider(uri)
-                if int(Web3(provider).eth.chain_id) != int(chain_id):
-                    raise self.ActorError(
-                        f"Operator-configured RPC condition endpoint {obfuscate_rpc_url(uri)} does not belong to chain {chain_id}"
-                    )
-                # TODO: the chain id above is duplicated for the health check - fix logic
                 healthy = rpc_endpoint_health_check(chain_id=chain_id, endpoint=uri)
                 if not healthy:
                     self.log.warn(
+                        f"Operator-configured RPC condition endpoint {obfuscate_rpc_url(uri)} (chainID={chain_id}) is unhealthy"
+                    )
+                    # bad user configured endpoint should cause operator to not start.
+                    raise self.ActorError(
                         f"Operator-configured RPC condition endpoint {obfuscate_rpc_url(uri)} (chainID={chain_id}) is unhealthy"
                     )
                 configured_endpoints[int(chain_id)].append(uri)

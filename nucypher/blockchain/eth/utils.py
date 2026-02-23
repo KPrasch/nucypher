@@ -171,15 +171,15 @@ def rpc_endpoint_health_check(
     if result is None:
         return False
 
-    provider_chain = int(result, 16)
     try:
+        provider_chain = int(result, 16)
         if provider_chain != chain_id:
             LOGGER.warn(
                 f"RPC endpoint is invalid for chain; expected chain ID {chain_id}, but detected {provider_chain}"
             )
             return False
     except (TypeError, ValueError):
-        LOGGER.debug(
+        LOGGER.warn(
             f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: invalid chain ID response {result}"
         )
         return False
@@ -198,7 +198,7 @@ def rpc_endpoint_health_check(
     try:
         timestamp = int(block_data.get("timestamp"), 16)
     except (TypeError, ValueError):
-        LOGGER.debug(
+        LOGGER.warn(
             f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: invalid block data"
         )
         return False
@@ -206,7 +206,7 @@ def rpc_endpoint_health_check(
     system_time = time.time()
     drift = abs(system_time - timestamp)
     if drift > max_drift_seconds:
-        LOGGER.debug(
+        LOGGER.warn(
             f"RPC endpoint {obfuscate_rpc_url(endpoint)} is unhealthy: drift too large ({drift} seconds)"
         )
         return False
