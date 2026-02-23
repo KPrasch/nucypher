@@ -171,11 +171,15 @@ class ConditionProviderManager:
         return set(self._rpc_endpoint_managers.keys())
 
     @staticmethod
-    def _sort_by_latency(stats: RPCEndpoint.EndpointStats) -> Tuple:
+    def _sort_by_failures_then_latency(stats: RPCEndpoint.EndpointStats) -> Tuple:
         """
-        Sort strategy for RPC endpoints based on EWMA latency; endpoints with lower latency will be prioritized.
+        Sort strategy for RPC endpoints based on lowest unreachable failures, then lowest consecutive failures, then EWMA latency.
         """
-        return (stats.ewma_latency_ms,)
+        return (
+            stats.consecutive_unreachable_failures,
+            stats.consecutive_request_failures,
+            stats.ewma_latency_ms,
+        )
 
     @staticmethod
     def _get_default_middlewares() -> Sequence[Tuple[Middleware, str]]:
@@ -204,7 +208,7 @@ class ConditionProviderManager:
         return manager.call(
             fn=fn,
             request_timeout=request_timeout,
-            endpoint_sort_strategy=self._sort_by_latency,
+            endpoint_sort_strategy=self._sort_by_failures_then_latency,
             override_middleware_stack=default_middlewares,
         )
 

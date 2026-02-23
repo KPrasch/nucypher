@@ -1,4 +1,3 @@
-import os
 import random
 import time
 from collections import defaultdict
@@ -8,42 +7,12 @@ from threading import Lock
 from typing import Dict, Iterable, List, Optional
 
 import click
-from eth_utils import to_checksum_address
 from web3 import HTTPProvider, Web3
 from web3.middleware import geth_poa_middleware
 
-from nucypher.blockchain.eth.utils import obfuscate_rpc_url
+from nucypher.blockchain.eth import domains
+from nucypher.blockchain.eth.utils import get_default_rpc_endpoints, obfuscate_rpc_url
 from nucypher.utilities.endpoint import RPCEndpointManager, ThreadLocalSessionManager
-
-# ETH mainnet
-PUBLIC_RPC_ENDPOINTS = [
-    "https://eth.drpc.org",
-    "https://ethereum-public.nodies.app",
-    "https://ethereum-rpc.publicnode.com",
-    "https://mainnet.gateway.tenderly.co",
-    "https://rpc.mevblocker.io",
-    "https://rpc.mevblocker.io/fast",
-]
-
-SIGNING_COORDINATOR_ADDRESS = to_checksum_address(
-    "0x281EEE1e2261F895857Cc1eF5Bcc954E1F907386"
-)
-OPERATOR_ADDRESS = to_checksum_address(os.urandom(20))
-
-COHORT_ID = 3
-FUNCTION_ABI = """[
-    {
-        "inputs":[
-            {"internalType":"uint32","name":"cohortId","type":"uint32"},
-            {"internalType":"address","name":"operator","type":"address"}
-        ],
-        "name":"getSigningCohortDataHash",
-        "outputs":[
-            {"internalType":"bytes32","name":"","type":"bytes32"}
-        ],
-        "type":"function"
-    }
-]"""
 
 
 class AtomicCounter:
@@ -61,16 +30,10 @@ class AtomicCounter:
 
 
 def _do_w3_things(endpoint_usage_stats: Dict[str, AtomicCounter], w3: Web3) -> None:
-    # call a contract function
-    contract_instance = w3.eth.contract(
-        address=SIGNING_COORDINATOR_ADDRESS, abi=FUNCTION_ABI
-    )
-    _ = contract_instance.functions.getSigningCohortDataHash(
-        COHORT_ID, OPERATOR_ADDRESS
-    ).call()
-
-    # some other calls
+    # web3 calls
+    _ = w3.eth.chain_id
     _ = w3.eth.block_number
+    _ = w3.eth.get_block("latest")
 
     endpoint_usage_stats[w3.provider.endpoint_uri].increment()
 
@@ -153,6 +116,7 @@ STRATEGIES = [
     "headroom_then_latency",
     "fewest_in_flight_then_latency",
     "last_used",
+    "failures_then_latency",
 ]
 
 
@@ -177,11 +141,24 @@ def get_endpoint_sort_strategy(
     elif strategy == "last_used":
         # sort by last used time (oldest first)
         return lambda stats: (stats.last_used,)
+    elif strategy == "failures_then_latency":
+        # sort by fewest unreachable failures, then exec failures, then latency
+        return lambda stats: (
+            stats.consecutive_unreachable_failures,
+            stats.consecutive_request_failures,
+            stats.ewma_latency_ms,
+        )
 
     raise ValueError(f"Strategy '{strategy}' not implemented")
 
 
 @click.command()
+@click.option(
+    "--chain-id",
+    help="Chain ID to perform the stress test on (used for stats tracking).",
+    type=click.INT,
+    required=True,
+)
 @click.option(
     "--new-strategy/--legacy-strategy",
     "new_strategy",
@@ -214,7 +191,7 @@ def get_endpoint_sort_strategy(
     "-p",
     help="Preferred endpoint to use (in addition to default rpc endpoints).",
     type=click.STRING,
-    required=True,
+    required=False,
 )
 @click.option(
     "--sort-strategy",
@@ -223,11 +200,12 @@ def get_endpoint_sort_strategy(
     required=False,
 )
 def rpc_stress_test(
+    chain_id: int,
     new_strategy: bool,
     num_threads: int,
     test_executions: int,
     timeout: int,
-    preferred_endpoint: str,
+    preferred_endpoint: Optional[str] = None,
     sort_strategy: Optional[str] = None,
 ) -> None:
     """
@@ -239,24 +217,41 @@ def rpc_stress_test(
         raise click.UsageError(
             "The --sort-strategy option can only be used with the --new-strategy option."
         )
-    endpoint_sort_strategy = (
-        get_endpoint_sort_strategy(sort_strategy) if sort_strategy else None
-    )
+    sort_strategy = sort_strategy or "failures_then_latency"
+    endpoint_sort_strategy = get_endpoint_sort_strategy(
+        sort_strategy
+    )  # same default as ConditionProviderManager
 
     condition_provider_manager = None
     rpc_endpoint_manager = None
+
+    preferred_endpoints = [preferred_endpoint] if preferred_endpoint else []
+
+    default_rpc_endpoints = get_default_rpc_endpoints(domains.LYNX)
+
+    if chain_id not in default_rpc_endpoints:
+        raise click.UsageError(
+            f"Chain ID {chain_id} not supported in default RPC endpoints Available chain IDs: {list(default_rpc_endpoints.keys())}",
+        )
+
+    public_rpc_endpoints = default_rpc_endpoints.get(chain_id, [])
+    # for testing with unreachable endpoint for chain 42
+    # if chain_id == 42:
+    #     public_rpc_endpoints.append("https://rpc.lukso.sigmacore.io")
 
     if new_strategy:
         thread_local_session_manager = ThreadLocalSessionManager()
         rpc_endpoint_manager = RPCEndpointManager(
             session_manager=thread_local_session_manager,
-            preferred_endpoints=[preferred_endpoint],
-            endpoints=PUBLIC_RPC_ENDPOINTS,
+            preferred_endpoints=preferred_endpoints,
+            endpoints=public_rpc_endpoints,
         )
     else:
         condition_provider_manager = OldConditionProviderManagerStrategy(
-            providers=[HTTPProvider(endpoint) for endpoint in PUBLIC_RPC_ENDPOINTS],
-            preferential_providers=[HTTPProvider(preferred_endpoint)],
+            providers=[HTTPProvider(endpoint) for endpoint in public_rpc_endpoints],
+            preferential_providers=(
+                [HTTPProvider(preferred_endpoint)] if preferred_endpoint else []
+            ),
         )
 
     failures = AtomicCounter()
@@ -296,21 +291,31 @@ def rpc_stress_test(
     click.secho(
         f"Strategy used: {'NEW STRATEGY' if new_strategy else 'LEGACY'}", bold=True
     )
-    if sort_strategy:
-        click.echo(f"\tEndpoint sort strategy: {sort_strategy}")
-    click.echo(f"\tNum failures: {failures.get_value()}")
-    click.echo("\tEndpoints:")
-    click.echo(
-        f"\t\t {obfuscate_rpc_url(preferred_endpoint)} was used {endpoint_usage_stats[preferred_endpoint].get_value()} times."
-    )
     if new_strategy:
-        click.echo(
-            f"\t\t\t Stats: {rpc_endpoint_manager.preferred_endpoints[0].get_stats_snapshot()}"
+        click.echo(f"\tEndpoint sort strategy: {sort_strategy}")
+    click.secho(
+        f"\tNum failures: {failures.get_value()}",
+        fg="red" if failures.get_value() > 0 else None,
+    )
+    click.echo("\tEndpoints:")
+    if preferred_endpoint:
+        click.secho(
+            f"\t\t Preferred Endpoint {obfuscate_rpc_url(preferred_endpoint)} was used {endpoint_usage_stats[preferred_endpoint].get_value()} times.",
+            fg="green",
         )
-    for url in PUBLIC_RPC_ENDPOINTS:
+        if new_strategy:
+            click.echo(
+                f"\t\t\t Stats: {rpc_endpoint_manager.preferred_endpoints[0].get_stats_snapshot()}"
+            )
+    for i, url in enumerate(public_rpc_endpoints):
         click.echo(
             f"\t\t {url} was used {endpoint_usage_stats[url].get_value()} times."
         )
+        if new_strategy:
+            assert rpc_endpoint_manager.endpoints[i].endpoint_uri == url
+            click.echo(
+                f"\t\t\t Stats: {rpc_endpoint_manager.endpoints[i].get_stats_snapshot()}"
+            )
 
 
 if __name__ == "__main__":

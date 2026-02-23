@@ -165,6 +165,9 @@ class TestRPCEndpoint:
         max_inflight_capacity = 500
         ewma_alpha = 0.1
         target_latency_ms = 3000.0
+        scale_up_utilization_threshold = 0.4
+        max_unreachable_quarantine_s = 900  # 15 minutes
+        unreachable_quarantine_after = 1
 
         for with_rng in [True, False]:
             rng = random.Random() if with_rng else None
@@ -175,6 +178,9 @@ class TestRPCEndpoint:
                 max_in_flight_capacity=max_inflight_capacity,
                 ewma_alpha=ewma_alpha,
                 target_latency_ms=target_latency_ms,
+                scale_up_utilization_threshold=scale_up_utilization_threshold,
+                max_unreachable_quarantine_s=max_unreachable_quarantine_s,
+                unreachable_quarantine_after=unreachable_quarantine_after,
                 rng=rng,
             )
             assert endpoint.endpoint_uri == self.URI
@@ -183,6 +189,12 @@ class TestRPCEndpoint:
             assert endpoint.max_in_flight_capacity == max_inflight_capacity
             assert endpoint.ewma_alpha == ewma_alpha
             assert endpoint.target_latency_ms == target_latency_ms
+            assert (
+                endpoint.scale_up_utilization_threshold
+                == scale_up_utilization_threshold
+            )
+            assert endpoint.max_unreachable_quarantine_s == max_unreachable_quarantine_s
+            assert endpoint.unreachable_quarantine_after == unreachable_quarantine_after
 
             if with_rng:
                 assert endpoint.rng == rng
@@ -312,6 +324,12 @@ class TestRPCEndpoint:
                 == num_in_flight_usages
             )
 
+            # check failure counts
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
             # capacity increased since successful, below target latency, and utilization > 50%
             if utilization >= scale_up_utilization:
                 current_capacity += 1
@@ -371,6 +389,14 @@ class TestRPCEndpoint:
                 # must be high to make ewma > 150% target latency to trigger backoff
                 random_latency_ms = endpoint.target_latency_ms * 20
                 endpoint.report_success(latency_ms=random_latency_ms)
+
+                # check failure counts
+                assert endpoint._consecutive_request_failures == 0
+                assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+                assert endpoint._consecutive_unreachable_failures == 0
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+                )
 
                 # check current usage
                 assert endpoint._num_in_flight_usage == num_in_flight_usages
@@ -446,7 +472,7 @@ class TestRPCEndpoint:
         finally:
             endpoint.release()
 
-    def test_report_failure(self):
+    def test_report_request_failure(self):
         initial_min_capacity = 10
         max_capacity = 100
         endpoint = RPCEndpoint(
@@ -474,8 +500,12 @@ class TestRPCEndpoint:
             assert endpoint.get_stats_snapshot().in_flight_capacity == expected_capacity
 
             # failure noted
-            assert endpoint._consecutive_failures == 1
-            assert endpoint.get_stats_snapshot().consecutive_failures == 1
+            assert endpoint._consecutive_request_failures == 1
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 1
+
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
         finally:
             endpoint.release()
             num_inflight_usages -= 1
@@ -493,8 +523,10 @@ class TestRPCEndpoint:
             )  # below target latency
 
             # success wipes out consecutive failures
-            assert endpoint._consecutive_failures == 0
-            assert endpoint.get_stats_snapshot().consecutive_failures == 0
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             # capacity should increase since successful, below target latency, and utilization > 50%
             assert endpoint._num_in_flight_usage == num_inflight_usages
@@ -529,9 +561,13 @@ class TestRPCEndpoint:
         try:
             endpoint.report_failure(Exception("simulated failure"))
 
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
             # failure noted
-            assert endpoint._consecutive_failures == 1
-            assert endpoint.get_stats_snapshot().consecutive_failures == 1
+            assert endpoint._consecutive_request_failures == 1
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 1
 
             current_capacity = max(current_capacity // 2, initial_min_capacity)
             assert endpoint._in_flight_capacity == current_capacity
@@ -547,9 +583,13 @@ class TestRPCEndpoint:
             report_time = time.monotonic()
             endpoint.report_failure(Exception("simulated failure"))
 
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
             # failure noted
-            assert endpoint._consecutive_failures == 2
-            assert endpoint.get_stats_snapshot().consecutive_failures == 2
+            assert endpoint._consecutive_request_failures == 2
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 2
 
             # capacity should decrease by half since failure until at min capacity
             current_capacity = current_capacity // 2
@@ -636,8 +676,12 @@ class TestRPCEndpoint:
             endpoint.report_failure(Exception("simulated failure"))
 
             # failure noted
-            assert endpoint._consecutive_failures == 1
-            assert endpoint.get_stats_snapshot().consecutive_failures == 1
+            assert endpoint._consecutive_request_failures == 1
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 1
+
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             current_capacity = max(current_capacity // 2, initial_min_capacity)
             assert endpoint._in_flight_capacity == current_capacity
@@ -682,15 +726,23 @@ class TestRPCEndpoint:
             assert endpoint.try_acquire()
             try:
                 now = 20_002.123  # fixed time for testing
-                with mocker.patch("time.monotonic", return_value=now):
-                    endpoint.report_failure(Exception("simulated failure"))
+                mocker.patch("time.monotonic", return_value=now)
+                endpoint.report_failure(Exception("simulated failure"))
                 num_consecutive_failures += 1
 
                 # failure noted
-                assert endpoint._consecutive_failures == num_consecutive_failures
                 assert (
-                    endpoint.get_stats_snapshot().consecutive_failures
+                    endpoint._consecutive_request_failures == num_consecutive_failures
+                )
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_request_failures
                     == num_consecutive_failures
+                )
+
+                # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+                assert endpoint._consecutive_unreachable_failures == 0
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
                 )
 
                 if num_consecutive_failures >= 2:
@@ -717,16 +769,20 @@ class TestRPCEndpoint:
         assert endpoint.try_acquire()
         try:
             now = 30_123.456  # fixed time for testing
-            with mocker.patch("time.monotonic", return_value=now):
-                endpoint.report_failure(Exception("simulated failure"))
+            mocker.patch("time.monotonic", return_value=now)
+            endpoint.report_failure(Exception("simulated failure"))
             num_consecutive_failures += 1
 
             # failure noted
-            assert endpoint._consecutive_failures == num_consecutive_failures
+            assert endpoint._consecutive_request_failures == num_consecutive_failures
             assert (
-                endpoint.get_stats_snapshot().consecutive_failures
+                endpoint.get_stats_snapshot().consecutive_request_failures
                 == num_consecutive_failures
             )
+
+            # check unreachable failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
 
             assert endpoint._cool_down_until >= now + (
                 0.8 * endpoint.max_backoff_s
@@ -735,6 +791,278 @@ class TestRPCEndpoint:
                 endpoint._cool_down_until <= now + endpoint.max_backoff_s
             ), "cooldown should be at most max_backoff_s after report time"
             assert not endpoint.is_cooled_down()
+        finally:
+            endpoint.release()
+
+    def test_consider_increasing_in_flight_capacity(self):
+        initial_min_capacity = 10
+        max_capacity = 50
+        scale_up_utilization = 0.5
+        endpoint = RPCEndpoint(
+            endpoint_uri=self.URI,
+            min_in_flight_capacity=initial_min_capacity,
+            max_in_flight_capacity=max_capacity,
+            scale_up_utilization_threshold=scale_up_utilization,
+        )
+
+        # hasn't been used yet, so shouldn't increase capacity even if utilization is high
+        assert not endpoint.consider_increasing_in_flight_capacity()
+
+        num_inflight_usages = 0
+        # acquire just below scale up utilization (without any success reporting or release
+        # this mimics a scenario where we are hitting capacity but haven't yet had a chance to
+        # report successes to trigger capacity increase
+        for i in range(int((initial_min_capacity * scale_up_utilization) - 1)):
+            assert endpoint.try_acquire()
+            num_inflight_usages += 1
+
+            # utilization should be at threshold, so should increase capacity
+            assert not endpoint.consider_increasing_in_flight_capacity()
+
+            assert (
+                endpoint._in_flight_capacity == initial_min_capacity
+            )  # unchanged since we haven't reported successes to trigger increase yet
+            assert (
+                endpoint.get_stats_snapshot().in_flight_capacity == initial_min_capacity
+            )
+
+        # even after that we are still just below scale up utilization, so should not increase capacity
+        assert num_inflight_usages // initial_min_capacity < scale_up_utilization
+        assert endpoint._num_in_flight_usage == num_inflight_usages
+        assert num_inflight_usages < initial_min_capacity
+        assert not endpoint.consider_increasing_in_flight_capacity()
+
+        # now we go just over the utilization to consider proactively increasing capacity without any reporting
+        minimum_threshold = int((initial_min_capacity * scale_up_utilization) + 1)
+        while num_inflight_usages < minimum_threshold:
+            assert endpoint.try_acquire()
+            num_inflight_usages += 1
+
+        assert endpoint._num_in_flight_usage == num_inflight_usages
+        assert endpoint._in_flight_capacity == initial_min_capacity
+
+        # now we should be able to increase capacity proactively
+        # let's test other scenarios that would prevent increasing capacity first, eg. existing failures etc.
+        # 1. in cool down
+        endpoint._cool_down_until = time.monotonic() + 60
+        assert not endpoint.is_cooled_down()
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because in cool down"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity
+        ), "capacity unchanged"
+        endpoint._cool_down_until = 0.0  # reset cool down
+
+        # 2. has had consecutive request failures (some prior reporting was received)
+        endpoint._consecutive_request_failures = 3
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because has consecutive failures"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity
+        ), "capacity unchanged"
+        endpoint._consecutive_request_failures = 0  # reset failure count
+
+        # 3. has had consecutive unreachable failures (some prior reporting was received)
+        endpoint._consecutive_unreachable_failures = 2
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because has consecutive unreachable failures"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity
+        ), "capacity unchanged"
+        endpoint._consecutive_unreachable_failures = 0  # reset failure count
+
+        # 4. Already at max capacity
+        endpoint._in_flight_capacity = max_capacity
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because at max capacity"
+        assert endpoint._in_flight_capacity == max_capacity, "capacity unchanged"
+        endpoint._in_flight_capacity = (
+            initial_min_capacity  # reset capacity to be at min
+        )
+
+        # 5. min utilization factor not met
+        endpoint._num_in_flight_usage = int(
+            (initial_min_capacity * scale_up_utilization) - 1
+        )
+        endpoint._in_flight_capacity = initial_min_capacity
+        assert (
+            not endpoint.consider_increasing_in_flight_capacity()
+        ), "won't because utilization not met"
+
+        # Now let's try again with all conditions favorable and test that capacity does proactively increase
+        endpoint._num_in_flight_usage = (
+            initial_min_capacity - 1
+        )  # set usage just below full utilization
+        assert (
+            endpoint.consider_increasing_in_flight_capacity()
+        ), "capacity proactively increased"
+        assert (
+            endpoint._in_flight_capacity == initial_min_capacity + 2
+        ), "proactively increased capacity by 2"
+
+    def test_report_unreachable_failure(self, mocker):
+        initial_min_capacity = 10
+        max_capacity = 50
+        scale_up_utilization = 0.5
+        unreachable_quarantine_after = 3
+        max_unreachable_quarantine_s = 900
+        endpoint = RPCEndpoint(
+            endpoint_uri=self.URI,
+            min_in_flight_capacity=initial_min_capacity,
+            max_in_flight_capacity=max_capacity,
+            scale_up_utilization_threshold=scale_up_utilization,
+            unreachable_quarantine_after=unreachable_quarantine_after,
+            max_unreachable_quarantine_s=max_unreachable_quarantine_s,
+        )
+
+        connection_failure = requests.exceptions.ConnectionError(
+            "simulated connection error"
+        )
+
+        # one less than unreachable_quarantine_after failures should not trigger unreachable quarantine
+        for i in range(unreachable_quarantine_after - 1):
+            assert endpoint.try_acquire()
+            try:
+                endpoint.report_failure(connection_failure)
+
+                # check request failure count (no change since separate counts for exec vs unreachable failures)
+                assert endpoint._consecutive_request_failures == 0
+                assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+
+                # unreachable failure noted
+                assert endpoint._consecutive_unreachable_failures == (
+                    i + 1
+                ), "should have recorded 1 consecutive unreachable failure"
+                assert (
+                    endpoint.get_stats_snapshot().consecutive_unreachable_failures
+                    == (i + 1)
+                )
+
+                # no cool down enacted as yet
+                assert endpoint._cool_down_until == 0.0, "should not be in cooldown yet"
+            finally:
+                endpoint.release()
+
+        # in flight capacity has been dropped by half twice
+        assert endpoint._in_flight_capacity == (initial_min_capacity // 2) // 2
+
+        first_quarantine_now = time.monotonic()
+
+        # last failure should trigger unreachable quarantine
+        assert endpoint.try_acquire()
+        try:
+            endpoint.report_failure(connection_failure)
+            # we should now be in quarantine
+
+            # check request failure count (no change since separate counts for exec vs unreachable failures)
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+
+            # check unreachable failure count
+            assert (
+                endpoint._consecutive_unreachable_failures
+                == unreachable_quarantine_after
+            )
+            assert (
+                endpoint.get_stats_snapshot().consecutive_unreachable_failures
+                == unreachable_quarantine_after
+            )
+
+            # check updated capacity
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            # in quarantine (with some minimum jitter)
+            assert (
+                endpoint._cool_down_until
+                >= first_quarantine_now + 0.8 * endpoint.max_unreachable_quarantine_s
+            ), "cooldown should be at least 80% of quarantine time after report time"
+        finally:
+            endpoint.release()
+
+        assert not endpoint.try_acquire(), "can't acquire endpoint in quarantine"
+        assert (
+            endpoint._num_in_flight_usage == 0
+        ), "all acquires have been already released"
+
+        # jump forward to after quarantine period
+        mocker.patch(
+            "time.monotonic",
+            return_value=first_quarantine_now + max_unreachable_quarantine_s + 1,
+        )
+
+        # still failing after 1st quarantine
+        assert endpoint.try_acquire(), "we can acquire after quarantine period"
+        try:
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            endpoint.report_failure(connection_failure)  # report failure
+
+            # quarantine immediately enacted again
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+            assert (
+                endpoint._consecutive_unreachable_failures
+                == unreachable_quarantine_after + 1
+            )
+            assert (
+                endpoint.get_stats_snapshot().consecutive_unreachable_failures
+                == unreachable_quarantine_after + 1
+            )
+
+            # check capacity still unchanged
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            # still in quarantine (with some minimum jitter)
+            assert endpoint._cool_down_until >= (
+                first_quarantine_now + 0.8 * endpoint.max_unreachable_quarantine_s * 2
+            ), "2nd straight quarantine"
+        finally:
+            endpoint.release()
+
+        assert not endpoint.try_acquire(), "can't acquire endpoint in quarantine"
+        assert (
+            endpoint._num_in_flight_usage == 0
+        ), "all acquires have been already released"
+
+        # jump forward to after 2nd quarantine period
+        mocker.patch(
+            "time.monotonic",
+            return_value=first_quarantine_now + 2 * max_unreachable_quarantine_s + 1,
+        )
+
+        # log first success after coming out of quarantine
+        assert endpoint.try_acquire(), "we can acquire after quarantine period"
+        try:
+            assert endpoint._in_flight_capacity == 1, "in quarantine so dropped to 1"
+            assert endpoint.get_stats_snapshot().in_flight_capacity == 1
+
+            endpoint.report_success(
+                latency_ms=1000
+            )  # report success to exit quarantine
+
+            # failure counts reset
+            assert endpoint._consecutive_request_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
+            assert endpoint._consecutive_unreachable_failures == 0
+            assert endpoint.get_stats_snapshot().consecutive_unreachable_failures == 0
+
+            # cooled down reset
+            assert endpoint._cool_down_until == 0.0
+
+            # capacity restored in min_in_flight_capacity since a success was reported
+            assert (
+                endpoint._in_flight_capacity == initial_min_capacity
+            ), "capacity should be restored to min capacity after success"
+            assert (
+                endpoint.get_stats_snapshot().in_flight_capacity == initial_min_capacity
+            )
         finally:
             endpoint.release()
 
@@ -843,7 +1171,7 @@ class TestRPCEndpointManager:
         for e in manager.endpoints:
             # each endpoint should have recorded at least 1 failure
             stats = e.get_stats_snapshot()
-            assert stats.consecutive_failures >= 1
+            assert stats.consecutive_request_failures >= 1
             assert stats.last_used > 0
 
     def test_no_endpoints_available_raises_when_all_in_cooldown(self):
@@ -893,8 +1221,216 @@ class TestRPCEndpointManager:
                     e._cool_down_until = 0.0
 
         # patch the time.sleep used inside the endpoint manager to avoid real waiting
-        mocker.patch("nucypher.utilities.endpoint.time.sleep", fake_sleep)
+        mocker.patch("nucypher.utilities.endpoint.time.sleep", side_effect=fake_sleep)
 
         result = manager.call(lambda w3: "worked", request_timeout=1.0)
         assert result == "worked"
         assert sleep_calls["count"] == saturated_retries
+
+    def test_saturated_retries_exhausted_due_to_no_candidates(self, mocker):
+        # the exception is raised after trying multiple rounds to
+        # get candidate endpoints, but there are none (eg. all in cool down)
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        saturated_retries = 3
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+            saturated_retries=saturated_retries,
+        )
+
+        try_acquire_spy = mocker.spy(RPCEndpoint, "try_acquire")
+
+        def fake_sleep(duration):
+            # do nothing
+            pass
+
+        # patch the time.sleep used inside the endpoint manager to avoid real waiting
+        mocked_sleep = mocker.patch(
+            "nucypher.utilities.endpoint.time.sleep", side_effect=fake_sleep
+        )
+
+        # patch manager so that _get_candidates is actually called but has no candidates to return
+        mocker.patch.object(manager, "_cooled_down_and_sorted", return_value=[])
+
+        with pytest.raises(
+            RPCEndpointManager.NoEndpointsAvailable,
+            match=f"All endpoints at capacity or in cool down after {saturated_retries} retries",
+        ):
+            _ = manager.call(lambda w3: "worked", request_timeout=1.0)
+
+        # viable candidates available so try_acquire is called for each candidate
+        assert (
+            try_acquire_spy.call_count == 0
+        ), "no try acquire since no candidates available "
+
+        assert (
+            mocked_sleep.call_count == saturated_retries
+        ), "should have slept for each retry when no candidates available"
+
+    def test_consider_increasing_in_flight_capacity(self, mocker):
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+        )
+
+        consider_increasing_spy = mocker.spy(
+            RPCEndpoint, "consider_increasing_in_flight_capacity"
+        )
+
+        # call consider_increasing_in_flight_capacity multiple times and ensure it's being called
+        n_times_manager_called = 5
+        for i in range(n_times_manager_called):
+            manager.consider_increasing_capacity_on_saturation()
+
+        # manager asks endpoints to consider increasing capacity so the next call could potentially succeed
+        assert consider_increasing_spy.call_count == (
+            n_times_manager_called * len(endpoints)
+        ), "every endpoint called"
+
+    def test_proactive_increase_of_in_flight_capacity_due_to_cant_try_acquire_candidate(
+        self, mocker
+    ):
+        # the exception is raised after having possible candidates
+        # but then try_acquire() on the candidate fails because candidate is no longer viable i.e. there
+        # was a change in situation between getting candidate and using candidate
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+        )
+        consider_increasing_spy = mocker.spy(
+            RPCEndpoint, "consider_increasing_in_flight_capacity"
+        )
+        try_acquire_spy = mocker.spy(RPCEndpoint, "try_acquire")
+
+        def fake_sleep(duration):
+            # do nothing
+            pass
+
+        # patch the time.sleep used inside the endpoint manager to avoid real waiting
+        mocker.patch("nucypher.utilities.endpoint.time.sleep", fake_sleep)
+
+        # only first 2
+        num_candidates = 2
+        mocker.patch.object(
+            manager, "_get_candidates", return_value=manager.endpoints[:num_candidates]
+        )
+
+        # simulate all endpoints being at high utilization to trigger proactive capacity increase
+        for e in manager.endpoints:
+            e._num_in_flight_usage = (
+                e._in_flight_capacity
+            )  # max out usage to not have any endpoint candidates for use and trigger increase
+
+        with pytest.raises(
+            RPCEndpointManager.NoEndpointsAvailable,
+            match="All endpoints at capacity or in cool down",
+        ):
+            _ = manager.call(lambda w3: "worked", request_timeout=1.0)
+
+        # viable candidates available so try_acquire is called for each candidate
+        assert (
+            try_acquire_spy.call_count == num_candidates
+        ), "should have tried to acquire all candidates and failed"
+
+        # manager asks endpoints to consider increasing capacity so the next call could potentially succeed
+        assert consider_increasing_spy.call_count == len(
+            endpoints
+        ), "should have called consider_increasing_in_flight_capacity on all endpoints"
+
+    def test_sorting_endpoints_for_call(self):
+        session_manager = ThreadLocalSessionManager(max_pool_size=2)
+        endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        manager = RPCEndpointManager(
+            session_manager=session_manager,
+            endpoints=endpoints,
+        )
+
+        endpoint_0 = manager.endpoints[0]
+        endpoint_0._ewma_latency_ms = 857.2
+        endpoint_0._latest_latency_ms = 200.1
+
+        endpoint_1 = manager.endpoints[1]
+        # lower ewma, higher latest latency than endpoint_0
+        endpoint_1._ewma_latency_ms = endpoint_0._ewma_latency_ms - 123.4
+        endpoint_1._latest_latency_ms = endpoint_0._latest_latency_ms + 50.5
+
+        endpoint_2 = manager.endpoints[2]
+        # same as endpoint_0
+        endpoint_2._ewma_latency_ms = endpoint_0._ewma_latency_ms
+        endpoint_2._latest_latency_ms = endpoint_0._latest_latency_ms
+
+        # capture w3 instances used for calls
+        w3_instances = []
+
+        def failing_fn(w3):
+            w3_instances.append(w3)
+            raise Exception("boom")
+
+        # sort by lowest ewma latency
+        with pytest.raises(Exception, match="boom"):
+            manager.call(
+                failing_fn,
+                request_timeout=1,
+                endpoint_sort_strategy=lambda stats: (stats.ewma_latency_ms,),
+            )
+        assert len(w3_instances) == 3, "all endpoints tried due to fallback"
+        assert w3_instances[0].provider.endpoint_uri == endpoint_1.endpoint_uri
+        assert w3_instances[1].provider.endpoint_uri == endpoint_0.endpoint_uri
+        assert w3_instances[2].provider.endpoint_uri == endpoint_2.endpoint_uri
+
+        # sort by lowest ewma latency then lowest last used
+        # (careful because _last_used gets updated on call, so we set it manually here to have a deterministic order)
+        now = time.time()
+        endpoint_0._last_used = now
+        endpoint_1._last_used = endpoint_0._last_used - 100
+        endpoint_2._last_used = endpoint_0._last_used - 200
+
+        w3_instances.clear()  # reset instances
+        # reset failures so that nodes aren't excluded / set to cool down
+        for e in manager.endpoints:
+            e._consecutive_request_failures = 0
+        with pytest.raises(Exception, match="boom"):
+            manager.call(
+                failing_fn,
+                request_timeout=1,
+                endpoint_sort_strategy=lambda stats: (
+                    stats.ewma_latency_ms,
+                    stats.last_used,
+                ),
+            )
+        assert len(w3_instances) == 3, "all endpoints tried due to fallback"
+        assert (
+            w3_instances[0].provider.endpoint_uri == endpoint_1.endpoint_uri
+        )  # lowest ewma latency
+        assert (
+            w3_instances[1].provider.endpoint_uri == endpoint_2.endpoint_uri
+        )  # tie-breaker is last used so endpoint_2 should be preferred over endpoint_0
+        assert w3_instances[2].provider.endpoint_uri == endpoint_0.endpoint_uri
+
+        # sort by lowest latest latency
+        w3_instances.clear()  # reset instances
+        # reset failures so that nodes aren't excluded / set to cool down
+        for e in manager.endpoints:
+            e._consecutive_request_failures = 0
+        with pytest.raises(Exception, match="boom"):
+            manager.call(
+                failing_fn,
+                request_timeout=1,
+                endpoint_sort_strategy=lambda stats: (stats.latest_latency_ms,),
+            )
+
+        assert len(w3_instances) == 3, "all endpoints tried due to fallback"
+        assert (
+            w3_instances[0].provider.endpoint_uri == endpoint_0.endpoint_uri
+        )  # lowest latest latency (tie-breaker with endpoint_2 is pre-existing order)
+        assert w3_instances[1].provider.endpoint_uri == endpoint_2.endpoint_uri
+        assert w3_instances[2].provider.endpoint_uri == endpoint_1.endpoint_uri

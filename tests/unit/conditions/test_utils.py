@@ -15,6 +15,7 @@
  along with nucypher.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import random
 import time
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -287,7 +288,7 @@ class TestConditionProviderManager:
         mock_mgr.call.assert_called_with(
             fn=mock_fn,
             request_timeout=ConditionProviderManager._DEFAULT_WEB3_CALL_TIMEOUT,
-            endpoint_sort_strategy=ConditionProviderManager._sort_by_latency,
+            endpoint_sort_strategy=ConditionProviderManager._sort_by_failures_then_latency,
             override_middleware_stack=[(ANY, "attrdict"), (ANY, "abi")],
         )
 
@@ -305,21 +306,79 @@ class TestConditionProviderManager:
         mock_mgr.call.assert_called_with(
             fn=mock_fn,
             request_timeout=customized_timeout,
-            endpoint_sort_strategy=ConditionProviderManager._sort_by_latency,
+            endpoint_sort_strategy=ConditionProviderManager._sort_by_failures_then_latency,
             override_middleware_stack=[(ANY, "attrdict"), (ANY, "abi")],
         )
 
-    def test_sort_by_latency_returns_proper_value_in_tuple(self):
+    @pytest.mark.parametrize(
+        "stats_2_sort_scenario",
+        [
+            "lower_latency",
+            "lower_request_failures",
+            "higher_unreachable_failures",
+            "equal_stats",
+        ],
+    )
+    def test_sort_by_failures_then_latency(self, stats_2_sort_scenario):
         ewma_latency_ms = 6.4
+        consecutive_request_failures = 3
+        consecutive_unreachable_failures = 0
+
         stats = RPCEndpoint.EndpointStats(
             latest_latency_ms=4.2,
             ewma_latency_ms=ewma_latency_ms,
-            consecutive_failures=1,
+            consecutive_request_failures=consecutive_request_failures,
+            consecutive_unreachable_failures=consecutive_unreachable_failures,
             num_in_flight_usage=4,
             in_flight_capacity=20,
             last_used=time.time() - 10,
         )
-        assert ConditionProviderManager._sort_by_latency(stats) == (ewma_latency_ms,)
+        assert ConditionProviderManager._sort_by_failures_then_latency(stats) == (
+            consecutive_unreachable_failures,
+            consecutive_request_failures,
+            ewma_latency_ms,
+        )
+
+        # check sorting
+        stats_2_ewma_latency_ms = (
+            stats.ewma_latency_ms
+            if stats_2_sort_scenario != "lower_latency"
+            else stats.ewma_latency_ms - 1
+        )
+        stats_2_consecutive_request_failures = (
+            stats.consecutive_request_failures
+            if stats_2_sort_scenario != "lower_request_failures"
+            else stats.consecutive_request_failures - 2
+        )
+        stats_2_consecutive_unreachable_failures = (
+            stats.consecutive_unreachable_failures
+            if stats_2_sort_scenario != "higher_unreachable_failures"
+            else stats.consecutive_unreachable_failures + 1
+        )
+
+        stats_2 = RPCEndpoint.EndpointStats(
+            latest_latency_ms=stats.latest_latency_ms,
+            ewma_latency_ms=stats_2_ewma_latency_ms,
+            consecutive_request_failures=stats_2_consecutive_request_failures,
+            consecutive_unreachable_failures=stats_2_consecutive_unreachable_failures,
+            num_in_flight_usage=stats.num_in_flight_usage,
+            in_flight_capacity=stats.in_flight_capacity,
+            last_used=stats.last_used,
+        )
+
+        stats_values = [stats, stats_2]
+        random.shuffle(stats_values)
+        sorted_values = sorted(
+            stats_values, key=ConditionProviderManager._sort_by_failures_then_latency
+        )
+
+        if stats_2_sort_scenario == "higher_unreachable_failures":
+            assert sorted_values == [stats, stats_2]
+        elif stats_2_sort_scenario == "equal_stats":
+            assert sorted_values == stats_values  # no change in original order
+        else:
+            # stats_2 has lower values
+            assert sorted_values == [stats_2, stats]
 
 
 @pytest.mark.parametrize(
