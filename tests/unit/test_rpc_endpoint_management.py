@@ -962,7 +962,7 @@ class TestRPCEndpoint:
             assert endpoint._consecutive_request_failures == 0
             assert endpoint.get_stats_snapshot().consecutive_request_failures == 0
 
-            # check unreachable failure cound
+            # check unreachable failure count
             assert (
                 endpoint._consecutive_unreachable_failures
                 == unreachable_quarantine_after
