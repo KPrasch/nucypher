@@ -4,10 +4,6 @@ include LICENSE
 include README.md
 include SECURITY.md
 
-include *.lock
-include *.png
-include Makefile
-include mypy.ini
 include pyproject.toml
 include dev-requirements.txt
 include requirements.txt
@@ -19,6 +15,10 @@ exclude .dockerignore
 exclude .flake8
 exclude .pre-commit-config.yaml
 exclude codecov.yml
+exclude *.lock
+exclude *.png
+exclude Makefile
+exclude mypy.ini
 exclude pytest.ini
 
 prune tests
