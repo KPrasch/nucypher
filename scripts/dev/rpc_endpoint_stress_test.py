@@ -117,6 +117,7 @@ STRATEGIES = [
     "fewest_in_flight_then_latency",
     "last_used",
     "failures_then_latency",
+    "failures_then_latency_known_over_unknown",
 ]
 
 
@@ -147,6 +148,14 @@ def get_endpoint_sort_strategy(
             stats.consecutive_unreachable_failures,
             stats.consecutive_request_failures,
             stats.ewma_latency_ms,
+        )
+    elif strategy == "failures_then_latency_known_over_unknown":
+        # sort by fewest unreachable failures, then exec failures, then latency, but prioritize endpoints
+        # with known latency stats over those without any stats
+        return lambda stats: (
+            stats.consecutive_unreachable_failures,
+            stats.consecutive_request_failures,
+            stats.ewma_latency_ms if stats.ewma_latency_ms != 0.0 else float("inf"),
         )
 
     raise ValueError(f"Strategy '{strategy}' not implemented")
