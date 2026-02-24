@@ -462,9 +462,9 @@ class RPCEndpointManager:
 
             # add non-preferred endpoints
             other_endpoints = list(self.endpoints)
-            if not endpoint_sort_strategy:
-                # shuffle if no sorting strategy to help distribute load across equally healthy endpoints
-                random.shuffle(other_endpoints)
+            # always shuffle before sorting to avoid persistent tie bias while keeping sorting
+            # strategy intact; helps distribute early traffic when stats are similar
+            random.shuffle(other_endpoints)
             other_endpoints = self._cooled_down_and_sorted(
                 other_endpoints, endpoint_sort_strategy
             )
