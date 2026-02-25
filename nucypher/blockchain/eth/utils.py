@@ -31,11 +31,32 @@ def _truncate_response_text(text: str) -> str:
 def obfuscate_rpc_url(url: str) -> str:
     """
     Obfuscates sensitive parts of an RPC URL for safe logging.
-    Replaces API keys and other path segments after the host with asterisks.
+    Replaces API keys after the host with asterisks.
     Example: https://mainnet.infura.io/v3/abc123 -> https://mainnet.infura.io/v3/abc***
+    Example: https://eth-mainnet.rpcfast.com?api_key=abc123 -> https://eth-mainnet.rpcfast.com?api_key=abc***
     """
     try:
         parsed = urlparse(url)
+
+        if parsed.query:
+            # Obfuscate query parameters that look like API keys
+            query_params = parsed.query.split("&")
+            obfuscated_params = []
+            for param in query_params:
+                key_value = param.split("=", 1)
+                if len(key_value) == 2:
+                    key, value = key_value
+                    # Obfuscate query values that are 16+ chars (likely API keys/secrets)
+                    if len(value) >= 16:
+                        obfuscated_value = value[:3] + "***"
+                        obfuscated_params.append(f"{key}={obfuscated_value}")
+                    else:
+                        obfuscated_params.append(param)
+                else:
+                    obfuscated_params.append(param)
+            obfuscated_query = "&".join(obfuscated_params)
+            parsed = parsed._replace(query=obfuscated_query)
+
         if parsed.path:
             # Split path into segments and obfuscate segments that look like API keys
             segments = parsed.path.split("/")
