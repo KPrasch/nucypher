@@ -38,8 +38,20 @@ from nucypher.blockchain.eth.utils import (
             "https://andromeda.metis.io/?owner=1088&extra=param",
         ),  # no change since no API key
         (
+            "https://andromeda.metis.io/?nokeyvaluepair",
+            "https://andromeda.metis.io/?nokeyvaluepair",
+        ),  # no change since no API key
+        (
+            "https://andromeda.metis.io/?nokeyvaluepair&othervalue",
+            "https://andromeda.metis.io/?nokeyvaluepair&othervalue",
+        ),  # no change since no API key
+        (
             "https://andromeda.metis.io/?owner=1088&api_key=abcdef1234567890",
             "https://andromeda.metis.io/?owner=1088&api_key=abc***",
+        ),
+        (
+            "https://api-gateway.skymavis.com/rpc?apikey=9aqYLBbxSC6LROynQJBvKkEIsioqwHmr",
+            "https://api-gateway.skymavis.com/rpc?apikey=9aq***",
         ),
         (
             "https://andromeda.metis.io/?api_key=abcdef1234567890&owner=1088",
