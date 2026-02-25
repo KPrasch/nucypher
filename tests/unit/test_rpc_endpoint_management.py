@@ -1345,9 +1345,15 @@ class TestRPCEndpointManager:
             endpoints
         ), "should have called consider_increasing_in_flight_capacity on all endpoints"
 
-    def test_sorting_endpoints_for_call(self):
+    def test_sorting_endpoints_for_call(self, mocker):
         session_manager = ThreadLocalSessionManager(max_pool_size=2)
         endpoints = ["https://a.example", "https://b.example", "https://c.example"]
+
+        # endpoints get shuffled so any ties can be random; mock the random.shuffle to keep the
+        # order deterministic for testing
+        mocked_shuffle = mocker.patch(
+            "nucypher.utilities.endpoint.random.shuffle", side_effect=lambda x: x
+        )
 
         manager = RPCEndpointManager(
             session_manager=session_manager,
@@ -1382,6 +1388,9 @@ class TestRPCEndpointManager:
                 request_timeout=1,
                 endpoint_sort_strategy=lambda stats: (stats.ewma_latency_ms,),
             )
+        assert mocked_shuffle.call_count == 1
+        mocked_shuffle.reset_mock()
+
         assert len(w3_instances) == 3, "all endpoints tried due to fallback"
         assert w3_instances[0].provider.endpoint_uri == endpoint_1.endpoint_uri
         assert w3_instances[1].provider.endpoint_uri == endpoint_0.endpoint_uri
@@ -1407,6 +1416,9 @@ class TestRPCEndpointManager:
                     stats.last_used,
                 ),
             )
+        assert mocked_shuffle.call_count == 1
+        mocked_shuffle.reset_mock()
+
         assert len(w3_instances) == 3, "all endpoints tried due to fallback"
         assert (
             w3_instances[0].provider.endpoint_uri == endpoint_1.endpoint_uri
@@ -1427,6 +1439,9 @@ class TestRPCEndpointManager:
                 request_timeout=1,
                 endpoint_sort_strategy=lambda stats: (stats.latest_latency_ms,),
             )
+
+        assert mocked_shuffle.call_count == 1
+        mocked_shuffle.reset_mock()
 
         assert len(w3_instances) == 3, "all endpoints tried due to fallback"
         assert (
