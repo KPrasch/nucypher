@@ -166,11 +166,9 @@ class AbiParameterValidation(_Serializable):
         # Sequential indices for navigating nested structures (arrays and tuples)
         # The ABI type determines interpretation at each step:
         # - If current type ends with "[]" -> array index
-        # - If current type is "(...)'" -> tuple field index
+        # - If current type is "(...)" -> tuple field index
         sub_indices = fields.List(
             fields.Integer(validate=Range(min=0)),
-            load_default=None,
-            allow_none=True,
             required=False,
         )
 

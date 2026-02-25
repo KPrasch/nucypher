@@ -6,6 +6,7 @@ import pytest
 from ecdsa import SECP256k1, SigningKey
 from ecdsa.util import sigencode_string
 from hexbytes import HexBytes
+from nucypher_core import UserOperation
 from web3 import Web3
 
 from nucypher.policy.conditions.ecdsa import ECDSACondition, ECDSAVerificationCall
@@ -439,7 +440,7 @@ def test_invalid_signing_object_abi_attribute_condition():
 def test_abi_parameter_validation_sub_indices_errors():
     """Test error handling for invalid sub_indices."""
     # Using sub_indices on non-indexable type should fail at schema validation
-    with pytest.raises(Exception, match="not indexable"):
+    with pytest.raises(ValueError, match="not indexable"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(
@@ -456,7 +457,7 @@ def test_abi_parameter_validation_sub_indices_errors():
         )
 
     # Using sub_indices with out-of-range tuple index should fail
-    with pytest.raises(Exception, match="out of range"):
+    with pytest.raises(ValueError, match="out of range"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(
@@ -473,13 +474,14 @@ def test_abi_parameter_validation_sub_indices_errors():
         )
 
 
-def test_abi_parameter_validation_array_indexing(condition_provider_manager):
+def test_abi_parameter_validation_array_indexing(
+    condition_provider_manager, get_random_checksum_address
+):
     """Test sub_indices for simple array types."""
-    from nucypher_core import UserOperation
 
     # Create test data with an array of addresses
-    recipient1 = "0x" + "11" * 20
-    recipient2 = "0x" + "22" * 20
+    recipient1 = get_random_checksum_address()
+    recipient2 = get_random_checksum_address()
 
     # Encode a batchTransfer call with array parameters
     call_data = encode_human_readable_call(
@@ -488,7 +490,7 @@ def test_abi_parameter_validation_array_indexing(condition_provider_manager):
     )
 
     user_op = UserOperation(
-        sender="0x" + "ab" * 20,
+        sender=get_random_checksum_address(),
         nonce=0,
         call_data=call_data,
         call_gas_limit=1,
@@ -557,13 +559,14 @@ def test_abi_parameter_validation_array_indexing(condition_provider_manager):
     assert allowed is True
 
 
-def test_abi_parameter_validation_array_of_tuples(condition_provider_manager):
+def test_abi_parameter_validation_array_of_tuples(
+    condition_provider_manager, get_random_checksum_address
+):
     """Test sub_indices for array of tuples (e.g., batch operations)."""
-    from nucypher_core import UserOperation
 
     # Create test data with an array of tuples (address, uint256, bytes)
-    recipient1 = "0x" + "11" * 20
-    recipient2 = "0x" + "22" * 20
+    recipient1 = get_random_checksum_address()
+    recipient2 = get_random_checksum_address()
 
     # Encode an executeBatch call with array of tuples
     call_data = encode_human_readable_call(
@@ -577,7 +580,7 @@ def test_abi_parameter_validation_array_of_tuples(condition_provider_manager):
     )
 
     user_op = UserOperation(
-        sender="0x" + "ab" * 20,
+        sender=get_random_checksum_address(),
         nonce=0,
         call_data=call_data,
         call_gas_limit=1,
@@ -628,13 +631,14 @@ def test_abi_parameter_validation_array_of_tuples(condition_provider_manager):
     assert allowed is True
 
 
-def test_abi_parameter_validation_tuple_of_arrays(condition_provider_manager):
+def test_abi_parameter_validation_tuple_of_arrays(
+    condition_provider_manager, get_random_checksum_address
+):
     """Test sub_indices for tuple containing arrays - the reverse nesting pattern."""
-    from nucypher_core import UserOperation
 
     # Create test data with a tuple containing arrays
-    recipient1 = "0x" + "11" * 20
-    recipient2 = "0x" + "22" * 20
+    recipient1 = get_random_checksum_address()
+    recipient2 = get_random_checksum_address()
 
     # Encode a multiTransfer call with tuple of arrays: (address[], uint256[], bytes)
     call_data = encode_human_readable_call(
@@ -649,7 +653,7 @@ def test_abi_parameter_validation_tuple_of_arrays(condition_provider_manager):
     )
 
     user_op = UserOperation(
-        sender="0x" + "ab" * 20,
+        sender=get_random_checksum_address(),
         nonce=0,
         call_data=call_data,
         call_gas_limit=1,
@@ -700,12 +704,13 @@ def test_abi_parameter_validation_tuple_of_arrays(condition_provider_manager):
     assert allowed is True
 
 
-def test_abi_parameter_validation_sub_indices_out_of_bounds(condition_provider_manager):
+def test_abi_parameter_validation_sub_indices_out_of_bounds(
+    condition_provider_manager, get_random_checksum_address
+):
     """Test that array index out of bounds raises error at runtime."""
-    from nucypher_core import UserOperation
 
     # Create test data with a small array
-    recipient1 = "0x" + "11" * 20
+    recipient1 = get_random_checksum_address()
 
     call_data = encode_human_readable_call(
         "batchTransfer(address[],uint256[])",
@@ -713,7 +718,7 @@ def test_abi_parameter_validation_sub_indices_out_of_bounds(condition_provider_m
     )
 
     user_op = UserOperation(
-        sender="0x" + "ab" * 20,
+        sender=get_random_checksum_address(),
         nonce=0,
         call_data=call_data,
         call_gas_limit=1,

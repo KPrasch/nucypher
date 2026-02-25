@@ -200,7 +200,7 @@ class SigningObjectAttributeCondition(_BaseSigningObjectAttributeCondition):
 # AbiParameterValidation represents:
 # {
 #     "parameterIndex": int
-#     "subIndices": [int]  # Sequential indices for navigating nested structures
+#     "subIndices": List[int]  # Sequential indices for navigating nested structures
 #     "returnValueTest: <>
 #     "nestedAbiValidation: <>
 # }

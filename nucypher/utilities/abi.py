@@ -7,6 +7,36 @@ from eth_utils import function_signature_to_4byte_selector
 FUNCTION_NAME_PATTERN = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
 
 
+def _split_comma_separated_types(type_string: str) -> List[str]:
+    """
+    Split a comma-separated string of ABI types, respecting nested parentheses.
+
+    Returns a list of individual type strings. Raises ValueError on mismatched
+    parentheses.
+    """
+    fields = []
+    depth = 0
+    current = []
+
+    for char in type_string:
+        if char == "," and depth == 0:
+            fields.append("".join(current).strip())
+            current = []
+        else:
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            current.append(char)
+    if current:
+        fields.append("".join(current).strip())
+
+    if depth != 0:
+        raise ValueError(f"Mismatched parentheses in type string: {type_string}")
+
+    return fields
+
+
 def extract_arg_types(human_signature: str) -> List[str]:
     """
     Extra list of arg types from human ABI signature.
@@ -23,28 +53,7 @@ def extract_arg_types(human_signature: str) -> List[str]:
         raise ValueError("Invalid additional data in signature")
 
     sig_args = human_signature[start + 1 : end]
-    arg_types = []
-    depth = 0
-    current = []
-
-    for char in sig_args:
-        if char == "," and depth == 0:
-            arg_types.append("".join(current).strip())
-            current = []
-        else:
-            # account for nested structures i.e. tuples
-            if char == "(":
-                depth += 1
-            elif char == ")":
-                depth -= 1
-            current.append(char)
-    if current:
-        arg_types.append("".join(current).strip())
-
-    if depth != 0:
-        raise ValueError("Mismatched parentheses in function signatures")
-
-    return arg_types
+    return _split_comma_separated_types(sig_args)
 
 
 def is_valid_human_readable_signature(human_signature: str) -> bool:
@@ -89,31 +98,8 @@ def parse_tuple_fields(tuple_type: str) -> List[str]:
     if not (tuple_type.startswith("(") and tuple_type.endswith(")")):
         raise ValueError(f"Not a tuple type: {tuple_type}")
 
-    # Strip outer parentheses
     inner = tuple_type[1:-1]
-
-    fields = []
-    depth = 0
-    current = []
-
-    for char in inner:
-        if char == "," and depth == 0:
-            fields.append("".join(current).strip())
-            current = []
-        else:
-            if char == "(":
-                depth += 1
-            elif char == ")":
-                depth -= 1
-            current.append(char)
-
-    if current:
-        fields.append("".join(current).strip())
-
-    if depth != 0:
-        raise ValueError(f"Mismatched parentheses in tuple type: {tuple_type}")
-
-    return fields
+    return _split_comma_separated_types(inner)
 
 
 def resolve_abi_type_with_indices(abi_type: str, sub_indices: List[int]) -> str:
