@@ -169,7 +169,7 @@ def start_prometheus_exporter(
     root.putChild(b"json_metrics", JSONMetricsResource())
 
     # eRPC proxy metrics — piggybacked on the same Prometheus port
-    rpc_proxy = getattr(ursula, '_rpc_proxy', None)
+    rpc_proxy = ursula._rpc_proxy
     if rpc_proxy and rpc_proxy.is_active:
         root.putChild(b"erpc_metrics", ERPCMetricsProxyResource(rpc_proxy))
 
