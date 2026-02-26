@@ -649,9 +649,19 @@ def run(
             collection_interval=metrics_interval,
         )
 
+    # eRPC RPC Proxy — infrastructure dependency, must start before
+    # any blockchain connections are created during character init.
+    _rpc_proxy = None
+    from nucypher.utilities.rpc_proxy import is_erpc_enabled
+    if is_erpc_enabled():
+        _rpc_proxy = _start_rpc_proxy(emitter, character_options, config_file)
+
     ursula_config, URSULA = character_options.create_character(
         emitter=emitter, config_file=config_file, json_ipc=general_config.json_ipc
     )
+
+    if _rpc_proxy is not None:
+        URSULA._rpc_proxy = _rpc_proxy
 
     if ip_checkup and not (dev_mode or lonely):
         # Always skip startup IP checks for dev and lonely modes.
@@ -719,6 +729,51 @@ def config(general_config, config_options, config_file, force, action):
                                 config_class=UrsulaConfiguration,
                                 filepath=config_file,
                                 updates=updates)
+
+
+def _start_rpc_proxy(emitter, character_options, config_file):
+    """Start the eRPC proxy and rewrite config endpoints transparently.
+
+    Must be called BEFORE character creation so that all downstream
+    BlockchainInterfaceFactory connections route through the proxy.
+    Returns the RPCProxy instance on success, None on failure.
+    """
+    from nucypher.utilities.rpc_proxy import RPCProxy
+
+    try:
+        # Build a temporary config to read endpoints (not yet the final one)
+        ursula_config = character_options.config_options.create_config(
+            emitter, config_file
+        )
+        rpc_proxy = RPCProxy.from_ursula_config(ursula_config)
+        started = rpc_proxy.start()
+    except Exception as e:
+        emitter.message(
+            f"✗ eRPC Proxy ({e.__class__.__name__}: {e})",
+            color="yellow",
+        )
+        return None
+
+    if not started:
+        emitter.message(
+            "✗ eRPC Proxy (failed to start, using direct endpoints)",
+            color="yellow",
+        )
+        return None
+
+    # Rewrite the config options so character creation uses proxy endpoints.
+    # This is transparent — everything downstream sees localhost URLs.
+    character_options.config_options.eth_endpoint = rpc_proxy.eth_endpoint
+    character_options.config_options.polygon_endpoint = rpc_proxy.polygon_endpoint
+
+    chains = ", ".join(
+        str(c) for c in sorted(rpc_proxy.status_info().get("chains", []))
+    )
+    emitter.message(
+        f"✓ eRPC Proxy (PID {rpc_proxy._process.pid}, chains: {chains})",
+        color="green",
+    )
+    return rpc_proxy
 
 
 def _pre_launch_warnings(emitter, dev, force):

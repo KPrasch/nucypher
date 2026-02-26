@@ -1,5 +1,7 @@
 import json
 from typing import List
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from prometheus_client import GC_COLLECTOR, PLATFORM_COLLECTOR, PROCESS_COLLECTOR
 from prometheus_client.core import Timestamp
@@ -38,6 +40,27 @@ class PrometheusMetricsConfig:
         self.listen_address = listen_address
         self.collection_interval = collection_interval
         self.start_now = start_now
+
+
+class ERPCMetricsProxyResource(Resource):
+    """Twisted Resource that proxies eRPC's Prometheus metrics from localhost."""
+
+    isLeaf = True
+
+    def __init__(self, rpc_proxy):
+        super().__init__()
+        self._rpc_proxy = rpc_proxy
+
+    def render_GET(self, request):
+        metrics_url = f"http://127.0.0.1:{self._rpc_proxy._erpc_config.metrics_port}/metrics"
+        try:
+            with urlopen(metrics_url, timeout=5) as resp:
+                body = resp.read()
+                request.setHeader(b"Content-Type", b"text/plain; version=0.0.4; charset=utf-8")
+                return body
+        except (URLError, OSError):
+            request.setResponseCode(503)
+            return b"eRPC metrics unavailable"
 
 
 class MetricsEncoder(json.JSONEncoder):
@@ -144,6 +167,12 @@ def start_prometheus_exporter(
     root = Resource()
     root.putChild(b"metrics", MetricsResource())
     root.putChild(b"json_metrics", JSONMetricsResource())
+
+    # eRPC proxy metrics — piggybacked on the same Prometheus port
+    rpc_proxy = getattr(ursula, '_rpc_proxy', None)
+    if rpc_proxy and rpc_proxy.is_active:
+        root.putChild(b"erpc_metrics", ERPCMetricsProxyResource(rpc_proxy))
+
     factory = Site(root)
     reactor.listenTCP(
         prometheus_config.port, factory, interface=prometheus_config.listen_address
