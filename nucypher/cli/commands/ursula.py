@@ -69,6 +69,7 @@ from nucypher.crypto.keystore import Keystore
 from nucypher.crypto.powers import RitualisticPower
 from nucypher.utilities.emitters import StdoutEmitter
 from nucypher.utilities.prometheus.metrics import PrometheusMetricsConfig
+from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
 from nucypher.utilities.rpc_proxy import is_erpc_enabled
 
 
@@ -733,8 +734,6 @@ def _configure_factory_proxy(emitter, character_options, config_file):
     Must be called BEFORE character creation so that all downstream
     ``get_or_create_interface`` calls transparently route through the proxy.
     """
-    from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
-
     try:
         # Build a temporary config to read endpoints
         ursula_config = character_options.config_options.create_config(
@@ -760,11 +759,11 @@ def _configure_factory_proxy(emitter, character_options, config_file):
         )
         return
 
-    proxy = BlockchainInterfaceFactory._proxy
-    status = proxy.status_info()
+    status = BlockchainInterfaceFactory.proxy_status() or {}
     chains = ", ".join(str(c) for c in sorted(status.get("chains", [])))
+    pid = status.get("pid", "?")
     emitter.message(
-        f"✓ eRPC Proxy (PID {proxy._process.pid}, chains: {chains})",
+        f"✓ eRPC Proxy (PID {pid}, chains: {chains})",
         color="green",
     )
 

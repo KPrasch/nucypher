@@ -808,6 +808,8 @@ class BlockchainInterfaceFactory:
         started = proxy.start()
         if started:
             cls._proxy = proxy
+            import atexit
+            atexit.register(cls.shutdown_proxy)
             return True
         return False
 

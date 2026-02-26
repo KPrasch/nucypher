@@ -1101,7 +1101,6 @@ class Ursula(Teacher, Character, Operator):
             self.signing_ritual_tracker.stop()
             if self._prometheus_metrics_tracker:
                 self._prometheus_metrics_tracker.stop()
-            BlockchainInterfaceFactory.shutdown_proxy()
         if halt_reactor:
             self.halt_reactor()
 
