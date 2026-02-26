@@ -806,6 +806,7 @@ class Bob(Character):
 class Ursula(Teacher, Character, Operator):
     banner = URSULA_BANNER
     _alice_class = Alice
+    _rpc_proxy = None
 
     _default_crypto_powerups = [
         SigningPower,
@@ -1101,7 +1102,7 @@ class Ursula(Teacher, Character, Operator):
             self.signing_ritual_tracker.stop()
             if self._prometheus_metrics_tracker:
                 self._prometheus_metrics_tracker.stop()
-            if hasattr(self, '_rpc_proxy') and self._rpc_proxy is not None:
+            if self._rpc_proxy is not None:
                 self._rpc_proxy.stop()
         if halt_reactor:
             self.halt_reactor()
@@ -1355,7 +1356,7 @@ class Ursula(Teacher, Character, Operator):
 
         # eRPC proxy status (additive — None if not enabled)
         rpc_proxy_info = None
-        if hasattr(self, '_rpc_proxy') and self._rpc_proxy is not None:
+        if self._rpc_proxy is not None:
             rpc_proxy_info = self._rpc_proxy.status_info()
 
         return LocalUrsulaStatus(

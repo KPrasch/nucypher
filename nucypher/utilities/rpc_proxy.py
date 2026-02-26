@@ -1,7 +1,5 @@
-"""eRPC RPC proxy — native lifecycle management for Ursula."""
-
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from nucypher.config.constants import NUCYPHER_ENVVAR_ERPC_ENABLED
 from nucypher.utilities.logging import Logger
@@ -16,33 +14,20 @@ def is_erpc_enabled() -> bool:
     return os.environ.get(NUCYPHER_ENVVAR_ERPC_ENABLED, "").lower() in _TRUE_VALUES
 
 
-# ──────────────────────────────────────────────────────────────────────
-# Cache TTL Policy
-#
-# DKG-critical: unfinalized eth_call must NEVER be cached.
-# Stale reads during DKG ceremony or condition evaluation can cause
-# ritual failures or incorrect access control decisions.
-#
-# Finalized data (confirmed blocks) is immutable and safe to cache
-# aggressively. Unfinalized data needs short TTLs or zero caching.
-# ──────────────────────────────────────────────────────────────────────
+# Cache TTL policy: DKG-critical calls (eth_call) must never be cached.
+# Finalized/immutable data can be cached aggressively.
 _TACO_CACHE_TTLS = {
-    # === NEVER cache (DKG + access control safety) ===
-    "eth_call": 0,              # contract reads — DKG state, condition checks
-    "eth_sendRawTransaction": 0,  # writes — never cache
-
-    # === Short TTL (operational, not safety-critical) ===
-    "eth_getLogs": 2,           # event monitoring (unfinalized)
-    "eth_blockNumber": 4,       # block height polling
-    "eth_gasPrice": 12,         # gas doesn't change fast
-    "eth_getBalance": 4,        # balance checks
-    "eth_getTransactionCount": 4,  # nonce lookups
-
-    # === Immutable data (cache aggressively) ===
-    "eth_getBlockByNumber": 300,   # finalized blocks don't change
-    "eth_getBlockByHash": 3600,    # block by hash is immutable
-    "eth_getTransactionReceipt": 3600,  # receipts are immutable once confirmed
-    "eth_chainId": 86400,          # chain ID never changes
+    "eth_call": 0,
+    "eth_sendRawTransaction": 0,
+    "eth_getLogs": 2,
+    "eth_blockNumber": 4,
+    "eth_gasPrice": 12,
+    "eth_getBalance": 4,
+    "eth_getTransactionCount": 4,
+    "eth_getBlockByNumber": 300,
+    "eth_getBlockByHash": 3600,
+    "eth_getTransactionReceipt": 3600,
+    "eth_chainId": 86400,
 }
 
 
@@ -161,7 +146,7 @@ def rewrite_endpoints(
     polygon_endpoint: Optional[str],
     condition_blockchain_endpoints: Dict[int, List[str]],
     domain,
-) -> Tuple[Optional[str], Optional[str], Dict[int, List[str]]]:
+) -> tuple[Optional[str], Optional[str], Dict[int, List[str]]]:
     """Rewrite provider URLs to route through the local eRPC proxy.
 
     Returns new (eth_endpoint, polygon_endpoint, condition_blockchain_endpoints)

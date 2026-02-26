@@ -69,6 +69,7 @@ from nucypher.crypto.keystore import Keystore
 from nucypher.crypto.powers import RitualisticPower
 from nucypher.utilities.emitters import StdoutEmitter
 from nucypher.utilities.prometheus.metrics import PrometheusMetricsConfig
+from nucypher.utilities.rpc_proxy import is_erpc_enabled
 
 
 class UrsulaConfigOptions:
@@ -651,17 +652,16 @@ def run(
 
     # eRPC RPC Proxy — infrastructure dependency, must start before
     # any blockchain connections are created during character init.
-    _rpc_proxy = None
-    from nucypher.utilities.rpc_proxy import is_erpc_enabled
+    rpc_proxy = None
     if is_erpc_enabled():
-        _rpc_proxy = _start_rpc_proxy(emitter, character_options, config_file)
+        rpc_proxy = _start_rpc_proxy(emitter, character_options, config_file)
 
     ursula_config, URSULA = character_options.create_character(
         emitter=emitter, config_file=config_file, json_ipc=general_config.json_ipc
     )
 
-    if _rpc_proxy is not None:
-        URSULA._rpc_proxy = _rpc_proxy
+    if rpc_proxy is not None:
+        URSULA._rpc_proxy = rpc_proxy
 
     if ip_checkup and not (dev_mode or lonely):
         # Always skip startup IP checks for dev and lonely modes.
