@@ -307,6 +307,36 @@ class RPCProxy:
         self._health_check = None
 
     @classmethod
+    def from_config(
+        cls,
+        eth_endpoint: str,
+        polygon_endpoint: str,
+        condition_blockchain_endpoints: Dict[int, List[str]],
+        domain,
+    ) -> "RPCProxy":
+        """Create an RPCProxy from raw endpoint values (no character dependency)."""
+        endpoints = collect_endpoints(
+            eth_endpoint=eth_endpoint,
+            polygon_endpoint=polygon_endpoint,
+            condition_blockchain_endpoints=condition_blockchain_endpoints,
+            domain=domain,
+        )
+
+        try:
+            erpc_config = build_erpc_config(endpoints=endpoints)
+        except ImportError:
+            logger.warn("erpc-py is not installed — cannot build eRPC config")
+            raise
+
+        return cls(
+            erpc_config=erpc_config,
+            original_eth_endpoint=eth_endpoint,
+            original_polygon_endpoint=polygon_endpoint,
+            original_condition_endpoints=condition_blockchain_endpoints or {},
+            domain=domain,
+        )
+
+    @classmethod
     def from_ursula_config(cls, config) -> "RPCProxy":
         """Create an RPCProxy from an UrsulaConfiguration instance."""
         endpoints = collect_endpoints(

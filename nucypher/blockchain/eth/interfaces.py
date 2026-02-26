@@ -746,11 +746,17 @@ Interfaces = Union[BlockchainInterface]
 class BlockchainInterfaceFactory:
     """
     Canonical source of bound blockchain interfaces.
+
+    Also manages the optional eRPC proxy — an infrastructure concern that
+    transparently rewrites RPC endpoints to route through a local caching
+    proxy.  No character class (Ursula, Alice, Bob) needs to know about
+    the proxy; the factory mediates everything.
     """
 
     _instance = None
     _interfaces = dict()
     _default_interface_class = BlockchainInterface
+    _proxy = None  # Optional RPCProxy instance
 
     class CachedInterface(NamedTuple):
         interface: BlockchainInterface
@@ -772,6 +778,79 @@ class BlockchainInterfaceFactory:
         if not cls._instance:
             cls._instance = super().__new__(cls, *args, **kwargs)
         return cls._instance
+
+    # ------------------------------------------------------------------
+    # eRPC Proxy management
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def configure_proxy(
+        cls,
+        eth_endpoint,
+        polygon_endpoint,
+        condition_blockchain_endpoints,
+        domain,
+    ) -> bool:
+        """Start the eRPC proxy and store it on the factory.
+
+        Returns True if the proxy started successfully, False otherwise.
+        On success, subsequent calls to ``get_or_create_interface`` will
+        transparently rewrite endpoints to route through the proxy.
+        """
+        from nucypher.utilities.rpc_proxy import RPCProxy
+
+        proxy = RPCProxy.from_config(
+            eth_endpoint=eth_endpoint,
+            polygon_endpoint=polygon_endpoint,
+            condition_blockchain_endpoints=condition_blockchain_endpoints,
+            domain=domain,
+        )
+        started = proxy.start()
+        if started:
+            cls._proxy = proxy
+            return True
+        return False
+
+    @classmethod
+    def get_proxy_endpoint(cls, endpoint: str) -> str:
+        """If the proxy is active, rewrite *endpoint* to the proxy URL.
+
+        The proxy stores rewritten endpoints for eth/polygon/condition
+        chains.  If the given endpoint matches one of the originals,
+        return the proxy URL; otherwise return the endpoint unchanged.
+        """
+        if cls._proxy is None or not cls._proxy.is_active:
+            return endpoint
+
+        # Check if this endpoint is one of the originals we proxied
+        proxy = cls._proxy
+        if endpoint == proxy._original_eth_endpoint:
+            return proxy.eth_endpoint
+        if endpoint == proxy._original_polygon_endpoint:
+            return proxy.polygon_endpoint
+
+        # Check condition endpoints
+        for chain_id, urls in proxy._original_condition_endpoints.items():
+            if endpoint in urls:
+                proxied = proxy.condition_blockchain_endpoints.get(chain_id)
+                if proxied:
+                    return proxied[0]
+
+        return endpoint
+
+    @classmethod
+    def shutdown_proxy(cls) -> None:
+        """Stop the eRPC proxy if running."""
+        if cls._proxy is not None:
+            cls._proxy.stop()
+            cls._proxy = None
+
+    @classmethod
+    def proxy_status(cls):
+        """Return proxy status info dict, or None if no proxy."""
+        if cls._proxy is not None:
+            return cls._proxy.status_info()
+        return None
 
     @classmethod
     def is_interface_initialized(cls, endpoint: str) -> bool:
@@ -856,6 +935,8 @@ class BlockchainInterfaceFactory:
     def get_or_create_interface(
         cls, endpoint: str, *interface_args, **interface_kwargs
     ) -> BlockchainInterface:
+        # Transparently rewrite endpoint through proxy if active
+        endpoint = cls.get_proxy_endpoint(endpoint)
         try:
             interface = cls.get_interface(endpoint=endpoint)
         except (cls.InterfaceNotInitialized, cls.NoRegisteredInterfaces):
