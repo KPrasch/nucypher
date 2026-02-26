@@ -227,12 +227,12 @@ class AbiParameterValidation(_Serializable):
             for i, idx in enumerate(self.sub_indices):
                 if not isinstance(value, (list, tuple)):
                     raise ValueError(
-                        f"Cannot index into {type(value).__name__} at sub_indices position {i}; "
+                        f"Cannot index into {type(value).__name__} at sub indices position {i}; "
                         f"expected list or tuple"
                     )
                 if idx >= len(value):
                     raise ValueError(
-                        f"Index {idx} at sub_indices position {i} is out of range "
+                        f"Index {idx} at sub indices position {i} is out of range "
                         f"for {type(value).__name__} of length {len(value)}"
                     )
                 value = value[idx]
@@ -299,7 +299,7 @@ class AbiCallValidation(_Serializable):
                     # Get the base type for this parameter
                     arg_type = arg_types[parameter_value_check.parameter_index]
 
-                    # Validate sub_indices against the ABI type structure
+                    # Validate sub indices against the ABI type structure
                     if parameter_value_check.sub_indices:
                         try:
                             final_type = resolve_abi_type_with_indices(
@@ -307,7 +307,7 @@ class AbiCallValidation(_Serializable):
                             )
                         except ValueError as e:
                             raise ValidationError(
-                                f"Invalid sub_indices for parameter {parameter_value_check.parameter_index} "
+                                f"Invalid sub indices for parameter {parameter_value_check.parameter_index} "
                                 f"with type '{arg_type}': {e}"
                             )
                     else:
@@ -318,7 +318,7 @@ class AbiCallValidation(_Serializable):
                         if final_type != "bytes":
                             raise ValidationError(
                                 f"Nested ABI validation is only supported for bytes type, "
-                                f"but sub_indices resolve to '{final_type}'."
+                                f"but sub indices resolve to '{final_type}'."
                             )
 
         @post_load
@@ -328,7 +328,10 @@ class AbiCallValidation(_Serializable):
     def __init__(self, allowed_abi_calls: Dict[str, List[AbiParameterValidation]]):
         self.allowed_abi_calls = allowed_abi_calls
 
-        self._validate()
+        try:
+            self._validate()
+        except ValueError as e:
+            raise InvalidCondition(f"{e}")
 
     def check(
         self, value: Any, providers: ConditionProviderManager, **context
