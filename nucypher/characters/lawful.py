@@ -1101,6 +1101,8 @@ class Ursula(Teacher, Character, Operator):
             self.signing_ritual_tracker.stop()
             if self._prometheus_metrics_tracker:
                 self._prometheus_metrics_tracker.stop()
+            if hasattr(self, '_rpc_proxy') and self._rpc_proxy is not None:
+                self._rpc_proxy.stop()
         if halt_reactor:
             self.halt_reactor()
 
@@ -1351,6 +1353,11 @@ class Ursula(Teacher, Character, Operator):
 
         balance_eth = float(self.eth_balance)
 
+        # eRPC proxy status (additive — None if not enabled)
+        rpc_proxy_info = None
+        if hasattr(self, '_rpc_proxy') and self._rpc_proxy is not None:
+            rpc_proxy_info = self._rpc_proxy.status_info()
+
         return LocalUrsulaStatus(
             nickname=self.nickname,
             staker_address=self.checksum_address,
@@ -1368,6 +1375,7 @@ class Ursula(Teacher, Character, Operator):
                 self.signing_ritual_tracker.scanner.get_last_scanned_block(),
             ),
             ferveo_public_key=bytes(self.public_keys(RitualisticPower)).hex(),
+            rpc_proxy=rpc_proxy_info,
         )
 
     def as_external_validator(self) -> Validator:
@@ -1392,6 +1400,7 @@ class LocalUrsulaStatus(NamedTuple):
     balance_eth: float
     block_height: int
     ferveo_public_key: str
+    rpc_proxy: Optional[Dict[str, Any]]
 
     def to_json(self) -> Dict[str, Any]:
         if self.known_nodes is None:
@@ -1414,6 +1423,7 @@ class LocalUrsulaStatus(NamedTuple):
             balance_eth=self.balance_eth,
             block_height=self.block_height,
             ferveo_public_key=self.ferveo_public_key,
+            rpc_proxy=self.rpc_proxy,
         )
 
 
