@@ -213,6 +213,18 @@ class TestRewriteEndpoints:
 
 class TestRPCProxy:
 
+    def test_from_config(self, mock_ursula_config, mock_domain):
+        with patch.dict(sys.modules, {"erpc": _erpc_stub}):
+            proxy = RPCProxy.from_config(
+                eth_endpoint=mock_ursula_config.eth_endpoint,
+                polygon_endpoint=mock_ursula_config.polygon_endpoint,
+                condition_blockchain_endpoints=mock_ursula_config.condition_blockchain_endpoints,
+                domain=mock_domain,
+            )
+        assert proxy.eth_endpoint == mock_ursula_config.eth_endpoint
+        assert proxy.polygon_endpoint == mock_ursula_config.polygon_endpoint
+        assert not proxy.is_active
+
     def test_from_ursula_config(self, mock_ursula_config):
         with patch.dict(sys.modules, {"erpc": _erpc_stub}):
             proxy = RPCProxy.from_ursula_config(mock_ursula_config)
@@ -372,3 +384,83 @@ class TestERPCMetricsProxyResource:
 
         assert result == b"eRPC metrics unavailable"
         mock_request.setResponseCode.assert_called_once_with(503)
+
+
+# ---------------------------------------------------------------------------
+# BlockchainInterfaceFactory proxy integration
+# ---------------------------------------------------------------------------
+
+
+class TestBlockchainInterfaceFactoryProxy:
+    """Tests for proxy management on BlockchainInterfaceFactory."""
+
+    @pytest.fixture(autouse=True)
+    def reset_factory_proxy(self):
+        from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+        BlockchainInterfaceFactory._proxy = None
+        yield
+        BlockchainInterfaceFactory._proxy = None
+
+    def test_proxy_status_none_by_default(self):
+        from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+        assert BlockchainInterfaceFactory.proxy_status() is None
+
+    def test_shutdown_proxy_noop_when_none(self):
+        from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+        BlockchainInterfaceFactory.shutdown_proxy()  # should not raise
+
+    def test_get_proxy_endpoint_passthrough_when_no_proxy(self):
+        from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+        assert BlockchainInterfaceFactory.get_proxy_endpoint("https://eth.example.com") == "https://eth.example.com"
+
+    def test_configure_proxy_success(self, mock_domain):
+        from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+
+        mock_proc = MagicMock()
+        mock_proc.is_running = True
+        mock_proc.pid = 999
+        _erpc_stub.ERPCProcess.return_value = mock_proc
+
+        with patch.dict(sys.modules, {"erpc": _erpc_stub}):
+            result = BlockchainInterfaceFactory.configure_proxy(
+                eth_endpoint="https://eth.example.com",
+                polygon_endpoint="https://polygon.example.com",
+                condition_blockchain_endpoints={1: ["https://eth.example.com"]},
+                domain=mock_domain,
+            )
+
+        assert result is True
+        assert BlockchainInterfaceFactory._proxy is not None
+        assert BlockchainInterfaceFactory._proxy.is_active
+        assert BlockchainInterfaceFactory.proxy_status()["active"] is True
+
+    def test_get_proxy_endpoint_rewrites(self, mock_domain):
+        from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+
+        # Manually set up a proxy with known endpoints
+        proxy = RPCProxy.__new__(RPCProxy)
+        proxy._original_eth_endpoint = "https://eth.example.com"
+        proxy._original_polygon_endpoint = "https://polygon.example.com"
+        proxy._original_condition_endpoints = {42161: ["https://arb.example.com"]}
+        proxy.eth_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/1"
+        proxy.polygon_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/137"
+        proxy.condition_blockchain_endpoints = {42161: ["http://127.0.0.1:4000/taco-ursula/evm/42161"]}
+        proxy._active = True
+        proxy.log = MagicMock()
+
+        BlockchainInterfaceFactory._proxy = proxy
+
+        assert BlockchainInterfaceFactory.get_proxy_endpoint("https://eth.example.com") == "http://127.0.0.1:4000/taco-ursula/evm/1"
+        assert BlockchainInterfaceFactory.get_proxy_endpoint("https://polygon.example.com") == "http://127.0.0.1:4000/taco-ursula/evm/137"
+        assert BlockchainInterfaceFactory.get_proxy_endpoint("https://arb.example.com") == "http://127.0.0.1:4000/taco-ursula/evm/42161"
+        assert BlockchainInterfaceFactory.get_proxy_endpoint("https://unknown.example.com") == "https://unknown.example.com"
+
+    def test_shutdown_proxy_clears(self, mock_domain):
+        from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+
+        proxy = MagicMock()
+        BlockchainInterfaceFactory._proxy = proxy
+
+        BlockchainInterfaceFactory.shutdown_proxy()
+        proxy.stop.assert_called_once()
+        assert BlockchainInterfaceFactory._proxy is None
