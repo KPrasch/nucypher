@@ -337,7 +337,7 @@ def test_invalid_signing_object_abi_attribute_condition():
         )
 
     # invalid sub_indices on non-indexable type
-    with pytest.raises(InvalidCondition, match="not indexable"):
+    with pytest.raises(ValueError, match="not indexable"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(
@@ -354,7 +354,7 @@ def test_invalid_signing_object_abi_attribute_condition():
         )
 
     # tuple index out of range
-    with pytest.raises(InvalidCondition, match="out of range"):
+    with pytest.raises(ValueError, match="out of range"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(
@@ -440,7 +440,7 @@ def test_invalid_signing_object_abi_attribute_condition():
 def test_abi_parameter_validation_sub_indices_errors():
     """Test error handling for invalid sub_indices."""
     # Using sub_indices on non-indexable type should fail at schema validation
-    with pytest.raises(InvalidCondition, match="not indexable"):
+    with pytest.raises(ValueError, match="not indexable"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(
@@ -457,7 +457,7 @@ def test_abi_parameter_validation_sub_indices_errors():
         )
 
     # Using sub_indices with out-of-range tuple index should fail
-    with pytest.raises(InvalidCondition, match="out of range"):
+    with pytest.raises(ValueError, match="out of range"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(

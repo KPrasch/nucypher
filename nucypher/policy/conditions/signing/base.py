@@ -328,10 +328,7 @@ class AbiCallValidation(_Serializable):
     def __init__(self, allowed_abi_calls: Dict[str, List[AbiParameterValidation]]):
         self.allowed_abi_calls = allowed_abi_calls
 
-        try:
-            self._validate()
-        except ValueError as e:
-            raise InvalidCondition(f"{e}")
+        self._validate()
 
     def check(
         self, value: Any, providers: ConditionProviderManager, **context
