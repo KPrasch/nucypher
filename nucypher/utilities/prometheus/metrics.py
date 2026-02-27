@@ -169,7 +169,8 @@ def start_prometheus_exporter(
     root.putChild(b"json_metrics", JSONMetricsResource())
 
     # eRPC proxy metrics — piggybacked on the same Prometheus port
-    rpc_proxy = ursula._rpc_proxy
+    from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+    rpc_proxy = BlockchainInterfaceFactory._proxy
     if rpc_proxy and rpc_proxy.is_active:
         root.putChild(b"erpc_metrics", ERPCMetricsProxyResource(rpc_proxy))
 
