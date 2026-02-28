@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 import nucypher
+from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
 from nucypher.cli.actions.auth import (
     collect_mnemonic,
     get_client_password,
@@ -69,7 +70,6 @@ from nucypher.crypto.keystore import Keystore
 from nucypher.crypto.powers import RitualisticPower
 from nucypher.utilities.emitters import StdoutEmitter
 from nucypher.utilities.prometheus.metrics import PrometheusMetricsConfig
-from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
 from nucypher.utilities.rpc_proxy import is_erpc_enabled
 
 

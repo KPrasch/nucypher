@@ -140,14 +140,21 @@ class BlockchainMetricsCollector(BaseMetricsCollector):
         child_blockchain = BlockchainInterfaceFactory.get_or_create_interface(
             endpoint=self.child_net_endpoint
         )
-        self.metrics["root_net_chain_id"].set(root_blockchain.client.chain_id)
-        self.metrics["root_net_current_block_number"].set(
-            root_blockchain.client.block_number
-        )
-        self.metrics["child_net_chain_id"].set(child_blockchain.client.chain_id)
-        self.metrics["child_net_current_block_number"].set(
-            child_blockchain.client.block_number
-        )
+        try:
+            self.metrics["root_net_chain_id"].set(root_blockchain.client.chain_id)
+            self.metrics["root_net_current_block_number"].set(
+                root_blockchain.client.block_number
+            )
+        except Exception:
+            pass  # RPC unavailable — skip metric update, retain last value
+
+        try:
+            self.metrics["child_net_chain_id"].set(child_blockchain.client.chain_id)
+            self.metrics["child_net_current_block_number"].set(
+                child_blockchain.client.block_number
+            )
+        except Exception:
+            pass  # RPC unavailable — skip metric update, retain last value
 
 
 class StakingProviderMetricsCollector(BaseMetricsCollector):

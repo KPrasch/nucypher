@@ -1349,7 +1349,20 @@ class Ursula(Teacher, Character, Operator):
         else:
             known_nodes_info = None
 
-        balance_eth = float(self.eth_balance)
+        try:
+            balance_eth = float(self.eth_balance)
+        except Exception as e:
+            self.log.warn("Failed to fetch ETH balance for status: {error}", error=str(e))
+            balance_eth = -1.0  # Sentinel value — indicates RPC failure
+
+        try:
+            block_height = max(
+                self.ritual_tracker.scanner.get_last_scanned_block(),
+                self.signing_ritual_tracker.scanner.get_last_scanned_block(),
+            )
+        except Exception as e:
+            self.log.warn("Failed to fetch block height for status: {error}", error=str(e))
+            block_height = 0
 
         # eRPC proxy status (additive — None if not enabled)
         rpc_proxy_info = BlockchainInterfaceFactory.proxy_status()
@@ -1366,10 +1379,7 @@ class Ursula(Teacher, Character, Operator):
             previous_fleet_states=previous_fleet_states,
             known_nodes=known_nodes_info,
             balance_eth=balance_eth,
-            block_height=max(
-                self.ritual_tracker.scanner.get_last_scanned_block(),
-                self.signing_ritual_tracker.scanner.get_last_scanned_block(),
-            ),
+            block_height=block_height,
             ferveo_public_key=bytes(self.public_keys(RitualisticPower)).hex(),
             rpc_proxy=rpc_proxy_info,
         )
