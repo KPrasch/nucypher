@@ -269,7 +269,9 @@ class RPCProxyHealthCheck:
         return stats if stats else None
 
     def _handle_error(self, failure) -> None:
-        self.log.warn("eRPC health check error: {error}", error=repr(failure))
+        self.log.warn(
+            "eRPC health check error:\n{tb}", tb=failure.getTraceback().rstrip()
+        )
 
 
 class RPCProxy:
@@ -405,7 +407,9 @@ class RPCProxy:
             self._process = ERPCProcess(config=self._erpc_config)
             self._process.start()
             self._process.wait_for_health(timeout=health_timeout)
-        except Exception as e:
+        except Exception:
+            import traceback as _tb
+
             stderr = ""
             if self._process and hasattr(self._process, '_process'):
                 inner = self._process._process
@@ -414,7 +418,8 @@ class RPCProxy:
                         stderr = inner.stderr.read().decode(errors="replace")
                     except Exception:
                         pass
-            msg = f"eRPC proxy failed to start — falling back to direct endpoints: {repr(e)}"
+            msg = "eRPC proxy failed to start — falling back to direct endpoints:\n"
+            msg += _tb.format_exc().rstrip()
             if stderr:
                 msg += f"\neRPC stderr: {stderr[:500]}"
             self.log.warn(msg)
@@ -453,8 +458,11 @@ class RPCProxy:
             try:
                 self._process.stop()
                 self.log.info("eRPC proxy stopped")
-            except Exception as e:
-                self.log.warn(f"Error stopping eRPC proxy: {repr(e)}")
+            except Exception:
+                self.log.warn(
+                    "Error stopping eRPC proxy:\n{tb}",
+                    tb=__import__('traceback').format_exc().rstrip(),
+                )
         self._fallback()
 
     def _fallback(self) -> None:
