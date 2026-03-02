@@ -31,6 +31,7 @@ from nucypher.utilities.abi import (
     decode_human_readable_call,
     extract_arg_types,
     is_valid_human_readable_signature,
+    resolve_abi_type_with_indices,
 )
 
 SIGNING_CONDITION_OBJECT_CONTEXT_VAR = ":signingConditionObject"
@@ -162,8 +163,13 @@ class AbiParameterValidation(_Serializable):
     class Schema(CamelCaseSchema):
         parameter_index = fields.Integer(validate=Range(min=0), required=True)
 
-        index_within_tuple = fields.Integer(
-            validate=Range(min=0), allow_none=True, required=False
+        # Sequential indices for navigating nested structures (arrays and tuples)
+        # The ABI type determines interpretation at each step:
+        # - If current type ends with "[]" -> array index
+        # - If current type is "(...)" -> tuple field index
+        sub_indices = fields.List(
+            fields.Integer(validate=Range(min=0)),
+            required=False,
         )
 
         # Either a direct comparator...
@@ -196,29 +202,42 @@ class AbiParameterValidation(_Serializable):
     def __init__(
         self,
         parameter_index: int,
-        index_within_tuple: Optional[int] = None,
+        sub_indices: Optional[List[int]] = None,
         return_value_test: Optional[ReturnValueTest] = None,
         nested_abi_validation: Optional["AbiCallValidation"] = None,
     ):
         self.parameter_index = parameter_index
-        self.index_within_tuple = index_within_tuple
+        self.sub_indices = sub_indices
         self.return_value_test = return_value_test
         self.nested_abi_validation = nested_abi_validation
 
         self._validate()
 
     def get_value(self, args):
-        parameter_value = args[self.parameter_index]
+        """
+        Extract a value from decoded ABI arguments using parameter_index and sub_indices.
 
-        if self.index_within_tuple is not None:
-            if not isinstance(parameter_value, tuple):
-                raise ValueError(
-                    f"Invalid data type for checking call data; expected tuple, received {type(parameter_value)}"
-                )
+        The sub_indices list navigates through nested structures sequentially.
+        At runtime, both arrays and tuples are represented as Python tuples/lists,
+        so we simply index into them without type distinction.
+        """
+        value = args[self.parameter_index]
 
-            return parameter_value[self.index_within_tuple]
+        if self.sub_indices:
+            for i, idx in enumerate(self.sub_indices):
+                if not isinstance(value, (list, tuple)):
+                    raise ValueError(
+                        f"Cannot index into {type(value).__name__} at sub indices position {i}; "
+                        f"expected list or tuple"
+                    )
+                if idx >= len(value):
+                    raise ValueError(
+                        f"Index {idx} at sub indices position {i} is out of range "
+                        f"for {type(value).__name__} of length {len(value)}"
+                    )
+                value = value[idx]
 
-        return parameter_value
+        return value
 
     def check(
         self, args: List[Any], providers: ConditionProviderManager, **context
@@ -277,37 +296,29 @@ class AbiCallValidation(_Serializable):
                             f"the ABI decode string '{human_signature}'. "
                         )
 
-                    if parameter_value_check.index_within_tuple is not None:
-                        tuple_args = arg_types[parameter_value_check.parameter_index]
-                        if not (
-                            tuple_args.startswith("(") and tuple_args.endswith(")")
-                        ):
-                            raise ValidationError(
-                                f"Args value at index '{parameter_value_check.parameter_index}' is not a tuple"
-                            )
+                    # Get the base type for this parameter
+                    arg_type = arg_types[parameter_value_check.parameter_index]
 
-                        tuple_args = tuple_args.strip("(").strip(")")
-                        if parameter_value_check.index_within_tuple >= len(
-                            tuple_args.split(",")
-                        ):
-                            raise ValidationError(
-                                f"Tuple value index '{parameter_value_check.index_within_tuple}' for parameter is out of range for "
-                                f"the ABI decoded tuple '{tuple_args}'. "
+                    # Validate sub indices against the ABI type structure
+                    if parameter_value_check.sub_indices:
+                        try:
+                            final_type = resolve_abi_type_with_indices(
+                                arg_type, parameter_value_check.sub_indices
                             )
+                        except ValueError as e:
+                            raise ValidationError(
+                                f"Invalid sub indices for parameter {parameter_value_check.parameter_index} "
+                                f"with type '{arg_type}': {e}"
+                            )
+                    else:
+                        final_type = arg_type
 
+                    # Validate nested_abi_validation requires bytes type
                     if parameter_value_check.nested_abi_validation:
-                        # ensure that corresponding arg type is bytes
-                        arg_type_to_check = arg_types[
-                            parameter_value_check.parameter_index
-                        ]
-                        if parameter_value_check.index_within_tuple is not None:
-                            tuple_args = arg_type_to_check.strip("(").strip(")")
-                            arg_type_to_check = tuple_args.split(",")[
-                                parameter_value_check.index_within_tuple
-                            ]
-                        if arg_type_to_check != "bytes":
+                        if final_type != "bytes":
                             raise ValidationError(
-                                f"Nested ABI validation is only supported for bytes type, but found '{arg_type_to_check}'."
+                                f"Nested ABI validation is only supported for bytes type, "
+                                f"but sub indices resolve to '{final_type}'."
                             )
 
         @post_load

@@ -6,6 +6,7 @@ import pytest
 from ecdsa import SECP256k1, SigningKey
 from ecdsa.util import sigencode_string
 from hexbytes import HexBytes
+from nucypher_core import UserOperation
 from web3 import Web3
 
 from nucypher.policy.conditions.ecdsa import ECDSACondition, ECDSAVerificationCall
@@ -335,8 +336,8 @@ def test_invalid_signing_object_abi_attribute_condition():
             ),
         )
 
-    # invalid tuple arg
-    with pytest.raises(ValueError, match="is not a tuple"):
+    # invalid sub_indices on non-indexable type
+    with pytest.raises(ValueError, match="not indexable"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(
@@ -344,7 +345,7 @@ def test_invalid_signing_object_abi_attribute_condition():
                     "execute(address,uint256,bytes)": [
                         AbiParameterValidation(
                             parameter_index=0,
-                            index_within_tuple=0,
+                            sub_indices=[0],  # address is not indexable
                             return_value_test=ReturnValueTest("==", 0),
                         )
                     ]
@@ -353,9 +354,7 @@ def test_invalid_signing_object_abi_attribute_condition():
         )
 
     # tuple index out of range
-    with pytest.raises(
-        ValueError, match="Tuple value index '3' for parameter is out of range"
-    ):
+    with pytest.raises(ValueError, match="out of range"):
         _ = SigningObjectAbiAttributeCondition(
             attribute_name="call_data",
             abi_validation=AbiCallValidation(
@@ -363,7 +362,7 @@ def test_invalid_signing_object_abi_attribute_condition():
                     "execute((address,uint256,bytes))": [
                         AbiParameterValidation(
                             parameter_index=0,
-                            index_within_tuple=3,
+                            sub_indices=[3],  # tuple only has 3 fields (0, 1, 2)
                             return_value_test=ReturnValueTest("==", 0),
                         )
                     ]
@@ -423,7 +422,9 @@ def test_invalid_signing_object_abi_attribute_condition():
                     "execute((address,uint256,bytes))": [
                         AbiParameterValidation(
                             parameter_index=0,  # correct for tuple
-                            index_within_tuple=0,  # incorrect index within tuple
+                            sub_indices=[
+                                0
+                            ],  # incorrect index within tuple (address, not bytes)
                             nested_abi_validation=AbiCallValidation(
                                 {
                                     "transfer(address,uint256)": [],
@@ -434,6 +435,318 @@ def test_invalid_signing_object_abi_attribute_condition():
                 }
             ),
         )
+
+
+def test_abi_parameter_validation_sub_indices_errors():
+    """Test error handling for invalid sub_indices."""
+    # Using sub_indices on non-indexable type should fail at schema validation
+    with pytest.raises(ValueError, match="not indexable"):
+        _ = SigningObjectAbiAttributeCondition(
+            attribute_name="call_data",
+            abi_validation=AbiCallValidation(
+                {
+                    "transfer(address,uint256)": [
+                        AbiParameterValidation(
+                            parameter_index=0,
+                            sub_indices=[0],  # ERROR: address is not indexable
+                            return_value_test=ReturnValueTest("==", ":userAddress"),
+                        )
+                    ]
+                }
+            ),
+        )
+
+    # Using sub_indices with out-of-range tuple index should fail
+    with pytest.raises(ValueError, match="out of range"):
+        _ = SigningObjectAbiAttributeCondition(
+            attribute_name="call_data",
+            abi_validation=AbiCallValidation(
+                {
+                    "execute((address,uint256,bytes))": [
+                        AbiParameterValidation(
+                            parameter_index=0,
+                            sub_indices=[5],  # ERROR: tuple only has 3 fields
+                            return_value_test=ReturnValueTest("==", ":userAddress"),
+                        )
+                    ]
+                }
+            ),
+        )
+
+
+def test_abi_parameter_validation_array_indexing(
+    condition_provider_manager, get_random_checksum_address
+):
+    """Test sub_indices for simple array types."""
+
+    # Create test data with an array of addresses
+    recipient1 = get_random_checksum_address()
+    recipient2 = get_random_checksum_address()
+
+    # Encode a batchTransfer call with array parameters
+    call_data = encode_human_readable_call(
+        "batchTransfer(address[],uint256[])",
+        [[recipient1, recipient2], [1000, 2000]],
+    )
+
+    user_op = UserOperation(
+        sender=get_random_checksum_address(),
+        nonce=0,
+        call_data=call_data,
+        call_gas_limit=1,
+        verification_gas_limit=2,
+        pre_verification_gas=3,
+        max_fee_per_gas=4,
+        max_priority_fee_per_gas=5,
+    )
+    context = {SIGNING_CONDITION_OBJECT_CONTEXT_VAR: user_op}
+
+    # Test validation of first element in address array
+    condition = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "batchTransfer(address[],uint256[])": [
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        sub_indices=[0],  # First element of address[]
+                        return_value_test=ReturnValueTest("==", recipient1),
+                    )
+                ]
+            }
+        ),
+    )
+
+    allowed, _ = condition.verify(providers=condition_provider_manager, **context)
+    assert allowed is True
+
+    # Test validation of second element in address array
+    condition2 = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "batchTransfer(address[],uint256[])": [
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        sub_indices=[1],  # Second element of address[]
+                        return_value_test=ReturnValueTest("==", recipient2),
+                    )
+                ]
+            }
+        ),
+    )
+
+    allowed, _ = condition2.verify(providers=condition_provider_manager, **context)
+    assert allowed is True
+
+    # Test validation of uint256 array
+    condition3 = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "batchTransfer(address[],uint256[])": [
+                    AbiParameterValidation(
+                        parameter_index=1,
+                        sub_indices=[1],  # Second element of uint256[]
+                        return_value_test=ReturnValueTest("==", 2000),
+                    )
+                ]
+            }
+        ),
+    )
+
+    allowed, _ = condition3.verify(providers=condition_provider_manager, **context)
+    assert allowed is True
+
+
+def test_abi_parameter_validation_array_of_tuples(
+    condition_provider_manager, get_random_checksum_address
+):
+    """Test sub_indices for array of tuples (e.g., batch operations)."""
+
+    # Create test data with an array of tuples (address, uint256, bytes)
+    recipient1 = get_random_checksum_address()
+    recipient2 = get_random_checksum_address()
+
+    # Encode an executeBatch call with array of tuples
+    call_data = encode_human_readable_call(
+        "executeBatch((address,uint256,bytes)[])",
+        [
+            [
+                (recipient1, 1000000, b"\x00"),
+                (recipient2, 2000000, b"\x01"),
+            ]
+        ],
+    )
+
+    user_op = UserOperation(
+        sender=get_random_checksum_address(),
+        nonce=0,
+        call_data=call_data,
+        call_gas_limit=1,
+        verification_gas_limit=2,
+        pre_verification_gas=3,
+        max_fee_per_gas=4,
+        max_priority_fee_per_gas=5,
+    )
+    context = {SIGNING_CONDITION_OBJECT_CONTEXT_VAR: user_op}
+
+    # Test validation of amount field (tuple index 1) in first tuple (array index 0)
+    # sub_indices=[0, 1] means: array[0] -> tuple[1]
+    condition = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "executeBatch((address,uint256,bytes)[])": [
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        sub_indices=[0, 1],  # array[0] -> tuple field 1 (uint256)
+                        return_value_test=ReturnValueTest("==", 1000000),
+                    )
+                ]
+            }
+        ),
+    )
+
+    allowed, _ = condition.verify(providers=condition_provider_manager, **context)
+    assert allowed is True
+
+    # Test validation of address field (tuple index 0) in second tuple (array index 1)
+    condition2 = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "executeBatch((address,uint256,bytes)[])": [
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        sub_indices=[1, 0],  # array[1] -> tuple field 0 (address)
+                        return_value_test=ReturnValueTest("==", recipient2),
+                    )
+                ]
+            }
+        ),
+    )
+
+    allowed, _ = condition2.verify(providers=condition_provider_manager, **context)
+    assert allowed is True
+
+
+def test_abi_parameter_validation_tuple_of_arrays(
+    condition_provider_manager, get_random_checksum_address
+):
+    """Test sub_indices for tuple containing arrays - the reverse nesting pattern."""
+
+    # Create test data with a tuple containing arrays
+    recipient1 = get_random_checksum_address()
+    recipient2 = get_random_checksum_address()
+
+    # Encode a multiTransfer call with tuple of arrays: (address[], uint256[], bytes)
+    call_data = encode_human_readable_call(
+        "multiTransfer((address[],uint256[],bytes))",
+        [
+            (
+                [recipient1, recipient2],  # address[]
+                [1000, 2000],  # uint256[]
+                b"\x00",  # bytes
+            )
+        ],
+    )
+
+    user_op = UserOperation(
+        sender=get_random_checksum_address(),
+        nonce=0,
+        call_data=call_data,
+        call_gas_limit=1,
+        verification_gas_limit=2,
+        pre_verification_gas=3,
+        max_fee_per_gas=4,
+        max_priority_fee_per_gas=5,
+    )
+    context = {SIGNING_CONDITION_OBJECT_CONTEXT_VAR: user_op}
+
+    # Get second recipient from address array (tuple field 0, then array index 1)
+    # sub_indices=[0, 1] means: tuple[0] -> array[1]
+    condition = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "multiTransfer((address[],uint256[],bytes))": [
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        sub_indices=[0, 1],  # tuple field 0 (address[]) -> array[1]
+                        return_value_test=ReturnValueTest("==", recipient2),
+                    )
+                ]
+            }
+        ),
+    )
+
+    allowed, _ = condition.verify(providers=condition_provider_manager, **context)
+    assert allowed is True
+
+    # Get first amount from uint256 array (tuple field 1, then array index 0)
+    condition2 = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "multiTransfer((address[],uint256[],bytes))": [
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        sub_indices=[1, 0],  # tuple field 1 (uint256[]) -> array[0]
+                        return_value_test=ReturnValueTest("==", 1000),
+                    )
+                ]
+            }
+        ),
+    )
+
+    allowed, _ = condition2.verify(providers=condition_provider_manager, **context)
+    assert allowed is True
+
+
+def test_abi_parameter_validation_sub_indices_out_of_bounds(
+    condition_provider_manager, get_random_checksum_address
+):
+    """Test that array index out of bounds raises error at runtime."""
+
+    # Create test data with a small array
+    recipient1 = get_random_checksum_address()
+
+    call_data = encode_human_readable_call(
+        "batchTransfer(address[],uint256[])",
+        [[recipient1], [1000]],  # Only one element in each array
+    )
+
+    user_op = UserOperation(
+        sender=get_random_checksum_address(),
+        nonce=0,
+        call_data=call_data,
+        call_gas_limit=1,
+        verification_gas_limit=2,
+        pre_verification_gas=3,
+        max_fee_per_gas=4,
+        max_priority_fee_per_gas=5,
+    )
+    context = {SIGNING_CONDITION_OBJECT_CONTEXT_VAR: user_op}
+
+    # Try to access index 5 when array only has 1 element
+    condition = SigningObjectAbiAttributeCondition(
+        attribute_name="call_data",
+        abi_validation=AbiCallValidation(
+            {
+                "batchTransfer(address[],uint256[])": [
+                    AbiParameterValidation(
+                        parameter_index=0,
+                        sub_indices=[5],  # Out of bounds at runtime
+                        return_value_test=ReturnValueTest("==", recipient1),
+                    )
+                ]
+            }
+        ),
+    )
+
+    with pytest.raises(ValueError, match="out of range"):
+        condition.verify(providers=condition_provider_manager, **context)
 
 
 def test_signing_object_abi_attribute_condition_initialization():
@@ -722,7 +1035,7 @@ def test_signing_object_abi_attribute_condition_more_than_2_levels_nested_callda
                                     # only allow transfer call
                                     AbiParameterValidation(
                                         parameter_index=0,
-                                        index_within_tuple=2,
+                                        sub_indices=[2],
                                         nested_abi_validation=AbiCallValidation(
                                             {"transfer(address,uint256)": []}
                                         ),
@@ -787,14 +1100,14 @@ def test_signing_object_abi_attribute_condition_tuple_index(
                 "execute((address,uint256,bytes))": [
                     AbiParameterValidation(
                         parameter_index=0,
-                        index_within_tuple=0,
+                        sub_indices=[0],
                         return_value_test=ReturnValueTest(
                             "==", expected_contract_address
                         ),
                     ),
                     AbiParameterValidation(
                         parameter_index=0,
-                        index_within_tuple=2,
+                        sub_indices=[2],
                         nested_abi_validation=AbiCallValidation({"threshold()": []}),
                     ),
                 ]

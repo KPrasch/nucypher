@@ -209,7 +209,7 @@ def lingo_with_all_condition_types(get_random_checksum_address):
                 "execute((address,uint256,bytes))": [
                     {
                         "parameterIndex": 0,
-                        "indexWithinTuple": 1,
+                        "subIndices": [1],
                         "returnValueTest": {
                             "comparator": "<",
                             "value": 1000000000000000,
@@ -251,6 +251,7 @@ def lingo_with_all_condition_types(get_random_checksum_address):
         },
     }
 
+
 def test_invalid_condition():
     # no version or condition
     data = dict()
@@ -281,7 +282,6 @@ def test_invalid_condition():
 
 
 def test_invalid_compound_condition():
-
     # invalid operator
     invalid_operator = {
         "version": ConditionLingo.VERSION,
@@ -453,7 +453,9 @@ def test_compound_condition_lingo_repr(lingo_with_all_condition_types):
     assert f"size={len(bytes(clingo))}" in clingo_string
 
 
-def test_lingo_parameter_int_type_preservation(custom_abi_with_multiple_parameters, mocker):
+def test_lingo_parameter_int_type_preservation(
+    custom_abi_with_multiple_parameters, mocker
+):
     mocker.patch.dict(
         nucypher.policy.conditions.context._DIRECTIVES,
         {USER_ADDRESS_CONTEXT: lambda: NULL_ADDRESS},
@@ -575,8 +577,8 @@ def test_any_field_nested_integer():
         (-1231231, -1231231),  # safe negative int
         (f"{UINT256_MAX}n", UINT256_MAX),
         (f"{INT256_MIN}n", INT256_MIN),
-        (f"{UINT256_MAX*2}n", UINT256_MAX * 2),  # larger than uint256 max
-        (f"{INT256_MIN*2}n", INT256_MIN * 2),  # smaller than in256 min
+        (f"{UINT256_MAX * 2}n", UINT256_MAX * 2),  # larger than uint256 max
+        (f"{INT256_MIN * 2}n", INT256_MIN * 2),  # smaller than in256 min
         # expected failures
         ("Totally a number", None),
         ("Totally a number that ends with n", None),
