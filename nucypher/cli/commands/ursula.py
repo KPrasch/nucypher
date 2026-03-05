@@ -736,6 +736,7 @@ def _configure_factory_proxy(emitter, character_options, config_file):
     """
     import json
     from pathlib import Path
+    from nucypher.blockchain.eth.domains import get_domain
 
     try:
         # Read endpoints directly from config JSON to avoid triggering
@@ -749,11 +750,12 @@ def _configure_factory_proxy(emitter, character_options, config_file):
         with open(config_path) as f:
             config_data = json.load(f)
 
+        domain = get_domain(config_data.get("domain"))
         started = BlockchainInterfaceFactory.configure_proxy(
             eth_endpoint=config_data.get("eth_endpoint"),
             polygon_endpoint=config_data.get("polygon_endpoint"),
             condition_blockchain_endpoints=config_data.get("condition_blockchain_endpoints", {}),
-            domain=config_data.get("domain"),
+            domain=domain,
         )
     except Exception as e:
         emitter.message(
