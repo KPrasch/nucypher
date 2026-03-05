@@ -24,6 +24,8 @@ env/
 # Extra Directories
 docs/
 deploy/
+!deploy/docker/Dockerfile
+!deploy/docker/install_erpc.py
 examples/
 scripts/dev/
 newsfragments/
