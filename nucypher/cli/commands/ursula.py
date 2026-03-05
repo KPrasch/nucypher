@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 import nucypher
+from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
 from nucypher.cli.actions.auth import (
     collect_mnemonic,
     get_client_password,
@@ -69,6 +70,7 @@ from nucypher.crypto.keystore import Keystore
 from nucypher.crypto.powers import RitualisticPower
 from nucypher.utilities.emitters import StdoutEmitter
 from nucypher.utilities.prometheus.metrics import PrometheusMetricsConfig
+from nucypher.utilities.rpc_proxy import is_erpc_enabled
 
 
 class UrsulaConfigOptions:
@@ -649,6 +651,11 @@ def run(
             collection_interval=metrics_interval,
         )
 
+    # eRPC RPC Proxy — infrastructure dependency, must start before
+    # any blockchain connections are created during character init.
+    if is_erpc_enabled():
+        _configure_factory_proxy(emitter, character_options, config_file)
+
     ursula_config, URSULA = character_options.create_character(
         emitter=emitter, config_file=config_file, json_ipc=general_config.json_ipc
     )
@@ -719,6 +726,46 @@ def config(general_config, config_options, config_file, force, action):
                                 config_class=UrsulaConfiguration,
                                 filepath=config_file,
                                 updates=updates)
+
+
+def _configure_factory_proxy(emitter, character_options, config_file):
+    """Configure the eRPC proxy on BlockchainInterfaceFactory.
+
+    Must be called BEFORE character creation so that all downstream
+    ``get_or_create_interface`` calls transparently route through the proxy.
+    """
+    try:
+        # Build a temporary config to read endpoints
+        ursula_config = character_options.config_options.create_config(
+            emitter, config_file
+        )
+        started = BlockchainInterfaceFactory.configure_proxy(
+            eth_endpoint=ursula_config.eth_endpoint,
+            polygon_endpoint=ursula_config.polygon_endpoint,
+            condition_blockchain_endpoints=ursula_config.condition_blockchain_endpoints,
+            domain=ursula_config.domain,
+        )
+    except Exception as e:
+        emitter.message(
+            f"✗ eRPC Proxy ({e.__class__.__name__}: {e})",
+            color="yellow",
+        )
+        return
+
+    if not started:
+        emitter.message(
+            "✗ eRPC Proxy (failed to start, using direct endpoints)",
+            color="yellow",
+        )
+        return
+
+    status = BlockchainInterfaceFactory.proxy_status() or {}
+    chains = ", ".join(str(c) for c in sorted(status.get("chains", [])))
+    pid = status.get("pid", "?")
+    emitter.message(
+        f"✓ eRPC Proxy (PID {pid}, chains: {chains})",
+        color="green",
+    )
 
 
 def _pre_launch_warnings(emitter, dev, force):
