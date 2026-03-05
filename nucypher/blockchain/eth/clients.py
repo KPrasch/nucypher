@@ -89,21 +89,25 @@ class EthereumClient:
             name=poa_middleware_name,
         )
 
-        # retry request middleware
-        endpoint_uri = getattr(self.w3.provider, "endpoint_uri", "")
-        if "infura" in endpoint_uri:
-            self.log.info("Adding Infura RPC retry middleware to client")
-            self.add_middleware(InfuraRetryRequestMiddleware, name="infura_retry")
-        elif "alchemyapi.io" in endpoint_uri:
-            self.log.info("Adding Alchemy RPC retry middleware to client")
-            self.add_middleware(AlchemyRetryRequestMiddleware, name="alchemy_retry")
+        # retry request middleware — skipped when eRPC proxy handles retries
+        from nucypher.utilities.rpc_proxy import is_erpc_enabled
+        if is_erpc_enabled():
+            self.log.info("eRPC proxy active — skipping retry and cache middleware")
         else:
-            self.log.info("Adding RPC retry middleware to client")
-            self.add_middleware(RetryRequestMiddleware, name="retry")
+            endpoint_uri = getattr(self.w3.provider, "endpoint_uri", "")
+            if "infura" in endpoint_uri:
+                self.log.info("Adding Infura RPC retry middleware to client")
+                self.add_middleware(InfuraRetryRequestMiddleware, name="infura_retry")
+            elif "alchemyapi.io" in endpoint_uri:
+                self.log.info("Adding Alchemy RPC retry middleware to client")
+                self.add_middleware(AlchemyRetryRequestMiddleware, name="alchemy_retry")
+            else:
+                self.log.info("Adding RPC retry middleware to client")
+                self.add_middleware(RetryRequestMiddleware, name="retry")
 
-        # simple cache middleware
-        self.log.info("Adding simple_cache_middleware")
-        self.add_middleware(simple_cache_middleware, name="simple_cache")
+            # simple cache middleware
+            self.log.info("Adding simple_cache_middleware")
+            self.add_middleware(simple_cache_middleware, name="simple_cache")
 
     @property
     def chain_name(self) -> str:

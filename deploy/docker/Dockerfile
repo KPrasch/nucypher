@@ -17,6 +17,7 @@ WORKDIR /code
 COPY requirements.txt /code
 RUN pip3 install --upgrade pip
 RUN pip3 install --no-cache-dir -r requirements.txt
+RUN python3 -c "from erpc.install import install_erpc; install_erpc()" || true
 
 # Layer 2: Install nucypher entrypoint
 COPY . /code
