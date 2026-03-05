@@ -734,16 +734,26 @@ def _configure_factory_proxy(emitter, character_options, config_file):
     Must be called BEFORE character creation so that all downstream
     ``get_or_create_interface`` calls transparently route through the proxy.
     """
+    import json
+    from pathlib import Path
+
     try:
-        # Build a temporary config to read endpoints
-        ursula_config = character_options.config_options.create_config(
-            emitter, config_file
-        )
+        # Read endpoints directly from config JSON to avoid triggering
+        # BlockchainInterfaceFactory.initialize_interface() prematurely.
+        # create_config() caches interfaces under original Infura/Alchemy
+        # URLs, which makes the proxy endpoint rewrite ineffective since
+        # get_interface() returns the already-cached (non-proxied) interface.
+        config_path = config_file or Path(
+            "~/.local/share/nucypher/ursula.json"
+        ).expanduser()
+        with open(config_path) as f:
+            config_data = json.load(f)
+
         started = BlockchainInterfaceFactory.configure_proxy(
-            eth_endpoint=ursula_config.eth_endpoint,
-            polygon_endpoint=ursula_config.polygon_endpoint,
-            condition_blockchain_endpoints=ursula_config.condition_blockchain_endpoints,
-            domain=ursula_config.domain,
+            eth_endpoint=config_data.get("eth_endpoint"),
+            polygon_endpoint=config_data.get("polygon_endpoint"),
+            condition_blockchain_endpoints=config_data.get("condition_blockchain_endpoints", {}),
+            domain=config_data.get("domain"),
         )
     except Exception as e:
         emitter.message(
