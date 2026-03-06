@@ -327,7 +327,16 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
     def status():
         return_json = request.args.get('json') == 'true'
         omit_known_nodes = request.args.get('omit_known_nodes') == 'true'
-        status_info = this_node.status_info(omit_known_nodes=omit_known_nodes)
+        try:
+            status_info = this_node.status_info(omit_known_nodes=omit_known_nodes)
+        except Exception as e:
+            # Escape curly braces to prevent Twisted log formatting failures
+            safe_msg = str(e).replace('{', '{{').replace('}', '}}')
+            log.error(f"Failed to collect status info: {safe_msg}")
+            return Response(
+                response=f"Status collection error: {e}",
+                status=HTTPStatus.SERVICE_UNAVAILABLE,
+            )
         if return_json:
             return jsonify(status_info.to_json())
         headers = {"Content-Type": "text/html", "charset": "utf-8"}

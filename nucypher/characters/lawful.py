@@ -1349,7 +1349,11 @@ class Ursula(Teacher, Character, Operator):
         else:
             known_nodes_info = None
 
-        balance_eth = float(self.eth_balance)
+        try:
+            balance_eth = float(self.eth_balance)
+        except Exception as e:
+            self.log.warn(f"Failed to fetch ETH balance: {e}")
+            balance_eth = -1.0  # sentinel: balance unavailable
 
         # eRPC proxy status (additive — None if not enabled)
         rpc_proxy_info = BlockchainInterfaceFactory.proxy_status()
