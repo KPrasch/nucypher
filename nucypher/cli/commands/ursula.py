@@ -69,6 +69,8 @@ from nucypher.crypto.keystore import Keystore
 from nucypher.crypto.powers import RitualisticPower
 from nucypher.utilities.emitters import StdoutEmitter
 from nucypher.utilities.prometheus.metrics import PrometheusMetricsConfig
+from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
+from nucypher.utilities.rpc_proxy import is_erpc_enabled
 
 
 class UrsulaConfigOptions:
@@ -649,6 +651,11 @@ def run(
             collection_interval=metrics_interval,
         )
 
+    # eRPC RPC Proxy — infrastructure dependency, must start before
+    # any blockchain connections are created during character init.
+    if is_erpc_enabled():
+        _configure_factory_proxy(emitter, character_options, config_file)
+
     ursula_config, URSULA = character_options.create_character(
         emitter=emitter, config_file=config_file, json_ipc=general_config.json_ipc
     )
@@ -719,6 +726,58 @@ def config(general_config, config_options, config_file, force, action):
                                 config_class=UrsulaConfiguration,
                                 filepath=config_file,
                                 updates=updates)
+
+
+def _configure_factory_proxy(emitter, character_options, config_file):
+    """Configure the eRPC proxy on BlockchainInterfaceFactory.
+
+    Must be called BEFORE character creation so that all downstream
+    ``get_or_create_interface`` calls transparently route through the proxy.
+    """
+    import json
+    from pathlib import Path
+    from nucypher.blockchain.eth.domains import get_domain
+
+    try:
+        # Read endpoints directly from config JSON to avoid triggering
+        # BlockchainInterfaceFactory.initialize_interface() prematurely.
+        # create_config() caches interfaces under original Infura/Alchemy
+        # URLs, which makes the proxy endpoint rewrite ineffective since
+        # get_interface() returns the already-cached (non-proxied) interface.
+        config_path = config_file or Path(
+            "~/.local/share/nucypher/ursula.json"
+        ).expanduser()
+        with open(config_path) as f:
+            config_data = json.load(f)
+
+        domain = get_domain(config_data.get("domain"))
+        started = BlockchainInterfaceFactory.configure_proxy(
+            eth_endpoint=config_data.get("eth_endpoint"),
+            polygon_endpoint=config_data.get("polygon_endpoint"),
+            condition_blockchain_endpoints=config_data.get("condition_blockchain_endpoints", {}),
+            domain=domain,
+        )
+    except Exception as e:
+        emitter.message(
+            f"✗ eRPC Proxy ({e.__class__.__name__}: {e})",
+            color="yellow",
+        )
+        return
+
+    if not started:
+        emitter.message(
+            "✗ eRPC Proxy (failed to start, using direct endpoints)",
+            color="yellow",
+        )
+        return
+
+    status = BlockchainInterfaceFactory.proxy_status() or {}
+    chains = ", ".join(str(c) for c in sorted(status.get("chains", [])))
+    pid = status.get("pid", "?")
+    emitter.message(
+        f"✓ eRPC Proxy (PID {pid}, chains: {chains})",
+        color="green",
+    )
 
 
 def _pre_launch_warnings(emitter, dev, force):

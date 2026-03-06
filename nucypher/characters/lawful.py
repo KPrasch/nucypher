@@ -1349,7 +1349,14 @@ class Ursula(Teacher, Character, Operator):
         else:
             known_nodes_info = None
 
-        balance_eth = float(self.eth_balance)
+        try:
+            balance_eth = float(self.eth_balance)
+        except Exception as e:
+            self.log.warn(f"Failed to fetch ETH balance: {e}")
+            balance_eth = -1.0  # sentinel: balance unavailable
+
+        # eRPC proxy status (additive — None if not enabled)
+        rpc_proxy_info = BlockchainInterfaceFactory.proxy_status()
 
         return LocalUrsulaStatus(
             nickname=self.nickname,
@@ -1368,6 +1375,7 @@ class Ursula(Teacher, Character, Operator):
                 self.signing_ritual_tracker.scanner.get_last_scanned_block(),
             ),
             ferveo_public_key=bytes(self.public_keys(RitualisticPower)).hex(),
+            rpc_proxy=rpc_proxy_info,
         )
 
     def as_external_validator(self) -> Validator:
@@ -1392,6 +1400,7 @@ class LocalUrsulaStatus(NamedTuple):
     balance_eth: float
     block_height: int
     ferveo_public_key: str
+    rpc_proxy: Optional[Dict[str, Any]]
 
     def to_json(self) -> Dict[str, Any]:
         if self.known_nodes is None:
@@ -1414,6 +1423,7 @@ class LocalUrsulaStatus(NamedTuple):
             balance_eth=self.balance_eth,
             block_height=self.block_height,
             ferveo_public_key=self.ferveo_public_key,
+            rpc_proxy=self.rpc_proxy,
         )
 
 
