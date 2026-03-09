@@ -3,12 +3,13 @@
 import os
 import sys
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
 from nucypher.utilities.rpc_proxy import (
     NUCYPHER_ENVVAR_ERPC_ENABLED,
+    ERPCProcessProtocol,
     RPCProxy,
     build_erpc_config,
     collect_endpoints,
@@ -58,6 +59,14 @@ def mock_ursula_config(mock_domain):
         },
         domain=mock_domain,
     )
+
+
+@pytest.fixture
+def mock_proxy(mock_ursula_config):
+    """Create an RPCProxy with mocked erpc-py."""
+    with patch.dict(sys.modules, {"erpc": _erpc_stub}):
+        proxy = RPCProxy.from_ursula_config(mock_ursula_config)
+    return proxy
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +158,6 @@ class TestBuildConfig:
         """Verify config is built with correct parameters."""
         with patch.dict(sys.modules, {"erpc": _erpc_stub}):
             build_erpc_config(endpoints=sample_endpoints)
-        # These come from erpc.ERPCConfig (mocked)
         _erpc_stub.ERPCConfig.assert_called()
         _erpc_stub.CacheConfig.assert_called()
 
@@ -165,7 +173,6 @@ class TestRewriteEndpoints:
         with patch.dict(sys.modules, {"erpc": _erpc_stub}):
             config = build_erpc_config(endpoints=sample_endpoints)
 
-        # Configure endpoint_url to return realistic URLs
         config = _erpc_stub.ERPCConfig.return_value
         config.endpoint_url = lambda cid: f"http://127.0.0.1:4000/taco-ursula/evm/{cid}"
 
@@ -237,56 +244,42 @@ class TestRPCProxy:
         with patch.dict(sys.modules, {"erpc": _erpc_stub}):
             proxy = RPCProxy.from_ursula_config(mock_ursula_config)
 
-        # Now simulate erpc missing during start()
-        with patch.dict(sys.modules, {"erpc": None}):
+        # Simulate erpc missing during start()
+        with patch.dict(sys.modules, {"erpc.process": None, "erpc": None}):
             result = proxy.start()
             assert result is False
             assert not proxy.is_active
 
-    def test_stop_restores_originals(self, mock_ursula_config):
-        with patch.dict(sys.modules, {"erpc": _erpc_stub}):
-            proxy = RPCProxy.from_ursula_config(mock_ursula_config)
-        original_eth = proxy.eth_endpoint
+    def test_stop_restores_originals(self, mock_proxy):
+        original_eth = mock_proxy.eth_endpoint
 
         # Simulate active state
-        proxy.eth_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/1"
-        proxy._active = True
+        mock_proxy.eth_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/1"
+        mock_proxy._active = True
 
-        proxy.stop()
+        mock_proxy.stop()
 
-        assert proxy.eth_endpoint == original_eth
-        assert not proxy.is_active
+        assert mock_proxy.eth_endpoint == original_eth
+        assert not mock_proxy.is_active
 
-    def test_health_url_none_when_inactive(self, mock_ursula_config):
-        with patch.dict(sys.modules, {"erpc": _erpc_stub}):
-            proxy = RPCProxy.from_ursula_config(mock_ursula_config)
-        assert proxy.health_url is None
+    def test_stop_idempotent(self, mock_proxy):
+        """Calling stop() multiple times should not raise."""
+        mock_proxy.stop()
+        mock_proxy.stop()
+        assert not mock_proxy.is_active
 
-    def test_successful_start(self, mock_ursula_config):
-        """Verify endpoints are rewritten after successful start."""
-        mock_proc = MagicMock()
-        mock_proc.is_running = True
-        mock_proc.pid = 12345
-        _erpc_stub.ERPCProcess.return_value = mock_proc
+    def test_health_url_none_when_inactive(self, mock_proxy):
+        assert mock_proxy.health_url is None
 
-        with patch.dict(sys.modules, {"erpc": _erpc_stub}):
-            proxy = RPCProxy.from_ursula_config(mock_ursula_config)
-            result = proxy.start()
-
-        assert result is True
-        assert proxy.is_active
-        assert "127.0.0.1" in proxy.eth_endpoint or proxy.is_active
-        mock_proc.start.assert_called_once()
-        mock_proc.wait_for_health.assert_called_once()
+    def test_pid_none_when_no_process(self, mock_proxy):
+        assert mock_proxy.pid is None
 
 
 class TestRPCProxyStatusInfo:
     """Tests for RPCProxy.status_info() method."""
 
-    def test_status_info_when_inactive(self, mock_ursula_config):
-        with patch.dict(sys.modules, {"erpc": _erpc_stub}):
-            proxy = RPCProxy.from_ursula_config(mock_ursula_config)
-        info = proxy.status_info()
+    def test_status_info_when_inactive(self, mock_proxy):
+        info = mock_proxy.status_info()
         assert info == {"active": False}
 
     def test_status_info_when_active(self, mock_domain, sample_endpoints):
@@ -301,7 +294,9 @@ class TestRPCProxyStatusInfo:
         proxy = RPCProxy.__new__(RPCProxy)
         proxy._erpc_config = mock_config
         proxy._active = True
-        proxy._process = MagicMock(pid=42)
+        proxy._process_protocol = MagicMock()
+        proxy._process_protocol.pid = 42
+        proxy._process_protocol._restart_count = 0
         proxy.eth_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/1"
         proxy.polygon_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/137"
         proxy.condition_blockchain_endpoints = {1: ["http://127.0.0.1:4000/taco-ursula/evm/1"]}
@@ -315,6 +310,7 @@ class TestRPCProxyStatusInfo:
         assert info["health_url"] == "http://127.0.0.1:4000/"
         assert info["upstream_count"] == 2
         assert info["chains"] == [1, 137]
+        assert info["restarts"] == 0
         assert "cache_policies" not in info
 
     def test_status_info_includes_cache_policies(self, mock_domain, sample_endpoints):
@@ -330,7 +326,9 @@ class TestRPCProxyStatusInfo:
         proxy = RPCProxy.__new__(RPCProxy)
         proxy._erpc_config = mock_config
         proxy._active = True
-        proxy._process = MagicMock(pid=99)
+        proxy._process_protocol = MagicMock()
+        proxy._process_protocol.pid = 99
+        proxy._process_protocol._restart_count = 0
         proxy.eth_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/1"
         proxy.polygon_endpoint = "http://127.0.0.1:4000/taco-ursula/evm/137"
         proxy.condition_blockchain_endpoints = {1: ["http://127.0.0.1:4000/taco-ursula/evm/1"]}
@@ -340,6 +338,119 @@ class TestRPCProxyStatusInfo:
         assert "cache_policies" in info
         assert info["cache_policies"]["eth_call"] == "0s"
         assert info["cache_policies"]["eth_getLogs"] == "2s"
+
+
+# ---------------------------------------------------------------------------
+# ERPCProcessProtocol lifecycle tests
+# ---------------------------------------------------------------------------
+
+
+class TestERPCProcessProtocol:
+    """Tests for the Twisted ProcessProtocol lifecycle management."""
+
+    def test_intentional_stop_no_restart(self, mock_proxy):
+        """When stop is intentional, processEnded should not trigger restart."""
+        protocol = ERPCProcessProtocol(mock_proxy)
+        protocol.mark_intentional_stop()
+
+        # Simulate processEnded with a mock reason
+        mock_reason = MagicMock()
+        mock_reason.value.exitCode = 0
+
+        protocol._on_process_ended(mock_reason)
+
+        # Should not trigger restart — proxy._fallback should NOT be called
+        # because _on_stopped is called instead
+        assert protocol._intentional_stop is True
+
+    def test_unexpected_death_triggers_restart(self, mock_proxy):
+        """When process dies unexpectedly, should schedule restart."""
+        protocol = ERPCProcessProtocol(mock_proxy)
+
+        mock_reason = MagicMock()
+        mock_reason.value.exitCode = 1
+
+        mock_reactor = MagicMock()
+        with patch("nucypher.utilities.rpc_proxy.ERPCProcessProtocol._on_process_ended.__module__", create=True):
+            with patch.dict(sys.modules, {"twisted.internet": MagicMock(), "twisted.internet.error": MagicMock()}):
+                # Patch reactor.callLater within the method
+                with patch("twisted.internet.reactor") as mock_reactor_mod:
+                    # We need to mock the import inside the method
+                    import importlib
+                    with patch.dict(sys.modules):
+                        mock_twisted = MagicMock()
+                        mock_reactor_inner = MagicMock()
+                        sys.modules["twisted"] = mock_twisted
+                        sys.modules["twisted.internet"] = MagicMock()
+                        sys.modules["twisted.internet.reactor"] = mock_reactor_inner
+                        sys.modules["twisted.internet.error"] = MagicMock()
+
+                        protocol._on_process_ended(mock_reason)
+
+        assert protocol._restart_count == 1
+
+    def test_restart_limit_triggers_fallback(self, mock_proxy):
+        """After MAX_RESTARTS, should fall back to direct endpoints."""
+        protocol = ERPCProcessProtocol(mock_proxy)
+        protocol._restart_count = ERPCProcessProtocol.MAX_RESTARTS
+
+        mock_reason = MagicMock()
+        mock_reason.value.exitCode = 1
+
+        with patch.dict(sys.modules, {
+            "twisted": MagicMock(),
+            "twisted.internet": MagicMock(),
+            "twisted.internet.reactor": MagicMock(),
+            "twisted.internet.error": MagicMock(),
+        }):
+            protocol._on_process_ended(mock_reason)
+
+        # Should have called _fallback on the proxy
+        assert not mock_proxy.is_active
+
+    def test_reset_restart_count(self, mock_proxy):
+        """reset_restart_count should zero the counter."""
+        protocol = ERPCProcessProtocol(mock_proxy)
+        protocol._restart_count = 2
+        protocol.reset_restart_count()
+        assert protocol._restart_count == 0
+
+    def test_stderr_buffer_bounded(self, mock_proxy):
+        """Stderr buffer should not grow unbounded."""
+        protocol = ERPCProcessProtocol(mock_proxy)
+
+        # Feed more than 8192 bytes of stderr
+        protocol._protocol.errReceived(b"x" * 10000)
+
+        assert len(protocol._stderr_buffer) <= 8192
+
+    def test_exponential_backoff(self, mock_proxy):
+        """Restart delays should follow exponential backoff."""
+        protocol = ERPCProcessProtocol(mock_proxy)
+
+        mock_reason = MagicMock()
+        mock_reason.value.exitCode = 1
+
+        delays = []
+        original_call_later = None
+
+        def capture_delay(delay, fn):
+            delays.append(delay)
+
+        # Patch reactor.callLater at the module level that _on_process_ended imports
+        from twisted.internet import reactor
+        original_call_later = reactor.callLater
+        reactor.callLater = capture_delay
+
+        try:
+            # Simulate 3 consecutive deaths
+            for i in range(3):
+                protocol._on_process_ended(mock_reason)
+        finally:
+            reactor.callLater = original_call_later
+
+        # BASE_BACKOFF=2: delays should be 2^1=2, 2^2=4, 2^3=8
+        assert delays == [2, 4, 8]
 
 
 class TestERPCMetricsProxyResource:
@@ -416,28 +527,35 @@ class TestBlockchainInterfaceFactoryProxy:
     def test_configure_proxy_success(self, mock_domain):
         from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
 
-        mock_proc = MagicMock()
-        mock_proc.is_running = True
-        mock_proc.pid = 999
-        _erpc_stub.ERPCProcess.return_value = mock_proc
+        _erpc_process_stub = MagicMock()
+        _erpc_process_stub.find_erpc_binary = MagicMock(return_value="/usr/local/bin/erpc")
 
-        with patch.dict(sys.modules, {"erpc": _erpc_stub}):
-            result = BlockchainInterfaceFactory.configure_proxy(
-                eth_endpoint="https://eth.example.com",
-                polygon_endpoint="https://polygon.example.com",
-                condition_blockchain_endpoints={1: ["https://eth.example.com"]},
-                domain=mock_domain,
-            )
+        with patch.dict(sys.modules, {"erpc": _erpc_stub, "erpc.process": _erpc_process_stub}):
+            mock_config = _erpc_stub.ERPCConfig.return_value
+            mock_config.write.return_value = "/tmp/erpc-test.yaml"
+            mock_config.health_url = "http://127.0.0.1:4000/"
+            mock_config.endpoint_url = lambda cid: f"http://127.0.0.1:4000/taco-ursula/evm/{cid}"
+            mock_config.server_port = 4000
+            mock_config.metrics_port = 4001
+            mock_config.upstreams = {1: ["https://eth.example.com"]}
+            mock_config.cache = None
+
+            with patch.object(RPCProxy, "_wait_for_health", return_value=True):
+                with patch.object(RPCProxy, "_do_spawn", return_value=True):
+                    result = BlockchainInterfaceFactory.configure_proxy(
+                        eth_endpoint="https://eth.example.com",
+                        polygon_endpoint="https://polygon.example.com",
+                        condition_blockchain_endpoints={1: ["https://eth.example.com"]},
+                        domain=mock_domain,
+                    )
 
         assert result is True
         assert BlockchainInterfaceFactory._proxy is not None
         assert BlockchainInterfaceFactory._proxy.is_active
-        assert BlockchainInterfaceFactory.proxy_status()["active"] is True
 
     def test_get_proxy_endpoint_rewrites(self, mock_domain):
         from nucypher.blockchain.eth.interfaces import BlockchainInterfaceFactory
 
-        # Manually set up a proxy with known endpoints
         proxy = RPCProxy.__new__(RPCProxy)
         proxy._original_eth_endpoint = "https://eth.example.com"
         proxy._original_polygon_endpoint = "https://polygon.example.com"

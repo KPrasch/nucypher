@@ -169,116 +169,127 @@ def rewrite_endpoints(
     return new_eth, new_polygon, new_condition_endpoints
 
 
-class RPCProxyHealthCheck:
-    """Twisted LoopingCall health monitor for the eRPC proxy.
+# ---------------------------------------------------------------------------
+# Twisted ProcessProtocol for eRPC lifecycle management
+# ---------------------------------------------------------------------------
 
-    Periodically checks process liveness and scrapes eRPC Prometheus
-    metrics to surface request counts, error rates, and cache stats
-    directly in Ursula's log stream.
+
+class ERPCProcessProtocol:
+    """Twisted ProcessProtocol that manages the eRPC child process.
+
+    Replaces polling-based health checks with event-driven lifecycle
+    management: ``processEnded`` fires immediately on child death,
+    enabling automatic restart with exponential backoff.
     """
 
-    INTERVAL = 60  # seconds
+    MAX_RESTARTS = 3
+    BASE_BACKOFF = 2  # seconds
 
-    def __init__(self, rpc_proxy: "RPCProxy"):
-        from twisted.internet import reactor
-        from twisted.internet.task import LoopingCall
+    def __init__(self, proxy: "RPCProxy"):
+        from twisted.internet import protocol
 
-        self._proxy = rpc_proxy
+        # Dynamically subclass ProcessProtocol so tests can instantiate
+        # without importing twisted at module level.
+        self._proxy = proxy
         self.log = Logger("eRPC")
-        self._task = LoopingCall(self.run)
-        self._task.clock = reactor
-        self._last_request_count = 0
-        self._check_count = 0
+        self._restart_count = 0
+        self._intentional_stop = False
+        self._stderr_buffer = b""
+
+        # Build the actual Twisted ProcessProtocol
+        outer = self
+
+        class _Protocol(protocol.ProcessProtocol):
+            def connectionMade(self_inner):
+                outer.log.info(
+                    "eRPC process connected (PID {pid})",
+                    pid=self_inner.transport.pid,
+                )
+
+            def errReceived(self_inner, data):
+                outer._stderr_buffer += data
+                # Keep buffer bounded
+                if len(outer._stderr_buffer) > 8192:
+                    outer._stderr_buffer = outer._stderr_buffer[-4096:]
+
+            def processEnded(self_inner, reason):
+                outer._on_process_ended(reason)
+
+        self._protocol = _Protocol()
 
     @property
-    def running(self) -> bool:
-        return self._task.running
+    def protocol(self):
+        """The underlying Twisted ProcessProtocol instance."""
+        return self._protocol
 
-    def start(self) -> None:
-        if not self.running:
-            d = self._task.start(interval=self.INTERVAL, now=False)
-            d.addErrback(self._handle_error)
+    @property
+    def pid(self) -> Optional[int]:
+        """PID of the managed process, or None."""
+        transport = self._protocol.transport
+        if transport is not None:
+            return transport.pid
+        return None
 
-    def stop(self) -> None:
-        if self.running:
-            self._task.stop()
+    def mark_intentional_stop(self):
+        """Mark that the next process exit is intentional (no restart)."""
+        self._intentional_stop = True
 
-    def run(self) -> None:
-        self._check_count += 1
-        if not (self._proxy._process and self._proxy._process.is_running):
-            self.log.warn("eRPC proxy process is not running")
+    def reset_restart_count(self):
+        """Reset the restart counter (e.g. after successful health check)."""
+        self._restart_count = 0
+
+    def _on_process_ended(self, reason):
+        """Handle eRPC process termination."""
+        from twisted.internet import error, reactor
+
+        exit_code = reason.value.exitCode if hasattr(reason.value, "exitCode") else None
+
+        if self._intentional_stop:
+            self.log.info("eRPC process stopped (exit code {code})", code=exit_code)
+            self._proxy._on_stopped()
             return
 
-        # Scrape lightweight stats from eRPC Prometheus metrics
-        stats = self._scrape_stats()
-        if stats:
-            total_reqs = stats.get("total_requests", 0)
-            delta = total_reqs - self._last_request_count
-            self._last_request_count = total_reqs
-
-            # Log a periodic summary (every 5 checks = ~5 min)
-            if self._check_count % 5 == 0 or delta > 0:
-                cache_hits = stats.get("cache_hits", 0)
-                cache_misses = stats.get("cache_misses", 0)
-                errors = stats.get("errors", 0)
-                self.log.info(
-                    "eRPC proxy: {delta} reqs (total: {total}), "
-                    "cache {hits}/{misses} hit/miss, {errors} errors, "
-                    "PID {pid}",
-                    delta=delta,
-                    total=total_reqs,
-                    hits=cache_hits,
-                    misses=cache_misses,
-                    errors=errors,
-                    pid=self._proxy._process.pid,
-                )
-        else:
-            self.log.debug(
-                "eRPC proxy alive (PID {pid})",
-                pid=self._proxy._process.pid,
-            )
-
-    def _scrape_stats(self) -> Optional[Dict[str, int]]:
-        """Scrape key counters from eRPC's Prometheus metrics endpoint."""
-        import urllib.request
-
-        metrics_url = (
-            f"http://127.0.0.1:{self._proxy._erpc_config.metrics_port}/metrics"
-        )
-        try:
-            with urllib.request.urlopen(metrics_url, timeout=2) as resp:
-                body = resp.read().decode()
-        except Exception:
-            return None
-
-        stats: Dict[str, int] = {}
-        for line in body.splitlines():
-            if line.startswith("#"):
-                continue
-            # Total requests proxied
-            if "erpc_requests_received_total" in line and "{" not in line:
-                stats["total_requests"] = int(float(line.split()[-1]))
-            # Aggregate cache hits/misses
-            elif "erpc_cache_hits_total" in line and "{" not in line:
-                stats["cache_hits"] = int(float(line.split()[-1]))
-            elif "erpc_cache_misses_total" in line and "{" not in line:
-                stats["cache_misses"] = int(float(line.split()[-1]))
-            # Errors
-            elif "erpc_errors_total" in line and "{" not in line:
-                stats["errors"] = int(float(line.split()[-1]))
-        return stats if stats else None
-
-    def _handle_error(self, failure) -> None:
         self.log.warn(
-            "eRPC health check error:\n{tb}", tb=failure.getTraceback().rstrip()
+            "eRPC process died unexpectedly (exit code {code})",
+            code=exit_code,
         )
+
+        if self._stderr_buffer:
+            stderr_text = self._stderr_buffer.decode(errors="replace")[-500:]
+            self.log.warn("eRPC stderr: {stderr}", stderr=stderr_text)
+
+        if self._restart_count >= self.MAX_RESTARTS:
+            self.log.warn(
+                "eRPC restart limit reached ({max}), falling back to direct endpoints",
+                max=self.MAX_RESTARTS,
+            )
+            self._proxy._fallback()
+            return
+
+        self._restart_count += 1
+        delay = self.BASE_BACKOFF ** self._restart_count
+        self.log.info(
+            "Restarting eRPC in {delay}s (attempt {n}/{max})",
+            delay=delay,
+            n=self._restart_count,
+            max=self.MAX_RESTARTS,
+        )
+
+        reactor.callLater(delay, self._proxy._do_spawn)
 
 
 class RPCProxy:
     """Manages the eRPC proxy process alongside Ursula.
 
+    Uses Twisted's ``reactor.spawnProcess`` for event-driven process
+    lifecycle management. The eRPC child process is monitored via
+    ``ProcessProtocol.processEnded`` — no polling required. If the
+    process dies unexpectedly, it is automatically restarted with
+    exponential backoff (up to 3 attempts) before falling back to
+    direct RPC endpoints.
+
     Designed to be instantiated during Ursula startup and stopped during
-    shutdown.  If the proxy fails to start, falls back silently to direct
+    shutdown. If the proxy fails to start, falls back silently to direct
     RPC endpoints (no crash, no disruption).
     """
 
@@ -304,9 +315,11 @@ class RPCProxy:
         self.polygon_endpoint = original_polygon_endpoint
         self.condition_blockchain_endpoints = dict(original_condition_endpoints)
 
-        self._process = None
+        self._process_protocol: Optional[ERPCProcessProtocol] = None
         self._active = False
-        self._health_check = None
+        self._binary_path: Optional[str] = None
+        self._config_file_path = None
+        self._shutdown_trigger_id = None
 
     @classmethod
     def from_config(
@@ -391,41 +404,55 @@ class RPCProxy:
         """Whether the eRPC proxy is running and endpoints are rewritten."""
         return self._active
 
+    @property
+    def pid(self) -> Optional[int]:
+        """PID of the running eRPC process, or None."""
+        if self._process_protocol:
+            return self._process_protocol.pid
+        return None
+
     def start(self, health_timeout: int = 30) -> bool:
-        """Start the eRPC proxy process.
+        """Start the eRPC proxy process using Twisted's reactor.
 
         Returns ``True`` if the proxy started successfully, ``False`` on
         fallback to direct endpoints.
         """
         try:
-            from erpc import ERPCProcess
+            from erpc.process import find_erpc_binary
         except ImportError:
             self.log.warn("erpc-py is not installed — running without RPC proxy")
             return False
 
         try:
-            self._process = ERPCProcess(config=self._erpc_config)
-            self._process.start()
-            self._process.wait_for_health(timeout=health_timeout)
-        except Exception:
-            import traceback as _tb
+            self._binary_path = find_erpc_binary()
+        except Exception as e:
+            self.log.warn(
+                "eRPC binary not found — running without RPC proxy: {err}",
+                err=str(e),
+            )
+            return False
 
-            stderr = ""
-            if self._process and hasattr(self._process, '_process'):
-                inner = self._process._process
-                if inner and inner.stderr:
-                    try:
-                        stderr = inner.stderr.read().decode(errors="replace")
-                    except Exception:
-                        pass
-            msg = "eRPC proxy failed to start — falling back to direct endpoints:\n"
-            msg += _tb.format_exc().rstrip()
-            if stderr:
-                msg += f"\neRPC stderr: {stderr[:500]}"
-            self.log.warn(msg)
+        # Write the config file for the eRPC binary
+        try:
+            self._config_file_path = self._erpc_config.write()
+        except Exception as e:
+            self.log.warn("Failed to write eRPC config: {err}", err=str(e))
+            return False
+
+        # Spawn the process via Twisted reactor
+        if not self._do_spawn():
             self._fallback()
             return False
 
+        # Wait for health synchronously (startup only)
+        if not self._wait_for_health(timeout=health_timeout):
+            self.log.warn(
+                "eRPC proxy failed health check — falling back to direct endpoints"
+            )
+            self.stop()
+            return False
+
+        # Rewrite endpoints to route through proxy
         (
             self.eth_endpoint,
             self.polygon_endpoint,
@@ -439,31 +466,112 @@ class RPCProxy:
         )
 
         self._active = True
-        self.log.info(f"eRPC proxy started (PID {self._process.pid})")
+        self.log.info("eRPC proxy started (PID {pid})", pid=self.pid)
 
-        # Start periodic health monitoring
+        # Register reactor shutdown hook (replaces atexit)
         try:
-            self._health_check = RPCProxyHealthCheck(self)
-            self._health_check.start()
+            from twisted.internet import reactor
+
+            self._shutdown_trigger_id = reactor.addSystemEventTrigger(
+                "before", "shutdown", self.stop
+            )
         except Exception:
-            pass  # Health check is best-effort, don't fail startup
+            pass  # Best-effort
+
+        # Reset restart counter on successful startup
+        if self._process_protocol:
+            self._process_protocol.reset_restart_count()
 
         return True
 
+    def _do_spawn(self) -> bool:
+        """Spawn the eRPC process via Twisted reactor.
+
+        Returns True if the process was spawned, False on error.
+        This method is also called by ERPCProcessProtocol for restarts.
+        """
+        from twisted.internet import reactor
+
+        try:
+            self._process_protocol = ERPCProcessProtocol(self)
+            command = [self._binary_path, str(self._config_file_path)]
+
+            reactor.spawnProcess(
+                self._process_protocol.protocol,
+                self._binary_path,
+                args=command,
+                env=os.environ,
+            )
+            return True
+        except Exception:
+            import traceback as _tb
+
+            self.log.warn(
+                "Failed to spawn eRPC process:\n{tb}",
+                tb=_tb.format_exc().rstrip(),
+            )
+            return False
+
+    def _wait_for_health(self, timeout: int = 30) -> bool:
+        """Synchronous health check — used only during initial startup."""
+        import time
+
+        deadline = time.monotonic() + timeout
+        health_url = self._erpc_config.health_url
+
+        while time.monotonic() < deadline:
+            try:
+                import urllib.request
+
+                with urllib.request.urlopen(health_url, timeout=2) as resp:
+                    if resp.status == 200:
+                        return True
+            except Exception:
+                pass
+            time.sleep(0.5)
+
+        return False
+
     def stop(self) -> None:
         """Stop the eRPC proxy and restore original endpoints."""
-        if self._health_check and self._health_check.running:
-            self._health_check.stop()
-        if self._process and self._process.is_running:
+        if self._process_protocol:
+            self._process_protocol.mark_intentional_stop()
+            transport = self._process_protocol.protocol.transport
+            if transport is not None:
+                try:
+                    transport.signalProcess("TERM")
+                except Exception:
+                    try:
+                        transport.signalProcess("KILL")
+                    except Exception:
+                        pass
+            self.log.info("eRPC proxy stopped")
+
+        # Remove shutdown trigger to avoid double-stop
+        if self._shutdown_trigger_id is not None:
             try:
-                self._process.stop()
-                self.log.info("eRPC proxy stopped")
+                from twisted.internet import reactor
+
+                reactor.removeSystemEventTrigger(self._shutdown_trigger_id)
             except Exception:
-                self.log.warn(
-                    "Error stopping eRPC proxy:\n{tb}",
-                    tb=__import__('traceback').format_exc().rstrip(),
-                )
+                pass
+            self._shutdown_trigger_id = None
+
+        # Clean up config file
+        if self._config_file_path:
+            try:
+                import pathlib
+
+                pathlib.Path(self._config_file_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
         self._fallback()
+
+    def _on_stopped(self) -> None:
+        """Called by ERPCProcessProtocol when process exits after intentional stop."""
+        # Already handled by stop() — this is just the protocol callback
+        pass
 
     def _fallback(self) -> None:
         """Restore original endpoints (direct RPC, no proxy)."""
@@ -471,7 +579,6 @@ class RPCProxy:
         self.polygon_endpoint = self._original_polygon_endpoint
         self.condition_blockchain_endpoints = dict(self._original_condition_endpoints)
         self._active = False
-        self._process = None
 
     @property
     def health_url(self) -> Optional[str]:
@@ -488,7 +595,7 @@ class RPCProxy:
         if not self._active:
             return info
 
-        info["pid"] = self._process.pid if self._process else None
+        info["pid"] = self.pid
         info["server_port"] = self._erpc_config.server_port
         info["metrics_port"] = self._erpc_config.metrics_port
         info["health_url"] = self.health_url
@@ -512,5 +619,9 @@ class RPCProxy:
             len(urls) for urls in self._erpc_config.upstreams.values()
         )
         info["chains"] = sorted(self._erpc_config.upstreams.keys())
+
+        # Restart tracking
+        if self._process_protocol:
+            info["restarts"] = self._process_protocol._restart_count
 
         return info
