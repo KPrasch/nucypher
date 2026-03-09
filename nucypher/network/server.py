@@ -330,9 +330,7 @@ def _make_rest_app(this_node, log: Logger) -> Flask:
         try:
             status_info = this_node.status_info(omit_known_nodes=omit_known_nodes)
         except Exception as e:
-            # Escape curly braces to prevent Twisted log formatting failures
-            safe_msg = str(e).replace('{', '{{').replace('}', '}}')
-            log.error(f"Failed to collect status info: {safe_msg}")
+            log.error("Failed to collect status info: {error}", error=str(e))
             return Response(
                 response=f"Status collection error: {e}",
                 status=HTTPStatus.SERVICE_UNAVAILABLE,
